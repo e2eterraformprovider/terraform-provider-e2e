@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"awakeninggit.e2enetworks.net/cloud/terraform-provider-e2e/client"
-	"awakeninggit.e2enetworks.net/cloud/terraform-provider-e2e/models"
+	"github.com/devteametwoe/terraform-provider-e2e/client"
+	"github.com/devteametwoe/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"

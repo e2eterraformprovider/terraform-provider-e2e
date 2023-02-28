@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	"awakeninggit.e2enetworks.net/cloud/terraform-provider-e2e/client"
+	"github.com/devteametwoe/terraform-provider-e2e/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 

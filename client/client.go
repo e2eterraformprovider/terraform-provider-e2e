@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"awakeninggit.e2enetworks.net/cloud/terraform-provider-e2e/models"
+	"github.com/devteametwoe/terraform-provider-e2e/models"
 )
 
 type Client struct {

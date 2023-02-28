@@ -1,4 +1,4 @@
-module awakeninggit.e2enetworks.net/cloud/terraform-provider-e2e
+module  github.com/devteametwoe/terraform-provider-e2e
 
 go 1.18
 
