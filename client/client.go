@@ -12,15 +12,15 @@ import (
 )
 
 type Client struct {
-	Location   string
+	//Location   string
 	Api_key    string
 	Auth_token string
 	HttpClient *http.Client
 }
 
-func NewClient(location string, api_key string, auth_token string) *Client {
+func NewClient(api_key string, auth_token string) *Client {
 	return &Client{
-		Location:   location,
+		//Location:   location,
 		Api_key:    api_key,
 		Auth_token: auth_token,
 		HttpClient: &http.Client{},
@@ -44,7 +44,7 @@ func (c *Client) NewNode(item *models.Node) (map[string]interface{}, error) {
 
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
-	params.Add("location", c.Location)
+	//params.Add("location", c.Location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -81,7 +81,7 @@ func (c *Client) GetNode(name string) (map[string]interface{}, error) {
 
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
-	params.Add("location", c.Location)
+	//params.Add("location", c.Location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -169,7 +169,7 @@ func (c *Client) DeleteNode(nodeName string) error {
 
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
-	params.Add("location", c.Location)
+	//params.Add("location", c.Location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
