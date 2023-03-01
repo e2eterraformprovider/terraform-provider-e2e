@@ -45,6 +45,7 @@ description: |-
 - `id` (String) The ID of this resource.
 - `is_active` (Boolean)
 - `memory` (String)
+- `price` (String)
 - `status` (String)
 
 

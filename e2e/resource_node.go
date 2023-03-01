@@ -142,6 +142,10 @@ func resourceNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"price": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 		Create: resourceCreateNode,
 		Read:   resourceReadNode,
@@ -212,6 +216,7 @@ func resourceCreateNode(d *schema.ResourceData, m interface{}) error {
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
+	d.Set("price", data["price"].(string))
 	return nil
 }
 
@@ -240,6 +245,7 @@ func resourceReadNode(d *schema.ResourceData, m interface{}) error {
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
+	d.Set("price", data["price"].(string))
 	//d.Set("default_public_ip", data["Default_public_ip"].(string))
 	//d.Set("disable_password", data["Disable_password"].(bool))
 	//d.Set("enable_bitninja", data["Enable_bitninja"].(bool))
