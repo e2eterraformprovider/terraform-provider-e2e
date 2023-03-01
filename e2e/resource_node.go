@@ -296,7 +296,30 @@ func resourceUpdateNode(d *schema.ResourceData, m interface{}) error {
 	// if err != nil {
 	// 	return err
 	// }
+	apiClient := m.(*client.Client)
 
+	nodeId := d.Id()
+	node, err := apiClient.GetNode(nodeId)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			d.SetId("")
+		} else {
+			return fmt.Errorf("error finding Item with ID %s", nodeId)
+		}
+	}
+	data := node["data"].(map[string]interface{})
+	//d.SetId(nodeId)
+
+	d.Set("name", data["name"].(string))
+	d.Set("label", data["label"].(string))
+	d.Set("plan", data["plan"].(string))
+	d.Set("backup", data["backup"].(bool))
+	d.Set("is_active", data["is_active"].(bool))
+	d.Set("created_at", data["created_at"].(string))
+	d.Set("memory", data["memory"].(string))
+	d.Set("status", data["status"].(string))
+	d.Set("disk", data["disk"].(string))
+	d.Set("price", data["price"].(string))
 	return nil
 }
 
