@@ -19,4 +19,3 @@ description: |-
 
 - `api_key` (String)
 - `auth_token` (String)
-- `location` (String)
