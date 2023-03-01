@@ -28,7 +28,7 @@ func NewClient(api_key string, auth_token string) *Client {
 }
 
 func (c *Client) NewNode(item *models.Node) (map[string]interface{}, error) {
-
+	// fmt.Println("hii")
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
