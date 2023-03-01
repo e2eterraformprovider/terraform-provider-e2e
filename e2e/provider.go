@@ -8,11 +8,11 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_LOCATION", ""),
-			},
+			// "location": {
+			// 	Type:        schema.TypeString,
+			// 	Required:    true,
+			// 	DefaultFunc: schema.EnvDefaultFunc("SERVICE_LOCATION", ""),
+			// },
 			"api_key": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -32,8 +32,8 @@ func Provider() *schema.Provider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	location := d.Get("location").(string)
+	//location := d.Get("location").(string)
 	api_key := d.Get("api_key").(string)
 	auth_token := d.Get("auth_token").(string)
-	return client.NewClient(location, api_key, auth_token), nil
+	return client.NewClient(api_key, auth_token), nil
 }
