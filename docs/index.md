@@ -17,5 +17,7 @@ description: |-
 
 ### Optional
 
+- `api_endpoint` (String)
 - `api_key` (String)
 - `auth_token` (String)
+- `location` (String)
