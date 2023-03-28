@@ -3,3 +3,5 @@ terraform-provider-example
 terraform.tfstate
 terraform.tfstate.backup
 .terraform
+terraform-provider-e2e
+.terraform.lock.hcl

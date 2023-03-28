@@ -2,38 +2,57 @@ package e2e
 
 import (
 	"github.com/devteametwoe/terraform-provider-e2e/client"
+	"github.com/devteametwoe/terraform-provider-e2e/e2e/image"
+	"github.com/devteametwoe/terraform-provider-e2e/e2e/node"
+	"github.com/devteametwoe/terraform-provider-e2e/e2e/security_group"
+	"github.com/devteametwoe/terraform-provider-e2e/e2e/ssh_key"
+	"github.com/devteametwoe/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			// "location": {
-			// 	Type:        schema.TypeString,
-			// 	Required:    true,
-			// 	DefaultFunc: schema.EnvDefaultFunc("SERVICE_LOCATION", ""),
-			// },
+
 			"api_key": {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_KEY", ""),
+				Description: "valied api key required ",
 			},
 			"auth_token": {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("SERVICE_AUTH_TOKEN", ""),
+				Description: "authentication Bearer token should be specified",
+			},
+			"api_endpoint": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "https://api.e2enetworks.com/myaccount/api/v1/",
+				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
+				Description: "specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"e2e_node": resourceNode(),
+			"e2e_node": node.ResourceNode(),
+		},
+		DataSourcesMap: map[string]*schema.Resource{
+			"e2e_node":            node.DataSourceNode(),
+			"e2e_images":          image.DataSourceImages(),
+			"e2e_security_groups": security_group.DataSourceSecurityGroups(),
+			"e2e_ssh_keys":        ssh_key.DataSourceSshKeys(),
+			"e2e_vpcs":            vpc.DataSourceVpcs(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	//location := d.Get("location").(string)
+
 	api_key := d.Get("api_key").(string)
 	auth_token := d.Get("auth_token").(string)
-	return client.NewClient(api_key, auth_token), nil
+
+	api_endpoint := d.Get("api_endpoint").(string)
+	return client.NewClient(api_key, auth_token, api_endpoint), nil
 }
