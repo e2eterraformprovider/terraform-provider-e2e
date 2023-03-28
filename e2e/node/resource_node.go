@@ -22,12 +22,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-const (
-	BaseUrl = "https://api.e2enetworks.com/myaccount/api/v1/nodes"
-
-//BaseUrl="https://api.e2enetworks."
-)
-
 func ResourceNode() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
@@ -47,7 +41,7 @@ func ResourceNode() *schema.Resource {
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The name of the Plan",
+				Description: "name of the Plan",
 			},
 			"backup": {
 				Type:        schema.TypeBool,
@@ -55,11 +49,11 @@ func ResourceNode() *schema.Resource {
 				Description: "Tells you the state of your backups",
 				Default:     false,
 			},
+
 			"image": {
 				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "The name of the image you have selected",
-				Default:     "CentOS-7.5-Distro",
+				Required:    true,
+				Description: "The name of the image you have selected format :- ( os-version )",
 			},
 			"default_public_ip": {
 				Type:        schema.TypeBool,
@@ -88,25 +82,25 @@ func ResourceNode() *schema.Resource {
 			"is_saved_image": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "",
+				Description: "used when Creating node from a saved image",
 				Default:     false,
 			},
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "",
-				Default:     "ncr",
+				Description: "Location where node is to be launched",
+				Default:     "Delhi",
 			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "",
+				Description: "Reserve ip as per  requirement",
 				Default:     "",
 			},
 			"vpc_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "",
+				Description: "Vpc id as per requirement",
 				Default:     "",
 			},
 			"ngc_container_id": {
@@ -118,41 +112,21 @@ func ResourceNode() *schema.Resource {
 			"saved_image_template_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "",
+				Description: "template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true",
 				Default:     nil,
 			},
 			"security_group_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "",
+				Description: "Specify the security group. Checkout security_groups datasource listing security groups",
 				Default:     150,
 			},
 			"ssh_keys": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "",
+				Description: "Specify the ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			// "ssh_keys": {
-			// 	Type:     schema.TypeList,
-			// 	Optional: true,
-			// 	Elem: &schema.Resource{
-			// 		Schema: map[string]*schema.Schema{
-			// 			"label": {
-			// 				Type:        schema.TypeString,
-			// 				Computed:    true,
-			// 				Description: "label of you ssh key",
-			// 			},
-			// 			"ssh_key": {
-			// 				Type:        schema.TypeString,
-			// 				Computed:    true,
-			// 				Description: "your ssh key",
-			// 			},
-			// 		},
-			// 	},
-			// 	Description: "you list of ssh keys (can add more than one)",
-			// 	Default:     nil,
-			// },
 			"is_active": {
 				Type:     schema.TypeBool,
 				Computed: true,
@@ -166,8 +140,9 @@ func ResourceNode() *schema.Resource {
 				Computed: true,
 			},
 			"status": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Status of the node",
 			},
 			"disk": {
 				Type:     schema.TypeString,
@@ -194,24 +169,39 @@ func ResourceNode() *schema.Resource {
 				Computed: true,
 			},
 			"power_status": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "power_on",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "power_on",
+				Description: "power_on to start the node and power_off to power off the node",
 			},
 			"lock_node": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  "false",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Node is locked when set true .Can specify wheather to lock the node or not",
 			},
 			"reboot_node": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  "false",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "When set true node will be rebooted. Node should be in running state to perform rebooting.Alaways check the field. If you have an active disk-intensive process such as database, backups running, then a rebooting may lead to data corruption and data loss (best option is to reboot the machine from within Operating System). ",
 			},
 			"reinstall_node": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  "false",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.",
+			},
+			"save_image": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "For saving image of the node. The node should be in power_off state to perform this action ",
+			},
+			"save_image_name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Specify the name of the image to be saved. this field is required when save_image field is true. The name should be unique in the image list. Checkout images datasource to list them images",
 			},
 		},
 
@@ -270,9 +260,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
+	log.Printf("[INFO] resnode[code] %f", resnode["code"].(float64))
 	if resnode["code"].(float64) != 200 {
 		error := resnode["errors"].(string)
+		log.Printf(error)
 		return diag.Errorf(error)
 
 	}
@@ -308,12 +299,8 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 		}
 	}
-	data := node["data"].(map[string]interface{})
-	// if d.Get("status").(string)=="Running"{
-	// 	if d.Get("lock_node").(string)=="true" && data["is_locked"].(bool)==false{
 
-	// 	}
-	// }
+	data := node["data"].(map[string]interface{})
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
@@ -356,34 +343,28 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("power_status") {
 		nodestatus := d.Get("status").(string)
-
 		if nodestatus == "Creating" || nodestatus == "Reinstalling" {
 			return diag.Errorf("Node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) == true {
 			return diag.Errorf("cannot change the power status as the node is locked")
 		}
-
 		log.Printf("[INFO] %s ", d.Get("power_status").(string))
-		//fmt.Printf(d.Get("power_status").(string))
-		apiClient.UpdateNode(nodeId, d.Get("power_status").(string))
-
+		apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string))
 	}
 
 	if d.HasChange("lock_node") {
-
 		if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
-
 		if d.Get("lock_node").(bool) == true {
-			err := apiClient.UpdateNode(nodeId, "lock_vm")
+			_, err := apiClient.UpdateNode(nodeId, "lock_vm", "")
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
 		if d.Get("lock_node").(bool) == false {
-			err := apiClient.UpdateNode(nodeId, "unlock_vm")
+			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -391,33 +372,27 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("reboot_node") {
-
 		if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
-
 		if d.Get("reboot_node").(bool) == true {
 			if d.Get("status").(string) == "Powered off" {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
-
-			err := apiClient.UpdateNode(nodeId, "reboot")
+			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string))
 			d.Set("reboot_node", false)
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
-
 	}
 	if d.HasChange("reinstall_node") {
-
 		if d.Get("status").(string) == "Creating" {
 			return diag.Errorf("Node is in creating state")
 		}
 		if d.Get("status").(string) == "Reinstalling" {
 			return diag.Errorf("Node already in Reinstalling state")
 		}
-
 		if d.Get("reinstall_node").(bool) == true {
 			if d.Get("status").(string) == "Powered off" {
 				d.Set("reinstall_node", false)
@@ -427,14 +402,27 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
-			err := apiClient.UpdateNode(nodeId, "reinstall")
-
+			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string))
 			d.Set("reinstall_node", false)
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
 	}
+
+	if d.HasChange("save_image") {
+		if d.Get("save_image") == true {
+			if d.Get("save_image_name").(string) == "" {
+				return diag.Errorf("save_image_name empty")
+			}
+			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string))
+			d.Set("save_image", false)
+			if err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
 	return resourceReadNode(ctx, d, m)
 
 }

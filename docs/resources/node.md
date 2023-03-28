@@ -17,9 +17,10 @@ description: |-
 
 ### Required
 
+- `image` (String) The name of the image you have selected format :- ( os-version )
 - `label` (String) The name of the group
 - `name` (String) The name of the resource, also acts as it's unique ID
-- `plan` (String) The name of the Plan
+- `plan` (String) name of the Plan
 
 ### Optional
 
@@ -27,19 +28,14 @@ description: |-
 - `default_public_ip` (Boolean) Tells us the state of default public ip
 - `disable_password` (Boolean)
 - `enable_bitninja` (Boolean)
-- `image` (String) The name of the image you have selected
 - `is_ipv6_availed` (Boolean)
 - `is_saved_image` (Boolean)
-- `lock_node` (Boolean)
 - `ngc_container_id` (Number)
-- `power_status` (String)
-- `reboot_node` (Boolean)
 - `region` (String)
-- `reinstall_node` (Boolean)
 - `reserve_ip` (String)
 - `saved_image_template_id` (Number)
 - `security_group_id` (Number)
-- `ssh_keys` (List of String)
+- `ssh_keys` (Set of String)
 - `vpc_id` (String)
 
 ### Read-Only
@@ -51,9 +47,6 @@ description: |-
 - `is_bitninja_license_active` (Boolean)
 - `is_monitored` (Boolean)
 - `memory` (String)
-- `price` (String)
-- `private_ip_address` (String)
-- `public_ip_address` (String)
 - `status` (String)
 
 

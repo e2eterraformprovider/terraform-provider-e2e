@@ -19,6 +19,7 @@ description: |-
 
 - `label` (String) The name of the group
 - `name` (String) The name of the resource, also acts as it's unique ID
+- `os` (String) OS and its version  format : <OS>-<version>
 - `plan` (String) The name of the Plan
 
 ### Optional

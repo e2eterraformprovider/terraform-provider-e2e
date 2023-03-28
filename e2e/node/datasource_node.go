@@ -41,6 +41,11 @@ func DataSourceNode() *schema.Resource {
 				Required:    true,
 				Description: "The name of the Plan",
 			},
+			"os": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "OS and its version  format : <OS>-<version>",
+			},
 			"backup": {
 				Type:        schema.TypeBool,
 				Optional:    true,

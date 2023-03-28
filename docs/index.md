@@ -17,7 +17,6 @@ description: |-
 
 ### Optional
 
-- `api_endpoint` (String)
-- `api_key` (String)
-- `auth_token` (String)
-- `location` (String)
+- `api_endpoint` (String) specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/
+- `api_key` (String) valied api key required
+- `auth_token` (String) authentication Bearer token should be specified
