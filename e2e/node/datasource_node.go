@@ -10,7 +10,7 @@ import (
 	// "strconv"
 	"strings"
 
-	"github.com/devteametwoe/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	// "github.com/devteametwoe/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"

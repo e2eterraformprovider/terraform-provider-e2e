@@ -1,12 +1,12 @@
 package e2e
 
 import (
-	"github.com/devteametwoe/terraform-provider-e2e/client"
-	"github.com/devteametwoe/terraform-provider-e2e/e2e/image"
-	"github.com/devteametwoe/terraform-provider-e2e/e2e/node"
-	"github.com/devteametwoe/terraform-provider-e2e/e2e/security_group"
-	"github.com/devteametwoe/terraform-provider-e2e/e2e/ssh_key"
-	"github.com/devteametwoe/terraform-provider-e2e/e2e/vpc"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -32,6 +32,12 @@ func Provider() *schema.Provider {
 				Default:     "https://api.e2enetworks.com/myaccount/api/v1/",
 				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
 				Description: "specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/",
+			},
+
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("SERVICE_LOCATION", ""),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{

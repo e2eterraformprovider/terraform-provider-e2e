@@ -29,20 +29,14 @@ description: |-
 - `disable_password` (Boolean)
 - `enable_bitninja` (Boolean)
 - `is_ipv6_availed` (Boolean)
-- `is_saved_image` (Boolean) used when Creating node from a saved image
-- `lock_node` (Boolean) Node is locked when set true .Can specify wheather to lock the node or not
+- `is_saved_image` (Boolean)
 - `ngc_container_id` (Number)
-- `power_status` (String) power_on to start the node and power_off to power off the node
-- `reboot_node` (Boolean) When set true node will be rebooted. Node should be in running state to perform rebooting.Alaways check the field. If you have an active disk-intensive process such as database, backups running, then a rebooting may lead to data corruption and data loss (best option is to reboot the machine from within Operating System).
-- `region` (String) Location where node is to be launched
-- `reinstall_node` (Boolean) for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.
-- `reserve_ip` (String) Reserve ip as per  requirement
-- `save_image` (Boolean) For saving image of the node. The node should be in power_off state to perform this action
-- `save_image_name` (String) Specify the name of the image to be saved. this field is required when save_image field is true. The name should be unique in the image list. Checkout images datasource to list them images
-- `saved_image_template_id` (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
-- `security_group_id` (Number) Specify the security group. Checkout security_groups datasource listing security groups
-- `ssh_keys` (List of String) Specify the ssh keys if required. Checkout ssh_keys datasource for listing ssh keys
-- `vpc_id` (String) Vpc id as per requirement
+- `region` (String)
+- `reserve_ip` (String)
+- `saved_image_template_id` (Number)
+- `security_group_id` (Number)
+- `ssh_keys` (Set of String)
+- `vpc_id` (String)
 
 ### Read-Only
 
@@ -53,9 +47,6 @@ description: |-
 - `is_bitninja_license_active` (Boolean)
 - `is_monitored` (Boolean)
 - `memory` (String)
-- `price` (String)
-- `private_ip_address` (String)
-- `public_ip_address` (String)
-- `status` (String) Status of the node
+- `status` (String)
 
 

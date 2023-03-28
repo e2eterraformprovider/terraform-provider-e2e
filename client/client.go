@@ -9,8 +9,12 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/devteametwoe/terraform-provider-e2e/models"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
+
+//production url  -> "https://api.e2enetworks.com/myaccount/api/v1/nodes/"
+
+//groot url -> "https://api-groot.e2enetworks.net/myaccount/api/v1/nodes/"
 
 type Client struct {
 	Api_key      string

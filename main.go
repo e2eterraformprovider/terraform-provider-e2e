@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/devteametwoe/terraform-provider-e2e/e2e"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
