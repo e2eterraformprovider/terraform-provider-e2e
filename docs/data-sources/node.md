@@ -17,44 +17,45 @@ description: |-
 
 ### Required
 
+- `image` (String) The name of the image you have selected format :- ( os-version )
 - `label` (String) The name of the group
 - `name` (String) The name of the resource, also acts as it's unique ID
-- `os` (String) OS and its version  format : <OS>-<version>
-- `plan` (String) The name of the Plan
+- `plan` (String) name of the Plan
 
 ### Optional
 
 - `backup` (Boolean) Tells you the state of your backups
 - `default_public_ip` (Boolean) Tells us the state of default public ip
-- `disable_password` (Boolean)
-- `enable_bitninja` (Boolean)
-- `image` (String) The name of the image you have selected
+- `disable_password` (Boolean) can disable password as per requirement
+- `enable_bitninja` (Boolean) enable bitnija as per requirement
 - `is_ipv6_availed` (Boolean)
-- `is_saved_image` (Boolean)
-- `lock_node` (Boolean)
-- `ngc_container_id` (Number)
-- `power_status` (String)
-- `reboot_node` (Boolean)
-- `region` (String)
-- `reinstall_node` (Boolean)
-- `reserve_ip` (String)
-- `saved_image_template_id` (Number)
-- `security_group_id` (Number)
-- `ssh_keys` (Set of String)
-- `vpc_id` (String)
+- `is_saved_image` (Boolean) used when Creating node from a saved image
+- `lock_node` (Boolean) Node is locked when set true .Can specify wheather to lock the node or not
+- `ngc_container_id` (Number) Should be specified when launching GPU Cloud Wizard.
+- `power_status` (String) power_on to start the node and power_off to power off the node
+- `reboot_node` (Boolean) When set true node will be rebooted. Node should be in running state to perform rebooting.Alaways check the field. If you have an active disk-intensive process such as database, backups running, then a rebooting may lead to data corruption and data loss (best option is to reboot the machine from within Operating System).
+- `region` (String) Location where node is to be launched
+- `reinstall_node` (Boolean) for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.
+- `reserve_ip` (String) Reserve ip as per  requirement
+- `save_image` (Boolean) For saving image of the node. The node should be in power_off state to perform this action
+- `save_image_name` (String) Specify the name of the image to be saved. this field is required when save_image field is true. The name should be unique in the image list. Checkout images datasource to list them images
+- `saved_image_template_id` (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
+- `security_group_id` (Number) Specify the security group. Checkout security_groups datasource listing security groups
+- `ssh_keys` (List of String) Specify the ssh keys if required. Checkout ssh_keys datasource for listing ssh keys
+- `vpc_id` (String) Vpc id as per requirement
 
 ### Read-Only
 
-- `created_at` (String)
-- `disk` (String)
+- `created_at` (String) Creation time of the node
+- `disk` (String) Disc info of the node
 - `id` (String) The ID of this resource.
 - `is_active` (Boolean)
-- `is_bitninja_license_active` (Boolean)
+- `is_bitninja_license_active` (Boolean) Can check if the bitninja license is active or not
 - `is_monitored` (Boolean)
-- `memory` (String)
-- `price` (String)
-- `private_ip_address` (String)
-- `public_ip_address` (String)
-- `status` (String)
+- `memory` (String) memory of the node
+- `price` (String) price details of the node
+- `private_ip_address` (String) Private ip address alloted to node if any
+- `public_ip_address` (String) Public ip address alloted to node
+- `status` (String) Status of the node
 
 

@@ -25,8 +25,9 @@ func DataSourceSshKeys() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"ssh_key_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "List of ssh keys which can be used to launch resources",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"pk": {

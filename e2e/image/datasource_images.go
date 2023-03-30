@@ -30,40 +30,39 @@ func DataSourceImages() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"template_id": &schema.Schema{
-							Type:     schema.TypeFloat,
-							Computed: true,
+						"template_id": {
+							Type:        schema.TypeFloat,
+							Computed:    true,
+							Description: "This id is used to create a node using the image",
 						},
-						// "vm_info":&schema.Schema{
-						// 	Type:schema
-						// }
-						"image_type": &schema.Schema{
+						"image_type": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"os_distribution": &schema.Schema{
+						"os_distribution": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"name": &schema.Schema{
+						"name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"image_id": &schema.Schema{
+						"image_id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"distro": &schema.Schema{
+						"distro": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"sku_type": &schema.Schema{
+						"sku_type": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"image_state": &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
+						"image_state": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Current state of the image",
 						},
 					},
 				},

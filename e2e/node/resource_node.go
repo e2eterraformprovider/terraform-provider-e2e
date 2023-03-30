@@ -64,13 +64,13 @@ func ResourceNode() *schema.Resource {
 			"disable_password": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "",
+				Description: "can disable password as per requirement",
 				Default:     false,
 			},
 			"enable_bitninja": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "",
+				Description: "enable bitnija as per requirement",
 				Default:     false,
 			},
 			"is_ipv6_availed": {
@@ -101,12 +101,12 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Vpc id as per requirement",
-				Default:     "",
+				Default:     "Used when you need to attach a particular VPC. ",
 			},
 			"ngc_container_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "",
+				Description: "Should be specified when launching GPU Cloud Wizard.",
 				Default:     nil,
 			},
 			"saved_image_template_id": {
@@ -119,7 +119,6 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "Specify the security group. Checkout security_groups datasource listing security groups",
-				Default:     150,
 			},
 			"ssh_keys": {
 				Type:        schema.TypeList,
@@ -132,12 +131,14 @@ func ResourceNode() *schema.Resource {
 				Computed: true,
 			},
 			"created_at": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Creation time of the node",
 			},
 			"memory": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Amount of RAM assigned to the node",
 			},
 			"status": {
 				Type:        schema.TypeString,
@@ -145,28 +146,33 @@ func ResourceNode() *schema.Resource {
 				Description: "Status of the node",
 			},
 			"disk": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Disc info of the node",
 			},
 			"price": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "price details of the node",
 			},
 			"public_ip_address": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Public ip address alloted to node",
 			},
 			"private_ip_address": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Private ip address alloted to node if any",
 			},
 			"is_monitored": {
 				Type:     schema.TypeBool,
 				Computed: true,
 			},
 			"is_bitninja_license_active": {
-				Type:     schema.TypeBool,
-				Computed: true,
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Can check if the bitninja license is active or not",
 			},
 			"power_status": {
 				Type:        schema.TypeString,
@@ -260,7 +266,11 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[INFO] resnode[code] %f", resnode["code"].(float64))
+
+	if _, codeok := resnode["code"]; !codeok {
+		return diag.Errorf("got %f status code , message: %s", resnode["responseCode"].(float64), resnode["message"].(string))
+	}
+
 	if resnode["code"].(float64) != 200 {
 		error := resnode["errors"].(string)
 		log.Printf(error)
@@ -272,6 +282,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := data["id"].(float64)
 	nodeId = math.Round(nodeId)
 	fmt.Println(data)
+	log.Printf("[INFO] node creation | before setting fields")
 	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
 	d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))

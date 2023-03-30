@@ -25,8 +25,9 @@ func DataSourceVpcs() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"vpc_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "List of all the Vpcs. You can attach these vpcs to launch resources ",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"network_id": {

@@ -65,6 +65,7 @@ func (c *Client) NewNode(item *models.Node) (map[string]interface{}, error) {
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+
 	if err != nil {
 		return nil, err
 	}

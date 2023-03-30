@@ -24,7 +24,7 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("SERVICE_AUTH_TOKEN", ""),
-				Description: "authentication Bearer token should be specified",
+				Description: "Valied authentication Bearer token required",
 			},
 			"api_endpoint": {
 				Type:        schema.TypeString,
@@ -32,12 +32,6 @@ func Provider() *schema.Provider {
 				Default:     "https://api.e2enetworks.com/myaccount/api/v1/",
 				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
 				Description: "specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/",
-			},
-
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_LOCATION", ""),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -58,7 +52,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	api_key := d.Get("api_key").(string)
 	auth_token := d.Get("auth_token").(string)
-
 	api_endpoint := d.Get("api_endpoint").(string)
 	return client.NewClient(api_key, auth_token, api_endpoint), nil
 }
