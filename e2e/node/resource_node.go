@@ -94,8 +94,7 @@ func ResourceNode() *schema.Resource {
 			"reserve_ip": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Reserve ip as per  requirement",
-				Default:     "",
+				Description: "Attach reserve ip as per requirement",
 			},
 			"vpc_id": {
 				Type:        schema.TypeString,

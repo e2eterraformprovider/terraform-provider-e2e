@@ -18,7 +18,7 @@ description: |-
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `security_group_list` (List of Object) (see [below for nested schema](#nestedatt--security_group_list))
+- `security_group_list` (List of Object) list of the security groups (see [below for nested schema](#nestedatt--security_group_list))
 
 <a id="nestedatt--security_group_list"></a>
 ### Nested Schema for `security_group_list`

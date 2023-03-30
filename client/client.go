@@ -25,7 +25,6 @@ type Client struct {
 
 func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	return &Client{
-
 		Api_key:      api_key,
 		Auth_token:   auth_token,
 		Api_endpoint: api_endpoint,
@@ -69,7 +68,6 @@ func (c *Client) NewNode(item *models.Node) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return jsonRes, nil
 
 }

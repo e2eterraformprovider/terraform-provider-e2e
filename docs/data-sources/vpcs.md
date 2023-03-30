@@ -18,7 +18,7 @@ description: |-
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `vpc_list` (List of Object) (see [below for nested schema](#nestedatt--vpc_list))
+- `vpc_list` (List of Object) List of all the Vpcs. You can attach these vpcs to launch resources (see [below for nested schema](#nestedatt--vpc_list))
 
 <a id="nestedatt--vpc_list"></a>
 ### Nested Schema for `vpc_list`

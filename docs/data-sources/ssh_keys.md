@@ -18,7 +18,7 @@ description: |-
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `ssh_key_list` (List of Object) (see [below for nested schema](#nestedatt--ssh_key_list))
+- `ssh_key_list` (List of Object) List of ssh keys which can be used to launch resources (see [below for nested schema](#nestedatt--ssh_key_list))
 
 <a id="nestedatt--ssh_key_list"></a>
 ### Nested Schema for `ssh_key_list`
