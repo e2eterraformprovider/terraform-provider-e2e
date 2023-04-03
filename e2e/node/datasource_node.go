@@ -101,12 +101,6 @@ func DataSourceNode() *schema.Resource {
 				Description: "Vpc id as per requirement",
 				Default:     "Used when you need to attach a particular VPC. ",
 			},
-			"ngc_container_id": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "Should be specified when launching GPU Cloud Wizard.",
-				Default:     nil,
-			},
 			"saved_image_template_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,

@@ -102,12 +102,6 @@ func ResourceNode() *schema.Resource {
 				Description: "Vpc id as per requirement",
 				Default:     "Used when you need to attach a particular VPC. ",
 			},
-			"ngc_container_id": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "Should be specified when launching GPU Cloud Wizard.",
-				Default:     nil,
-			},
 			"saved_image_template_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -368,7 +362,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) == true {
-			_, err := apiClient.UpdateNode(nodeId, "lock_vm", "")
+			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -382,15 +376,16 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("reboot_node") {
-		if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
-			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
-		}
+
 		if d.Get("reboot_node").(bool) == true {
+			d.Set("reboot_node", false)
+			if d.Get("status").(string) == "Creating" || d.Get("status").(string) == "Reinstalling" {
+				return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
+			}
 			if d.Get("status").(string) == "Powered off" {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
 			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string))
-			d.Set("reboot_node", false)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -422,11 +417,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("save_image") {
 		if d.Get("save_image") == true {
+			d.Set("save_image", false)
 			if d.Get("save_image_name").(string) == "" {
 				return diag.Errorf("save_image_name empty")
 			}
+
 			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string))
-			d.Set("save_image", false)
 			if err != nil {
 				return diag.FromErr(err)
 			}

@@ -15,21 +15,11 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 ## Example Usage
 ```hcl
  resource "example_node" "node-from-terraform" {
-	count             = 2
 	label             = "Default"
 	name              = "C2-4GB-416B"
     region            = "Delhi"
     plan              = "C2.10GB"
     image             = "CentOS-7.5"
-    ssh_keys          = []
-	backup            = false
-	enable_bitninja   = false
-	disable_password  = false
-	is_saved_image    = false
-	reserve_ip        = ""
-	is_ipv6_availed   = false
-	vpc_id            = ""
-    default_public_ip = false
     }
 ```
 ## Schema
@@ -48,7 +38,6 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `enable_bitninja` : (Optional) (Boolean) enable bitnija as per requirement
 - `is_ipv6_availed` : (Optional)(Boolean)
 - `is_saved_image` : (Optional) (Boolean) used when Creating node from a saved image
-- `ngc_container_id` : (Optional) (Number) Should be specified when launching GPU Cloud Wizard.
 - `reserve_ip` : (Optional) (String) Reserve ip as per  requirement
 - `saved_image_template_id` :  (Optional) (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
 - `security_group_id` : (Optional) (Number) Specify the security group. Checkout security_groups datasource listing security groups
