@@ -24,6 +24,11 @@ import (
 func DataSourceVpcs() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
+			"region": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Region should specified",
+			},
 			"vpc_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -31,8 +36,9 @@ func DataSourceVpcs() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"network_id": {
-							Type:     schema.TypeFloat,
-							Computed: true,
+							Type:        schema.TypeFloat,
+							Computed:    true,
+							Description: "The id of network",
 						},
 						"pool_size": {
 							Type:     schema.TypeFloat,
@@ -78,7 +84,7 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs data source ")
-	Response, err := apiClient.GetVpcs()
+	Response, err := apiClient.GetVpcs(d.Get("region").(string))
 	if err != nil {
 		return diag.Errorf("error finding vpcs ")
 	}

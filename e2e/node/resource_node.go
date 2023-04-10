@@ -3,14 +3,14 @@ package node
 import (
 	// "context"
 
+	"context"
 	"fmt"
 	"log"
 	"math"
 	"regexp"
-
-	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -100,7 +100,6 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Vpc id as per requirement",
-				Default:     "Used when you need to attach a particular VPC. ",
 			},
 			"saved_image_template_id": {
 				Type:        schema.TypeInt,
@@ -157,10 +156,6 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Private ip address alloted to node if any",
-			},
-			"is_monitored": {
-				Type:     schema.TypeBool,
-				Computed: true,
 			},
 			"is_bitninja_license_active": {
 				Type:        schema.TypeBool,
@@ -237,7 +232,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] inside create ")
-	node := models.Node{
+	node := models.NodeCreate{
 		Name:              d.Get("name").(string),
 		Label:             d.Get("label").(string),
 		Plan:              d.Get("plan").(string),
@@ -255,13 +250,26 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
 	}
 
+	if node.Vpc_id != "" {
+		for i := 0; i <= 60; i++ {
+			vpc_details, err := apiClient.GetVpc(node.Vpc_id)
+			if err != nil {
+				return diag.FromErr(err)
+			}
+			if vpc_details.Data.State != "Active" {
+				time.Sleep(5 * time.Second)
+				log.Println("creating node | vpc not in ready state")
+			}
+		}
+	}
+
 	resnode, err := apiClient.NewNode(&node)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	if _, codeok := resnode["code"]; !codeok {
-		return diag.Errorf("got %f status code , message: %s", resnode["responseCode"].(float64), resnode["message"].(string))
+		return diag.Errorf(resnode["message"].(string))
 	}
 
 	if resnode["code"].(float64) != 200 {
@@ -291,7 +299,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
-	log.Printf("[info] inside read")
+	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 
 	node, err := apiClient.GetNode(nodeId)
@@ -303,24 +311,24 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 		}
 	}
-
+	log.Printf("[info] node Resource read | before setting data")
 	data := node["data"].(map[string]interface{})
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
-	d.Set("backup", data["backup"].(bool))
-	d.Set("is_active", data["is_active"].(bool))
+	//d.Set("backup", data["backup"].(bool))
+	//d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
 	d.Set("lock_node", data["is_locked"].(bool))
-	d.Set("public_ip_address", data["public_ip_address"].(string))
-	d.Set("private_ip_address", data["private_ip_address"].(string))
-	d.Set("is_monitored", data["is_monitored"].(bool))
+	//d.Set("public_ip_address", data["public_ip_address"].(string))
+	//d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
 
+	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {
 		d.Set("power_status", "power_on")
 	}

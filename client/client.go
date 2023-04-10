@@ -32,7 +32,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.Node) (map[string]interface{}, error) {
+func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error) {
 
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
@@ -79,7 +79,7 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] NEW BUILD READ")
+	log.Printf("[INFO] CLIENT | NODE READ")
 	params := req.URL.Query()
 
 	params.Add("apikey", c.Api_key)
@@ -119,6 +119,54 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	}
 
 	return jsonRes, nil
+}
+
+func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
+
+	urlGetNodes := c.Api_endpoint + "nodes/"
+	req, err := http.NewRequest("GET", urlGetNodes, nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] NEW BUILD READ")
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	params.Add("contact_person_id", "null")
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+
+	req.Header.Add("User-Agent", "terraform-e2e")
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	fmt.Println(response.Body)
+
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ResponseNodes{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 func (c *Client) UpdateNode(nodeId string, action string, nodeName string) (interface{}, error) {
@@ -290,7 +338,7 @@ func (c *Client) GetSshKeys() (*models.SshKeyResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) GetVpcs() (*models.VpcsResponse, error) {
+func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 
 	urlGetVpcs := c.Api_endpoint + "vpc/" + "list/"
 	req, err := http.NewRequest("GET", urlGetVpcs, nil)
@@ -300,7 +348,7 @@ func (c *Client) GetVpcs() (*models.VpcsResponse, error) {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
-
+	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -324,4 +372,148 @@ func (c *Client) GetVpcs() (*models.VpcsResponse, error) {
 		return nil, err
 	}
 	return &res, nil
+}
+func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
+
+	urlGetVpc := c.Api_endpoint + "vpc/" + vpc_id + "/"
+	req, err := http.NewRequest("GET", urlGetVpc, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		log.Printf("[INFO] error inside get vpcs")
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.VpcResponse{}
+
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get vpcs | error while unmarshlling")
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]interface{}, error) {
+
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		return nil, err
+	}
+	UrlNode := c.Api_endpoint + "vpc/"
+	log.Printf("[INFO] %s", UrlNode)
+	req, err := http.NewRequest("POST", UrlNode, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
+
+	urlVpc := c.Api_endpoint + "vpc/" + vpcId + "/"
+	log.Printf("[INFO] %s", urlVpc)
+	req, err := http.NewRequest("DELETE", urlVpc, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, error) {
+
+	urlGetReserveIps := c.Api_endpoint + "reserve_ips/"
+	req, err := http.NewRequest("GET", urlGetReserveIps, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		log.Printf("[INFO] error inside get vpcs")
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ResponseReserveIps{}
+
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get vpcs | error while unmarshlling")
+		return nil, err
+	}
+	return &res, nil
+
 }

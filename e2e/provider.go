@@ -4,6 +4,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
@@ -36,6 +37,7 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"e2e_node": node.ResourceNode(),
+			"e2e_vpc":  vpc.ResouceVpc(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":            node.DataSourceNode(),
@@ -43,6 +45,8 @@ func Provider() *schema.Provider {
 			"e2e_security_groups": security_group.DataSourceSecurityGroups(),
 			"e2e_ssh_keys":        ssh_key.DataSourceSshKeys(),
 			"e2e_vpcs":            vpc.DataSourceVpcs(),
+			"e2e_reserve_ips":     reserve_ip.DataSourceReserveIps(),
+			"e2e_nodes":           node.DataSourceNodes(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

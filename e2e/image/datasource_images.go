@@ -26,8 +26,9 @@ func DataSourceImages() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 
 			"image_list": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "List of all the saved images",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"template_id": {
@@ -36,24 +37,28 @@ func DataSourceImages() *schema.Resource {
 							Description: "This id is used to create a node using the image",
 						},
 						"image_type": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Type of the image",
 						},
 						"os_distribution": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
 						"name": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Name of the image",
 						},
 						"image_id": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The id of the image",
 						},
 						"distro": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "type of distro used",
 						},
 						"sku_type": {
 							Type:     schema.TypeString,

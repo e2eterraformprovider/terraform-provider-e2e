@@ -1,6 +1,6 @@
 package models
 
-type Node struct {
+type NodeCreate struct {
 	Name                    string        `json:"name"`
 	Label                   string        `json:"label"`
 	Plan                    string        `json:"plan"`
@@ -22,4 +22,21 @@ type Node struct {
 type NodeAction struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
+}
+
+type ResponseNodes struct {
+	Code    int    `json:"code"`
+	Data    []Node `json:"data"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+type Node struct {
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	Status           string `json:"status"`
+	PublicIPAddress  string `json:"public_ip_address"`
+	PrivateIPAddress string `json:"private_ip_address"`
+	RescueModeStatus string `json:"rescue_mode_status"`
+	IsLocked         bool   `json:"is_locked"`
 }

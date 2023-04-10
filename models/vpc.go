@@ -16,3 +16,15 @@ type Vpc struct {
 	Pool_size  float64 `json:"pool_size"`
 	Is_active  bool    `json:"is_active"`
 }
+
+type VpcResponse struct {
+	Code    int           `json:"code"`
+	Data    Vpc           `json:"data"`
+	Error   []interface{} `json:"error"`
+	Message string        `json:"message"`
+}
+
+type VpcCreate struct {
+	VpcName     string  `json:"vpc_name"`
+	NetworkSize float64 `json:"network_size"`
+}

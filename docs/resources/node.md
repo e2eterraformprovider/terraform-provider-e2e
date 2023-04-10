@@ -16,11 +16,11 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 ```hcl
  resource "example_node" "node-from-terraform" {
 	label             = "Default"
-	name              = "C2-4GB-416B"
+	name              = "node_name"
     region            = "Delhi"
-    plan              = "C2.10GB"
-    image             = "CentOS-7.5"
-    }
+    plan              = "C2.12GB"
+    image             = "CentOS-7"
+ }
 ```
 ## Schema
 
