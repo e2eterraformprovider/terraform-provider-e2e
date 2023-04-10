@@ -37,7 +37,6 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"e2e_node": node.ResourceNode(),
-			"e2e_vpc":  vpc.ResouceVpc(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":            node.DataSourceNode(),
