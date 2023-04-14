@@ -128,7 +128,7 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] NEW BUILD READ")
+	log.Printf("[INFO] CLIENT GET NODES")
 	params := req.URL.Query()
 
 	params.Add("apikey", c.Api_key)
@@ -148,8 +148,10 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 		respBody := new(bytes.Buffer)
 		_, err := respBody.ReadFrom(response.Body)
 		if err != nil {
-			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+			log.Printf("GET NODES | INSIDE NO SUCCESS AND ERROR MSG")
+			return nil, fmt.Errorf("%v", err)
 		}
+
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	fmt.Println(response.Body)
@@ -246,7 +248,7 @@ func (c *Client) DeleteNode(nodeId string) error {
 	return nil
 }
 
-func (c *Client) GetSavedImages() (*models.ImageListResponse, error) {
+func (c *Client) GetSavedImages(location string) (*models.ImageListResponse, error) {
 
 	urlImages := c.Api_endpoint + "images/" + "saved-images" + "/"
 
@@ -258,6 +260,7 @@ func (c *Client) GetSavedImages() (*models.ImageListResponse, error) {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
+	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -356,11 +359,13 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 
 	response, err := c.HttpClient.Do(req)
 
-	if err != nil {
-		log.Printf("[INFO] error inside get vpcs")
-		return nil, err
-	}
+	if response.StatusCode != http.StatusOK {
 
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v , %s", response.StatusCode)
+	}
 	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)

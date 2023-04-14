@@ -25,6 +25,11 @@ func DataSourceImages() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 
+			"region": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Mention the region of the images you want to list",
+			},
 			"image_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -86,7 +91,7 @@ func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interfa
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSavedImages()
+	Response, err := apiClient.GetSavedImages(d.Get("region").(string))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}

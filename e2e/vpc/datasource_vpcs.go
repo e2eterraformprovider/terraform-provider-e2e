@@ -86,8 +86,9 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] Inside vpcs data source ")
 	Response, err := apiClient.GetVpcs(d.Get("region").(string))
 	if err != nil {
-		return diag.Errorf("error finding vpcs ")
+		return diag.FromErr(err)
 	}
+	log.Printf("[INFO] %v", Response)
 	d.Set("vpc_list", flattenVpcs(&Response.Data))
 	d.SetId("vpc_list")
 

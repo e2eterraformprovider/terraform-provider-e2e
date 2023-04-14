@@ -32,11 +32,11 @@ type ResponseNodes struct {
 }
 
 type Node struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	Status           string `json:"status"`
-	PublicIPAddress  string `json:"public_ip_address"`
-	PrivateIPAddress string `json:"private_ip_address"`
-	RescueModeStatus string `json:"rescue_mode_status"`
-	IsLocked         bool   `json:"is_locked"`
+	ID               float64 `json:"id"`
+	Name             string  `json:"name"`
+	Status           string  `json:"status"`
+	PublicIPAddress  string  `json:"public_ip_address"`
+	PrivateIPAddress string  `json:"private_ip_address"`
+	RescueModeStatus string  `json:"rescue_mode_status"`
+	IsLocked         bool    `json:"is_locked"`
 }

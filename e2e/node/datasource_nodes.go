@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	//"encoding/json"
 	// "fmt"
 	"log"
 	// "math"
@@ -79,11 +80,13 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
-	log.Printf("[INFO] Inside vpcs data source ")
+	log.Printf("[INFO] Inside nodes data source ")
 	Response, err := apiClient.GetNodes(d.Get("region").(string))
 	if err != nil {
-		return diag.Errorf("error finding vpcs ")
+		return diag.FromErr(err)
 	}
+	log.Printf("[INFO] %v", Response)
+	log.Printf("[INFO] NODES DATA SOURCE | before setting")
 	d.Set("nodes_list", flattenNodes(&Response.Data))
 	d.SetId("nodes_list")
 
@@ -104,7 +107,6 @@ func flattenNodes(nodes *[]models.Node) []interface{} {
 			oi["public_ip_address"] = node.PublicIPAddress
 			oi["rescue_mode_status"] = node.RescueModeStatus
 			oi["status"] = node.Status
-
 			ois[i] = oi
 		}
 
