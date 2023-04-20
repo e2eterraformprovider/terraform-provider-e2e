@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
-
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -168,11 +167,11 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string, action string, nodeName string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string, action string, Name string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,
-		Name: nodeName,
+		Name: Name,
 	}
 	nodeAction, err := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
@@ -209,7 +208,7 @@ func (c *Client) UpdateNode(nodeId string, action string, nodeName string) (inte
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
 	if err != nil {
-		return jsonRes, err
+		return nil, err
 	}
 	return jsonRes, err
 }
@@ -350,18 +349,12 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
-
+	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
 
-	if response.StatusCode != http.StatusOK {
-
-		if err != nil {
-			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
-		}
-		return nil, fmt.Errorf("got a non 200 status code: %v , %s", response.StatusCode)
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
 	}
 	defer response.Body.Close()
 
@@ -386,14 +379,11 @@ func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
-
+	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
-		log.Printf("[INFO] error inside get vpcs")
+		log.Printf("[INFO] client |  error inside get vpc")
 		return nil, err
 	}
 
@@ -460,14 +450,10 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 	}
 
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
-
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +463,6 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-
 	if err != nil {
 		return nil, err
 	}
@@ -496,9 +481,7 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
@@ -507,10 +490,8 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	}
 
 	defer response.Body.Close()
-
 	body, err := ioutil.ReadAll(response.Body)
 	res := models.ResponseReserveIps{}
-
 	err = json.Unmarshal(body, &res)
 	if err != nil {
 		log.Printf("[INFO] inside get vpcs | error while unmarshlling")
@@ -518,4 +499,78 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	}
 	return &res, nil
 
+}
+
+func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
+	urlGetImage := c.Api_endpoint + "images/" + imageId + "/"
+	req, err := http.NewRequest("GET", urlGetImage, nil)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		log.Printf("[error]  CLIENT READ IMAGE |  error inside get image")
+		return nil, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ImageResponse{}
+	err = json.Unmarshal(body, &res)
+	log.Printf("[info] CLIENT | GET IMAGE |  %+v", res)
+	if err != nil {
+		log.Printf("[ERROR] CLIENT  | GET IMAGE | ERROR WHILE UNMARSHALLING")
+		return nil, err
+	}
+	return &res, nil
+
+}
+func (c *Client) DeleteImage(imageId string) error {
+	urlNode := c.Api_endpoint + "images/" + imageId + "/"
+	deleteBody := models.ImageDeleteBody{
+		Action_type: "delete_image",
+	}
+	deleteBodyMarshalled, err := json.Marshal(deleteBody)
+
+	req, err := http.NewRequest("POST", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
+	if err != nil {
+		return err
+	}
+
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	log.Printf("CLIENT DELETE IMAGE | STATUS_CODE: %d", response.StatusCode)
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetBasicHeaders(authtoken string, req *http.Request) {
+	req.Header.Add("Authorization", "Bearer "+authtoken)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+}
+func CheckResponseStatus(response *http.Response) error {
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	return nil
 }
