@@ -292,7 +292,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
-
 	return diags
 }
 
@@ -317,16 +316,14 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
-	//d.Set("backup", data["backup"].(bool))
-	//d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
 	d.Set("lock_node", data["is_locked"].(bool))
-	//d.Set("public_ip_address", data["public_ip_address"].(string))
-	//d.Set("private_ip_address", data["private_ip_address"].(string))
+	d.Set("public_ip_address", data["public_ip_address"].(string))
+	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
 
 	log.Printf("[info] node Resource read | after setting data")

@@ -87,13 +87,13 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
-
 	req.Header.Add("User-Agent", "terraform-e2e")
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[INFO] CLIENT NODE READ | after response %d", response.StatusCode)
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
 		_, err := respBody.ReadFrom(response.Body)
@@ -102,19 +102,16 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	fmt.Println(response.Body)
-
-	if err != nil {
-		return nil, err
-	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
+	log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
-
 	err = json.Unmarshal(resBytes, &jsonRes)
+
 	if err != nil {
+		log.Printf("[ERROR] CLIENT GET NDE | error when unmarshalling")
 		return nil, err
 	}
 
