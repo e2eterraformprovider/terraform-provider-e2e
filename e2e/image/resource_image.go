@@ -31,11 +31,6 @@ func ResourceImage() *schema.Resource {
 				Description:  "The name of the resource, also acts as it's unique ID",
 				ValidateFunc: validateName,
 			},
-			"region": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location where node is to be launched",
-			},
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -51,25 +46,25 @@ func ResourceImage() *schema.Resource {
 				Computed:    true,
 				Description: "Current state of the image",
 			},
-			// "image_type": {
-			// 	Type:        schema.TypeString,
-			// 	Computed:    true,
-			// 	Description: "Type of the image",
-			// },
-			// "os_distribution": {
-			// 	Type:     schema.TypeString,
-			// 	Computed: true,
-			// },
-			// "distro": {
-			// 	Type:        schema.TypeString,
-			// 	Computed:    true,
-			// 	Description: "type of distro used",
-			// },
-			// "sku_type": {
-			// 	Type:     schema.TypeString,
-			// 	Computed: true,
-			// },
-
+			"image_type": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Type of the image",
+			},
+			"os_distribution": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"distro": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "type of distro used",
+			},
+			"creation_time": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "type of distro used",
+			},
 		},
 
 		CreateContext: resourceCreateImage,
@@ -104,7 +99,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 
-	log.Printf("[INFO] inside image create ")
+	log.Printf("[INFO] IMAGE CREATES ")
 
 	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string))
 	if err != nil {
@@ -144,6 +139,10 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	data := imageres.Data
 	d.Set("image_state", data.Image_state)
 	d.Set("template_id", data.Template_id)
+	d.Set("image_type", data.Image_type)
+	d.Set("creation_time", data.Creation_time)
+	d.Set("os_distribution", data.Os_distribution)
+	d.Set("distro", data.Distro)
 
 	return diags
 

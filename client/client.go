@@ -39,7 +39,7 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 		return nil, err
 	}
 	UrlNode := c.Api_endpoint + "nodes/"
-	log.Printf("[INFO] %s", UrlNode)
+	log.Printf("[INFO] CLIENT NEWNODE | BEFORE REQUEST")
 	req, err := http.NewRequest("POST", UrlNode, &buf)
 	if err != nil {
 		return nil, err
@@ -57,13 +57,16 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 	if err != nil {
 		return nil, err
 	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-
 	if err != nil {
 		return nil, err
 	}

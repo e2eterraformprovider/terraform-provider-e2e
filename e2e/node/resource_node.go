@@ -36,8 +36,9 @@ func ResourceNode() *schema.Resource {
 			},
 			"label": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Description: "The name of the group",
+				Default:     "default",
 			},
 			"plan": {
 				Type:        schema.TypeString,
@@ -187,17 +188,6 @@ func ResourceNode() *schema.Resource {
 				Default:     false,
 				Description: "for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.",
 			},
-			"save_image": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "For saving image of the node. The node should be in power_off state to perform this action ",
-			},
-			"save_image_name": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Specify the name of the image to be saved. this field is required when save_image field is true. The name should be unique in the image list. Checkout images datasource to list them images",
-			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -232,7 +222,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 
-	log.Printf("[INFO] inside create ")
+	log.Printf("[INFO] NODE CREATE STARTS ")
 	node := models.NodeCreate{
 		Name:              d.Get("name").(string),
 		Label:             d.Get("label").(string),
@@ -269,21 +259,14 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.FromErr(err)
 	}
 
+	log.Printf("[INFO] NODE CREATE | RESPONSE BODY | %+v", resnode)
 	if _, codeok := resnode["code"]; !codeok {
 		return diag.Errorf(resnode["message"].(string))
-	}
-
-	if resnode["code"].(float64) != 200 {
-		error := resnode["errors"].(string)
-		log.Printf(error)
-		return diag.Errorf(error)
-
 	}
 
 	data := resnode["data"].(map[string]interface{})
 	nodeId := data["id"].(float64)
 	nodeId = math.Round(nodeId)
-	fmt.Println(data)
 	log.Printf("[INFO] node creation | before setting fields")
 	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
 	d.Set("is_active", data["is_active"].(bool))
