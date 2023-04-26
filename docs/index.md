@@ -19,7 +19,7 @@ terraform {
  required_providers {
    e2e = {
      source = "e2eterraformprovider/e2e"
-     version = "2.0.2"
+     version = "2.0.4"
    }
  }
 }
@@ -30,7 +30,7 @@ provider "e2e" {
 }
 
 # node creation
-resource "e2e_node" "n1" {
+resource "e2e_node" "node1" {
    #...
 }
 
