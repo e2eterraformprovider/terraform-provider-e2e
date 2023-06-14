@@ -87,6 +87,11 @@ func ResourceNode() *schema.Resource {
 				Description: "used when Creating node from a saved image",
 				Default:     false,
 			},
+			"start_scripts": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -239,6 +244,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Vpc_id:            d.Get("vpc_id").(string),
 		Security_group_id: d.Get("security_group_id").(int),
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
+		Start_scripts:     d.Get("start_scripts").([]interface{}),
 	}
 
 	// if node.Vpc_id != "" {
@@ -265,9 +271,12 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	data := resnode["data"].(map[string]interface{})
+	if data["is_credit_sufficient"] == false {
+		return diag.Errorf(resnode["message"].(string))
+	}
+	log.Printf("[INFO] node creation | before setting fields")
 	nodeId := data["id"].(float64)
 	nodeId = math.Round(nodeId)
-	log.Printf("[INFO] node creation | before setting fields")
 	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
 	d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))
@@ -426,7 +435,10 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	nodeId := d.Id()
-
+	node_status := d.Get("status").(string)
+	if node_status == "Saving" || node_status == "Creating" {
+		return diag.Errorf("Node in %s state", node_status)
+	}
 	err := apiClient.DeleteNode(nodeId)
 	if err != nil {
 		return diag.FromErr(err)

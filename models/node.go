@@ -18,6 +18,7 @@ type NodeCreate struct {
 	Saved_image_template_id int           `json:"saved_image_template_id"`
 	Security_group_id       int           `json:"security_group_id"`
 	SSH_keys                []interface{} `json:"ssh_keys"`
+	Start_scripts           []interface{} `json:"start_scripts"`
 }
 type NodeAction struct {
 	Type string `json:"type"`
