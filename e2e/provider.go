@@ -3,6 +3,7 @@ package e2e
 import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
@@ -35,17 +36,18 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"e2e_node":  node.ResourceNode(),
-			"e2e_image": image.ResourceImage(),
+			"example_node":         node.ResourceNode(),
+			"example_image":        image.ResourceImage(),
+			"example_loadbalancer": loadbalancer.ResourceLoadBalancer(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"e2e_node":   node.DataSourceNode(),
-			"e2e_images": image.DataSourceImages(),
+			"example_node":   node.DataSourceNode(),
+			"example_images": image.DataSourceImages(),
 			//"example_security_groups": security_group.DataSourceSecurityGroups(),
-			"e2e_ssh_keys":    ssh_key.DataSourceSshKeys(),
-			"e2e_vpcs":        vpc.DataSourceVpcs(),
-			"e2e_reserve_ips": reserve_ip.DataSourceReserveIps(),
-			"e2e_nodes":       node.DataSourceNodes(),
+			"example_ssh_keys":    ssh_key.DataSourceSshKeys(),
+			"example_vpcs":        vpc.DataSourceVpcs(),
+			"example_reserve_ips": reserve_ip.DataSourceReserveIps(),
+			"example_nodes":       node.DataSourceNodes(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
