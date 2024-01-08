@@ -228,7 +228,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 				Schema: map[string]*schema.Schema{
 					"appliance_id": {
 						Type:        schema.TypeInt,
-						Required:    true,
+						Optional:    true,
 						Default:     0,
 						Description: "ID of the appliance",
 					},
@@ -351,7 +351,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Description: "This is the disk storage allotted to your loadbalancer",
 		},
 		"vcpu": {
-			Type:        schema.TypeString,
+			Type:        schema.TypeFloat,
 			Computed:    true,
 			Description: "This is the vcpu allotted to your loadbalancer",
 		},
@@ -363,15 +363,19 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		},
 		"host_target_ipv6": {
 			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "",
 			Computed:    true,
 			Description: "This is the ipv6 allotted to your loadbalancer",
 		},
 		"status": {
 			Type:        schema.TypeString,
 			Computed:    true,
-			Description: "This is the status of your loadbalancer",
+			Description: "This is the status of your loadbalancer, only to get the status from my account.",
+		},
+		"power_status": {
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     "power_on",
+			Description: "power_on to start the node and power_off to power off the node",
 		},
 	}
 }
@@ -497,7 +501,42 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return make(diag.Diagnostics, 0)
+	apiClient := m.(*client.Client)
+	var diags diag.Diagnostics
+
+	log.Printf("=============INSIDE RESOURCE READ LOAD BALANCER==========================")
+	lbId := d.Id()
+	location := d.Get("location").(string)
+	lb, err := apiClient.GetLoadBalancerInfo(lbId, location)
+
+	if err != nil {
+		return diag.Errorf("error finding Item with ID %s", lbId)
+	}
+
+	log.Printf("[INFO] LOADBALANCER READ | BEFORE SETTING DATA")
+	data := lb["data"].(map[string]interface{})
+	node_detail := data["node_detail"].(map[string]interface{})
+	appliance_instance := data["appliance_instance"].([]interface{})
+	instance := appliance_instance[0].(map[string]interface{})
+	context := instance["context"].(map[string]interface{})
+	d.Set("private_ip", node_detail["private_ip"].(string))
+	d.Set("public_ip", node_detail["public_ip"].(string))
+	d.Set("ram", node_detail["ram"].(string))
+	d.Set("disk", node_detail["disk"].(string))
+	d.Set("vcpu", node_detail["vcpu"].(float64))
+	if d.Get("is_ipv6_attached").(bool) == true && context["host_target_ipv6"] != nil {
+		d.Set("host_target_ipv6", context["host_target_ipv6"].(string))
+	}
+	err = SetLoadBalancerStatus(d, data["status"])
+	if err != nil {
+		return diag.Errorf("error while setting lb status with ID %s, error : %s", lbId, err)
+	}
+	if d.Get("status").(string) == "Powered off" {
+		d.Set("power_status", "power_off")
+	} else {
+		d.Set("power_status", "power_on")
+	}
+	return diags
 }
 
 func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

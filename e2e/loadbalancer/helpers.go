@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func GetLbPort(mode string) string {
@@ -111,4 +112,31 @@ func ExpandTcpBackend(config []interface{}) ([]models.TcpBackendDetail, error) {
 		tcpBackends = append(tcpBackends, r)
 	}
 	return tcpBackends, nil
+}
+
+func SetLoadBalancerStatus(d *schema.ResourceData, status_detail interface{}) error {
+	haproxyStatus := status_detail.(map[string]interface{})
+	dataMonitor := haproxyStatus["data_monitor"].(map[string]interface{})
+	if haproxyStatus["status"] == "RUNNING" {
+		if len(dataMonitor) == 0 {
+			d.Set("status", "Backend Status Unavailable")
+			return nil
+		}
+		if dataMonitor["status"].(bool) == false {
+			d.Set("status", "Backend Connection Failure")
+		} else {
+			d.Set("status", "Running")
+		}
+	} else if haproxyStatus["status"] == "STOP" {
+		d.Set("status", "Powered off")
+	} else if haproxyStatus["status"] == "Creating" {
+		d.Set("status", "Creating")
+	} else if haproxyStatus["status"] == "Deploying" {
+		d.Set("status", "Deploying")
+	} else if haproxyStatus["status"] == "UPDATING" {
+		d.Set("status", "Upgrading")
+	} else {
+		d.Set("status", "Error")
+	}
+	return nil
 }
