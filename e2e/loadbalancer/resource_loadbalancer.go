@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math"
+	"slices"
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
@@ -508,7 +509,7 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	lbId := d.Id()
 	location := d.Get("location").(string)
 	lb, err := apiClient.GetLoadBalancerInfo(lbId, location)
-
+	// lb not found issue need to be handled, set id == null
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", lbId)
 	}
@@ -527,7 +528,7 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	if d.Get("is_ipv6_attached").(bool) == true && context["host_target_ipv6"] != nil {
 		d.Set("host_target_ipv6", context["host_target_ipv6"].(string))
 	}
-	err = SetLoadBalancerStatus(d, data["status"])
+	err = SetLoadBalancerStatus(d, data["lb_status"])
 	if err != nil {
 		return diag.Errorf("error while setting lb status with ID %s, error : %s", lbId, err)
 	}
@@ -544,7 +545,22 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return make(diag.Diagnostics, 0)
+	apiClient := m.(*client.Client)
+	var diags diag.Diagnostics
+	lbId := d.Id()
+	lb_status := d.Get("status").(string)
+	disableDeleteLbStatusList := []string{"Creating", "Deploying", "Upgrading"}
+
+	if slices.Contains(disableDeleteLbStatusList, lb_status) == true {
+		return diag.Errorf("Load Balancer is in %s state. Currently can not destroy the resource.", lb_status)
+	}
+
+	err := apiClient.DeleteLoadBalancer(lbId, d.Get("location").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId("")
+	return diags
 }
 
 func resourceExistsLoadBalancer(d *schema.ResourceData, m interface{}) (bool, error) {

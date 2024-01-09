@@ -114,3 +114,33 @@ func (c *Client) GetLoadBalancerInfo(lbId string, location string) (map[string]i
 
 	return jsonRes, nil
 }
+
+func (c *Client) DeleteLoadBalancer(lbId string, location string) error {
+	urlLbInfo := c.Api_endpoint + "appliances/" + lbId + "/"
+	req, err := http.NewRequest("DELETE", urlLbInfo, nil)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[INFO] CLIENT | LOAD BALANCER DELETE")
+
+	req, err = c.AddParamsAndHeader(req, location)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+
+	return nil
+}
