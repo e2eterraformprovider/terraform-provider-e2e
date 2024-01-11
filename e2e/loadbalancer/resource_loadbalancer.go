@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
@@ -381,14 +382,11 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 	}
 }
 
-func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
-	var diags diag.Diagnostics
-
-	log.Printf("[INFO] LOAD BALANCER CREATION STARTS")
+func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) (*models.LoadBalancerCreate, diag.Diagnostics) {
+	log.Printf("[INFO] LOAD BALANCER OBJECT CREATION STARTS")
 	backends, err := ExpandBackends(d.Get("backends").([]interface{}))
 	if err != nil {
-		return diag.FromErr(err)
+		return nil, diag.FromErr(err)
 	}
 
 	loadBalancerObj := models.LoadBalancerCreate{
@@ -416,7 +414,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if ok {
 		eosDetail, err := ExpandEnableEosLogger(enableEosLogger.(*schema.Set).List())
 		if err != nil {
-			return diag.FromErr(err)
+			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.EnableEosLogger = eosDetail
 	}
@@ -426,7 +424,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if ok {
 		aclListDetail, err := ExpandAclList(aclList.(*schema.Set).List())
 		if err != nil {
-			return diag.FromErr(err)
+			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.AclList = aclListDetail
 	} else {
@@ -438,7 +436,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if ok {
 		aclMapDetail, err := ExpandAclMap(aclMap.(*schema.Set).List())
 		if err != nil {
-			return diag.FromErr(err)
+			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.AclMap = aclMapDetail
 	} else {
@@ -450,7 +448,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if ok {
 		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.(*schema.Set).List())
 		if err != nil {
-			return diag.FromErr(err)
+			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.TcpBackend = tcpBackendDetail
 	} else {
@@ -461,7 +459,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if ok {
 		vpcListDetail, err := ExpandVpcList(vpcList.([]interface{}))
 		if err != nil {
-			return diag.FromErr(err)
+			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.VpcList = vpcListDetail
 	} else {
@@ -476,9 +474,17 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	} else {
 		loadBalancerObj.SslContext = map[string]interface{}{"redirect_to_https": false}
 	}
-	log.Println("=========================== LOAD BALANCER OBJECT BEFORE CREATION ============================")
-	log.Println(loadBalancerObj)
-	response, err := apiClient.NewLoadBalancer(&loadBalancerObj)
+	return &loadBalancerObj, nil
+}
+func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	apiClient := m.(*client.Client)
+	var diags diag.Diagnostics
+
+	loadBalancerObj, diags := CreateLoadBalancerObject(apiClient, d)
+	if diags != nil {
+		return diags
+	}
+	response, err := apiClient.NewLoadBalancer(loadBalancerObj)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -519,14 +525,14 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	node_detail := data["node_detail"].(map[string]interface{})
 	appliance_instance := data["appliance_instance"].([]interface{})
 	instance := appliance_instance[0].(map[string]interface{})
-	context := instance["context"].(map[string]interface{})
+	lb_context := instance["context"].(map[string]interface{})
 	d.Set("private_ip", node_detail["private_ip"].(string))
 	d.Set("public_ip", node_detail["public_ip"].(string))
 	d.Set("ram", node_detail["ram"].(string))
 	d.Set("disk", node_detail["disk"].(string))
 	d.Set("vcpu", node_detail["vcpu"].(float64))
-	if d.Get("is_ipv6_attached").(bool) == true && context["host_target_ipv6"] != nil {
-		d.Set("host_target_ipv6", context["host_target_ipv6"].(string))
+	if d.Get("is_ipv6_attached").(bool) == true && lb_context["host_target_ipv6"] != nil {
+		d.Set("host_target_ipv6", lb_context["host_target_ipv6"].(string))
 	}
 	err = SetLoadBalancerStatus(d, data["lb_status"])
 	if err != nil {
@@ -541,7 +547,96 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return make(diag.Diagnostics, 0)
+	apiClient := m.(*client.Client)
+
+	lbId := d.Id()
+	location := d.Get("location").(string)
+	lb_status := d.Get("status").(string)
+	response, err := apiClient.GetLoadBalancerInfo(lbId, location)
+	data := response["data"].(map[string]interface{})
+	if err != nil {
+		return diag.Errorf("error Fetching Load Balancer resource with ID %s", lbId)
+	}
+
+	node_detail := data["node_detail"].(map[string]interface{})
+
+	if lb_status == "Powered off" {
+		return diag.Errorf("Can not Update Load Balancer as it is in %s state", lb_status)
+	}
+
+	if d.HasChange("power_status") {
+		disablePowerStatusList := []string{"Creating", "Deploying", "Upgrading"}
+
+		if slices.Contains(disablePowerStatusList, lb_status) == true {
+			return diag.Errorf("Load Balancer is in %s state, can not change power status.", lb_status)
+		}
+
+		payload := map[string]interface{}{"type": d.Get("power_status").(string)}
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	if d.HasChange("plan_name") {
+		currentPlanName := node_detail["plan_name"].(string)
+		newPlanName := d.Get("plan_name").(string)
+		if strings.Compare(newPlanName, currentPlanName) == -1 {
+			return diag.Errorf("Can not downgrade your plan. Kindly provide the higher plan name")
+		}
+		payload := map[string]interface{}{
+			"type":      "upgrade_plan",
+			"name":      data["name"].(string),
+			"plan_name": newPlanName,
+		}
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	if d.HasChange("lb_name") {
+		payload := map[string]interface{}{
+			"type": "rename",
+			"name": d.Get("lb_name").(string),
+		}
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+	appliance_instance := data["appliance_instance"].([]interface{})
+	instance := appliance_instance[0].(map[string]interface{})
+	lb_context := instance["context"].(map[string]interface{})
+	if d.HasChange("is_ipv6_attached") {
+		ipv6_attach := d.Get("is_ipv6_attached").(bool)
+		payload := map[string]interface{}{}
+		if ipv6_attach == true {
+			payload = map[string]interface{}{"action": "attach"}
+		} else {
+			payload = map[string]interface{}{
+				"action":      "detach",
+				"detach_ipv6": lb_context["host_target_ipv6"].(string),
+			}
+		}
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	loadBalancerObj, diags := CreateLoadBalancerObject(apiClient, d)
+	if diags != nil {
+		return diags
+	}
+	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location)
+	resData := res["data"].(map[string]interface{})
+	if resData["is_credit_sufficient"] == false {
+		return diag.Errorf("Credit is not sufficient")
+	}
+	return resourceReadLoadBalancer(ctx, d, m)
 }
 
 func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

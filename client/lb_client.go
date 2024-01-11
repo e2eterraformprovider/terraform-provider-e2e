@@ -30,7 +30,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]in
 	if err != nil {
 		return nil, err
 	}
-	UrlNode := c.Api_endpoint + "appliances/load-balancers/"
+	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/"
 	log.Printf("[INFO] CLIENT NEWLOADBALANCER| BEFORE REQUEST")
 	log.Println("========================LOAD BALANCER PAYLOAD FORMED BEFORE ===========================")
 	log.Println(buf.String())
@@ -40,7 +40,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]in
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", UrlNode, &buf)
+	req, err := http.NewRequest("POST", UrlEndPoint, &buf)
 	if err != nil {
 		return nil, err
 	}
@@ -143,4 +143,130 @@ func (c *Client) DeleteLoadBalancer(lbId string, location string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) UpdateLoadBalancerAction(data map[string]interface{}, lbId string, location string) error {
+	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/actions/"
+
+	requestBody, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("[ERROR] UpdateLoadBalancerAction | PAYLOAD_ERROR | %s", err)
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", UrlEndPoint, bytes.NewBuffer(requestBody))
+	if err != nil {
+		log.Printf("[ERROR] UpdateLoadBalancerAction | HTTP_NEW_REQUEST_ERROR | %s", err)
+		return err
+	}
+
+	req, err = c.AddParamsAndHeader(req, location)
+	if err != nil {
+		log.Printf("[ERROR] UpdateLoadBalancerAction | ADDING_PARAMS_HEADER_ERROR | %s", err)
+		return err
+	}
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+
+	return nil
+}
+
+func (c *Client) IPV6LoadBalancerAction(data map[string]interface{}, lbId string, location string) error {
+	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/ipv6/"
+
+	requestBody, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("[ERROR] IPV6LoadBalancerAction | PAYLOAD_ERROR | %s", err)
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", UrlEndPoint, bytes.NewBuffer(requestBody))
+	if err != nil {
+		log.Printf("[ERROR] IPV6LoadBalancerAction | HTTP_NEW_REQUEST_ERROR | %s", err)
+		return err
+	}
+
+	req, err = c.AddParamsAndHeader(req, location)
+	if err != nil {
+		log.Printf("[ERROR] IPV6LoadBalancerAction | ADDING_PARAMS_HEADER_ERROR | %s", err)
+		return err
+	}
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+
+	return nil
+}
+
+func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId string, location string) (map[string]interface{}, error) {
+	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/"
+
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | JSON_NEW_ENCODER_ERROR | %s", err)
+		return nil, err
+	}
+
+	buf, err = RemoveExtraKeysLoadBalancer(&buf)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | RemoveExtraKeysLoadBalancer | %s", err)
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", UrlEndPoint, &buf)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | NEW_REQUEST_ERROR | %s", err)
+		return nil, err
+	}
+
+	req, err = c.AddParamsAndHeader(req, location)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | ADDING_PARAMS_HEADER_ERROR | %s", err)
+		return nil, err
+	}
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | ERROR_WHILE_EXECUTING_REQUEST | %s", err)
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | CHECK_RESPONSE_STATUS | %s", err)
+		return nil, err
+	}
+
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		log.Printf("[ERROR] LoadBalancerBackendUpdate | UNMARSHAL_RESPONSE | %s", err)
+		return nil, err
+	}
+	return jsonRes, nil
 }
