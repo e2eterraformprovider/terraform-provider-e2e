@@ -36,7 +36,8 @@ func ResouceVpc() *schema.Resource {
 			},
 			"network_size": {
 				Type:     schema.TypeFloat,
-				Required: true,
+				Optional: true,
+				Default:  512,
 			},
 			"network_id": {
 				Type:        schema.TypeFloat,

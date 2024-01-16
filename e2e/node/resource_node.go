@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -251,15 +250,13 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if node.Vpc_id != "" {
-		for i := 0; i <= 60; i++ {
-			vpc_details, err := apiClient.GetVpc(node.Vpc_id)
-			if err != nil {
-				return diag.FromErr(err)
-			}
-			if vpc_details.Data.State != "Active" {
-				time.Sleep(5 * time.Second)
-				log.Println("creating node | vpc not in ready state")
-			}
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		data := vpc_details.Data
+		if data.State != "Active" {
+			return diag.Errorf("Can not create node resource, vpc is in %s state", data.State)
 		}
 	}
 
