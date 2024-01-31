@@ -377,7 +377,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "power_on",
-			Description: "power_on to start the node and power_off to power off the node",
+			Description: "power_on to start the load balancer and power_off to power off the load balancer",
 		},
 	}
 }
