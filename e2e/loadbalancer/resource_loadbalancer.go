@@ -124,6 +124,23 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Description: "This will contain the backend details which will be attached to load balancer",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
+					"name": {
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "This will be the name of your backend.",
+					},
+					"scaler_id": {
+						Type:        schema.TypeString,
+						Optional:    true,
+						Default:     "",
+						Description: "Need scalar ID if you want to attach autoscaling",
+					},
+					"scaler_port": {
+						Type:        schema.TypeString,
+						Optional:    true,
+						Default:     "",
+						Description: "Need scalar port if you want to attach autoscaling",
+					},
 					"balance": {
 						Type:        schema.TypeString,
 						Required:    true,
@@ -158,18 +175,12 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 						Description: "description of servers that are going to attach on backend",
 						Elem: &schema.Resource{
 							Schema: map[string]*schema.Schema{
-								"backend_name": {
-									Type:         schema.TypeString,
-									Required:     true,
-									Description:  "Node name which you want to attach",
-									ValidateFunc: node.ValidateName,
-								},
-								"backend_ip": {
+								"id": {
 									Type:        schema.TypeString,
 									Required:    true,
-									Description: "Private IP of the node",
+									Description: "Node id which you want to attach",
 								},
-								"backend_port": {
+								"port": {
 									Type:        schema.TypeString,
 									Required:    true,
 									Description: "Port Number of the node",
@@ -190,37 +201,57 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeList,
 			Optional:    true,
 			Description: "This will give the acl rule which you want to apply",
-			Elem:        &schema.Schema{Type: schema.TypeMap},
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"acl_name": {
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "Name of your ACL rule",
+					},
+					"acl_condition": {
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "Condition in which ACL rule will match",
+					},
+					"acl_matching_path": {
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "path in which this rule will work",
+					},
+				},
+			},
 		},
+
 		"acl_map": {
 			Type:        schema.TypeList,
 			Optional:    true,
 			Description: "This will give you how you want to route request according to acl rule",
-			Elem:        &schema.Schema{Type: schema.TypeMap},
-		},
-		"vpc_list": {
-			Type:        schema.TypeList,
-			Optional:    true,
-			Description: "detail of vpc attach to load balancer",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
-					"network_id": {
-						Type:        schema.TypeFloat,
-						Required:    true,
-						Description: "Network Id of vpc",
-					},
-					"vpc_name": {
+					"acl_name": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "name of the VPC",
+						Description: "Name of your ACL rule",
 					},
-					"ipv4_cidr": {
+					"acl_condition_state": {
+						Type:        schema.TypeBool,
+						Optional:    true,
+						Default:     true,
+						Description: "status of acl condition state",
+					},
+					"acl_backend": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "VPC ipv4 cidr",
+						Description: "Name of your backend server",
 					},
 				},
 			},
+		},
+		"vpc_list": {
+			Type:        schema.TypeSet,
+			Elem:        &schema.Schema{Type: schema.TypeInt},
+			Optional:    true,
+			Description: "List of vpc Id which you want to attach",
 		},
 		"enable_eos_logger": {
 			Type:        schema.TypeList,
@@ -251,18 +282,6 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 					},
 				},
 			},
-		},
-		"scaler_id": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "",
-			Description: "Need scalar ID if you want to attach autoscaling",
-		},
-		"scaler_port": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "",
-			Description: "Need scalar port if you want to attach autoscaling",
 		},
 		"tcp_backend": {
 			Type:        schema.TypeList,
@@ -304,18 +323,13 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 						Description: "description of servers that are going to attach on backend",
 						Elem: &schema.Resource{
 							Schema: map[string]*schema.Schema{
-								"backend_name": {
-									Type:         schema.TypeString,
+								"id": {
+									Type:         schema.TypeInt,
 									Required:     true,
-									Description:  "Node name which you want to attach",
+									Description:  "Node id which you want to attach",
 									ValidateFunc: node.ValidateName,
 								},
-								"backend_ip": {
-									Type:        schema.TypeString,
-									Required:    true,
-									Description: "Private IP of the node",
-								},
-								"backend_port": {
+								"port": {
 									Type:        schema.TypeInt,
 									Required:    true,
 									Description: "Port Number of the node",
@@ -331,6 +345,11 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Optional:    true,
 			Default:     false,
 			Description: "This is used to attach IPV6 on your load balancer",
+		},
+		"default_backend": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "",
 		},
 		"public_ip": {
 			Type:        schema.TypeString,
@@ -384,10 +403,6 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 
 func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) (*models.LoadBalancerCreate, diag.Diagnostics) {
 	log.Printf("[INFO] LOAD BALANCER OBJECT CREATION STARTS")
-	backends, err := ExpandBackends(d.Get("backends").([]interface{}))
-	if err != nil {
-		return nil, diag.FromErr(err)
-	}
 
 	loadBalancerObj := models.LoadBalancerCreate{
 		PlanName:         d.Get("plan_name").(string),
@@ -400,17 +415,10 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 		LbReserveIp:      d.Get("lb_reserve_ip").(string),
 		SslCertificateId: d.Get("ssl_certificate_id").(string),
 		EnableBitninja:   d.Get("enable_bitninja").(bool),
-		Backends:         backends,
-		ScalerId:         d.Get("scaler_id").(string),
-		ScalerPort:       d.Get("scaler_port").(string),
 		IsIpv6Attached:   d.Get("is_ipv6_attached").(bool),
+		DefaultBackend:   d.Get("default_backend").(string),
 	}
-	log.Println("=========================== LOAD BALANCER OBJECT ============================")
-	log.Println(loadBalancerObj)
 	enableEosLogger, ok := d.GetOk("enable_eos_logger")
-	log.Println("===========================GET EOS DETAIL================================")
-	log.Println(enableEosLogger)
-	log.Println(ok)
 	if ok {
 		eosDetail, err := ExpandEnableEosLogger(enableEosLogger.(*schema.Set).List())
 		if err != nil {
@@ -418,8 +426,6 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 		}
 		loadBalancerObj.EnableEosLogger = eosDetail
 	}
-	log.Println("=========================== LOAD BALANCER OBJECT ============================")
-	log.Println(loadBalancerObj)
 	aclList, ok := d.GetOk("acl_list")
 	if ok {
 		aclListDetail, err := ExpandAclList(aclList.(*schema.Set).List())
@@ -430,8 +436,6 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 	} else {
 		loadBalancerObj.AclList = make([]models.AclListInfo, 0)
 	}
-	log.Println("=========================== LOAD BALANCER OBJECT ============================")
-	log.Println(loadBalancerObj)
 	aclMap, ok := d.GetOk("acl_map")
 	if ok {
 		aclMapDetail, err := ExpandAclMap(aclMap.(*schema.Set).List())
@@ -442,17 +446,26 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 	} else {
 		loadBalancerObj.AclMap = make([]models.AclMapInfo, 0)
 	}
-	log.Println("=========================== LOAD BALANCER OBJECT ============================")
-	log.Println(loadBalancerObj)
 	tcpBackend, ok := d.GetOk("tcp_backend")
 	if ok {
-		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.(*schema.Set).List())
+		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.(*schema.Set).List(), apiClient)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.TcpBackend = tcpBackendDetail
 	} else {
 		loadBalancerObj.TcpBackend = make([]models.TcpBackendDetail, 0)
+	}
+
+	backends, ok := d.GetOk("backends")
+	if ok {
+		backendDetail, err := ExpandBackends(backends.([]interface{}), apiClient)
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
+		loadBalancerObj.Backends = backendDetail
+	} else {
+		loadBalancerObj.Backends = make([]models.Backend, 0)
 	}
 
 	vpcList, ok := d.GetOk("vpc_list")

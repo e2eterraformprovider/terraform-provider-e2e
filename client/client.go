@@ -75,7 +75,6 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 }
 
 func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
-
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("GET", urlNode, nil)
 	if err != nil {

@@ -32,11 +32,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]in
 	}
 	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/"
 	log.Printf("[INFO] CLIENT NEWLOADBALANCER| BEFORE REQUEST")
-	log.Println("========================LOAD BALANCER PAYLOAD FORMED BEFORE ===========================")
-	log.Println(buf.String())
 	buf, err = RemoveExtraKeysLoadBalancer(&buf)
-	log.Println("========================LOAD BALANCER PAYLOAD FORMED AFTER ===========================")
-	log.Println(buf.String())
 	if err != nil {
 		return nil, err
 	}

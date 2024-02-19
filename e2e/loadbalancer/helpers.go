@@ -1,6 +1,9 @@
 package loadbalancer
 
 import (
+	"fmt"
+
+	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -12,13 +15,13 @@ func GetLbPort(mode string) string {
 	return "443"
 }
 
-func ExpandBackends(config []interface{}) ([]models.Backend, error) {
+func ExpandBackends(config []interface{}, apiClient *client.Client) ([]models.Backend, error) {
 	backends := make([]models.Backend, 0, len(config))
 
 	for _, backend := range config {
 		detail := backend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].([]interface{}))
+		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient)
 		if err != nil {
 			return nil, err
 		}
@@ -29,22 +32,33 @@ func ExpandBackends(config []interface{}) ([]models.Backend, error) {
 			CheckUrl:       detail["check_url"].(string),
 			Servers:        servers,
 			HttpCheck:      detail["http_check"].(bool),
+			Name:           detail["name"].(string),
+			ScalerId:       detail["scaler_id"].(string),
+			ScalerPort:     detail["scaler_port"].(string),
 		}
 		backends = append(backends, r)
 	}
 	return backends, nil
 }
 
-func ExpandServers(config []interface{}) ([]models.Server, error) {
-	servers := make([]models.Server, 0, len(config))
+func ExpandServers(server_details interface{}, apiClient *client.Client) ([]models.Server, error) {
+	var servers []models.Server
 
-	for _, server := range config {
-		detail := server.(map[string]interface{})
-
+	for _, server := range server_details.([]interface{}) {
+		server_detail := server.(map[string]interface{})
+		node, err := apiClient.GetNode(server_detail["id"].(string))
+		if err != nil {
+			return nil, err
+		}
+		data := node["data"].(map[string]interface{})
+		status := data["status"].(string)
+		if status != "Running" {
+			return nil, fmt.Errorf("Node with id %s is not in running state", server_detail["id"].(string))
+		}
 		r := models.Server{
-			BackendName: detail["backend_name"].(string),
-			BackendIp:   detail["backend_ip"].(string),
-			BackendPort: detail["backend_port"].(string),
+			BackendName: data["name"].(string),
+			BackendIp:   data["private_ip_address"].(string),
+			BackendPort: server_detail["port"].(string),
 		}
 
 		servers = append(servers, r)
@@ -54,29 +68,61 @@ func ExpandServers(config []interface{}) ([]models.Server, error) {
 
 func ExpandAclList(config []interface{}) ([]models.AclListInfo, error) {
 	aclList := make([]models.AclListInfo, 0, len(config))
+
+	for _, acl := range config {
+		aclRule := acl.(map[string]interface{})
+
+		r := models.AclListInfo{
+			AclName:         aclRule["acl_name"].(string),
+			AclCondition:    aclRule["acl_condition"].(string),
+			AclMatchingPath: aclRule["acl_matching_path"].(string),
+		}
+
+		aclList = append(aclList, r)
+	}
 	return aclList, nil
 }
 
 func ExpandAclMap(config []interface{}) ([]models.AclMapInfo, error) {
 	aclMap := make([]models.AclMapInfo, 0, len(config))
+
+	for _, backendlist := range config {
+		aclMapData := backendlist.(map[string]interface{})
+
+		r := models.AclMapInfo{
+			AclName:           aclMapData["acl_name"].(string),
+			AclConditionState: true,
+			AclBackend:        aclMapData["acl_backend"].(string),
+		}
+
+		aclMap = append(aclMap, r)
+	}
 	return aclMap, nil
 }
 
-func ExpandVpcList(config []interface{}) ([]models.VpcDetail, error) {
-	vpcList := make([]models.VpcDetail, 0, len(config))
+func ExpandVpcList(vpc_list []interface{}) ([]models.VpcDetail, error) {
+	var m interface{}
+	apiClient := m.(*client.Client)
+	var vpc_details []models.VpcDetail
 
-	for _, vpc := range config {
-		detail := vpc.(map[string]interface{})
-
+	for _, id := range vpc_list {
+		vpc_detail, err := apiClient.GetVpc(id.(string))
+		if err != nil {
+			return nil, err
+		}
+		data := vpc_detail.Data
+		if data.State != "Active" {
+			return nil, fmt.Errorf("Can not attach vpc currently, vpc is in %s state", data.State)
+		}
 		r := models.VpcDetail{
-			Network_id: detail["network_id"].(float64),
-			VpcName:    detail["vpc_name"].(string),
-			Ipv4_cidr:  detail["ipv4_cidr"].(string),
+			Network_id: data.Network_id,
+			VpcName:    data.Name,
+			Ipv4_cidr:  data.Ipv4_cidr,
 		}
 
-		vpcList = append(vpcList, r)
+		vpc_details = append(vpc_details, r)
 	}
-	return vpcList, nil
+	return vpc_details, nil
 }
 
 func ExpandEnableEosLogger(config []interface{}) (models.EosDetail, error) {
@@ -92,13 +138,13 @@ func ExpandEnableEosLogger(config []interface{}) (models.EosDetail, error) {
 	return eosDetail, nil
 }
 
-func ExpandTcpBackend(config []interface{}) ([]models.TcpBackendDetail, error) {
+func ExpandTcpBackend(config []interface{}, apiClient *client.Client) ([]models.TcpBackendDetail, error) {
 	tcpBackends := make([]models.TcpBackendDetail, 0, len(config))
 
 	for _, tcpBackend := range config {
 		detail := tcpBackend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].([]interface{}))
+		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient)
 		if err != nil {
 			return nil, err
 		}

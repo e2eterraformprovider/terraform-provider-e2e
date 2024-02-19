@@ -17,10 +17,9 @@ type LoadBalancerCreate struct {
 	AclMap           []AclMapInfo           `json:"acl_map"`
 	VpcList          []VpcDetail            `json:"vpc_list"`
 	EnableEosLogger  EosDetail              `json:"enable_eos_logger,omitempty"`
-	ScalerId         string                 `json:"scaler_id"`
-	ScalerPort       string                 `json:"scaler_port"`
 	TcpBackend       []TcpBackendDetail     `json:"tcp_backend"`
 	IsIpv6Attached   bool                   `json:"is_ipv6_attached"`
+	DefaultBackend   string                 `json:"default_backend"`
 }
 
 type Backend struct {
@@ -30,6 +29,9 @@ type Backend struct {
 	CheckUrl       string   `json:"check_url"`
 	Servers        []Server `json:"servers"`
 	HttpCheck      bool     `json:"http_check"`
+	Name           string   `json:"name"`
+	ScalerId       string   `json:"scaler_id"`
+	ScalerPort     string   `json:"scaler_port"`
 }
 
 type Server struct {
@@ -60,7 +62,7 @@ type AclListInfo struct {
 
 type AclMapInfo struct {
 	AclBackend        string `json:"acl_backend,omitempty"`
-	AclConditionState string `json:"acl_condition_state,omitempty"`
+	AclConditionState bool   `json:"acl_condition_state,omitempty"`
 	AclName           string `json:"acl_name,omitempty"`
 }
 

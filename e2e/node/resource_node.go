@@ -247,18 +247,16 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Start_scripts:     d.Get("start_scripts").([]interface{}),
 	}
 
-	// if node.Vpc_id != "" {
-	// 	for i := 0; i <= 60; i++ {
-	// 		vpc_details, err := apiClient.GetVpc(node.Vpc_id)
-	// 		if err != nil {
-	// 			return diag.FromErr(err)
-	// 		}
-	// 		if vpc_details.Data.State != "Active" {
-	// 			time.Sleep(5 * time.Second)
-	// 			log.Println("creating node | vpc not in ready state")
-	// 		}
-	// 	}
-	// }
+	if node.Vpc_id != "" {
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		data := vpc_details.Data
+		if data.State != "Active" {
+			return diag.Errorf("Can not create node resource, vpc is in %s state", data.State)
+		}
+	}
 
 	resnode, err := apiClient.NewNode(&node)
 	if err != nil {
