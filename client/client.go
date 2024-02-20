@@ -46,8 +46,8 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 	}
 
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id",project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -74,7 +74,7 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 
 }
 
-func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
+func (c *Client) GetNode(nodeId string , project_id string) (map[string]interface{}, error) {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("GET", urlNode, nil)
@@ -83,14 +83,15 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	}
 	log.Printf("[INFO] CLIENT | NODE READ")
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
+	params.Add("project_id",project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 
+	// log.Printf("req url GetNode = %v", req.URL)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	return jsonRes, nil
 }
 
-func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
+func (c *Client) GetNodes(location string,project_id string) (*models.ResponseNodes, error) {
 
 	urlGetNodes := c.Api_endpoint + "nodes/"
 	req, err := http.NewRequest("GET", urlGetNodes, nil)
@@ -129,8 +130,9 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	}
 	log.Printf("[INFO] CLIENT GET NODES")
 	params := req.URL.Query()
-
+    
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id",project_id)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
@@ -170,7 +172,7 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string, action string, Name string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string,action string, Name string,project_id string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,
@@ -179,17 +181,20 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	nodeAction, err := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(nodeAction))
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
 	if err != nil {
 		return nil, err
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id",project_id)
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 	req.URL.RawQuery = params.Encode()
+	log.Printf("this is request==============%v",req)
 	response, err := c.HttpClient.Do(req)
+	
 
 	if err != nil {
 
@@ -216,7 +221,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	return jsonRes, err
 }
 
-func (c *Client) DeleteNode(nodeId string) error {
+func (c *Client) DeleteNode(nodeId string,project_id string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("DELETE", urlNode, nil)
@@ -226,6 +231,7 @@ func (c *Client) DeleteNode(nodeId string) error {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id",project_id)
 	params.Add("contact_person_id", "null")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
