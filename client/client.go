@@ -31,8 +31,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error) {
-
+func (c *Client) NewNode(item *models.NodeCreate,project_id string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -192,7 +191,6 @@ func (c *Client) UpdateNode(nodeId string,action string, Name string,project_id 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 	req.URL.RawQuery = params.Encode()
-	log.Printf("this is request==============%v",req)
 	response, err := c.HttpClient.Do(req)
 	
 
