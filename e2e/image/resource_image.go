@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	//"time"
@@ -65,6 +66,11 @@ func ResourceImage() *schema.Resource {
 				Computed:    true,
 				Description: "type of distro used",
 			},
+			"project_id": {
+				Type:        schema.TypeInt,
+				Required:    true,
+				Description: "project_id",
+			},
 		},
 
 		CreateContext: resourceCreateImage,
@@ -98,10 +104,11 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	// projectID := d.Get("project_id").(string)
+	// log.Printf("projectID type: %T, value: %s\n", projectID, projectID)
 
-	log.Printf("[INFO] IMAGE CREATE ")
-
-	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string))
+	log.Printf("[INFO] IMAGE CREATE")
+	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -127,7 +134,7 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Printf("[info] inside node Resource read")
 	imageId := d.Id()
 
-	imageres, err := apiClient.GetImage(imageId)
+	imageres, err := apiClient.GetImage(imageId, strconv.Itoa(d.Get("project_id").(int)))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -171,7 +178,7 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	log.Printf("[INFO] DELETE IMAGE")
 	imageId := d.Id()
 
-	err := apiClient.DeleteImage(imageId)
+	err := apiClient.DeleteImage(imageId, strconv.Itoa(d.Get("project_id").(int)))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -183,7 +190,7 @@ func resourceExistsImage(d *schema.ResourceData, m interface{}) (bool, error) {
 	apiClient := m.(*client.Client)
 
 	ImageId := d.Id()
-	_, err := apiClient.GetImage(ImageId)
+	_, err := apiClient.GetImage(ImageId, strconv.Itoa(d.Get("project_id").(int)))
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {

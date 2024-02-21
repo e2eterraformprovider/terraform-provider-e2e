@@ -7,7 +7,7 @@ import (
 	// "math"
 	// "regexp"
 
-	// "strconv"
+	"strconv"
 	//"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -29,6 +29,11 @@ func DataSourceImages() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "Mention the region of the images you want to list",
+			},
+			"project_id": {
+				Type:        schema.TypeInt,
+				Required:    true,
+				Description: "project id associated to images",
 			},
 			"image_list": {
 				Type:        schema.TypeList,
@@ -91,7 +96,7 @@ func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interfa
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSavedImages(d.Get("region").(string))
+	Response, err := apiClient.GetSavedImages(d.Get("region").(string), strconv.Itoa(d.Get("project_id").(int)))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}
