@@ -250,6 +250,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		Security_group_id: d.Get("security_group_id").(int),
 		SSH_keys:          d.Get("ssh_keys").([]interface{}),
 		Start_scripts:     d.Get("start_scripts").([]interface{}),
+		// Project_id:        d.Get("project_id").(string),
 	}
 
 	// if node.Vpc_id != "" {
@@ -324,7 +325,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
-
+    // d.Set("project_id", data["project_id"].(string))
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {
 		d.Set("power_status", "power_on")
