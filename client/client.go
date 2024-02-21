@@ -31,7 +31,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error) {
+func (c *Client) NewNode(item *models.NodeCreate,project_id string) (map[string]interface{}, error) {
 
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)

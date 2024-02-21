@@ -5,10 +5,12 @@ import (
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sfs"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	
 )
 
 func Provider() *schema.Provider {
@@ -37,12 +39,13 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"example_node":         node.ResourceNode(),
+			"example_sfs":          sfs.ResourceSfs(),
 			// "example_image":        image.ResourceImage(),
 			// "example_loadbalancer": loadbalancer.ResourceLoadBalancer(),
 			// "example_vpc":          vpc.ResouceVpc(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"example_node":   node.DataSourceNode(),
+			"example_node":   node.DataSourceNode(),   
 			// "example_images": image.DataSourceImages(),
 			//"example_security_groups": security_group.DataSourceSecurityGroups(),
 			"example_ssh_keys":    ssh_key.DataSourceSshKeys(),
