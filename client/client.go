@@ -140,7 +140,6 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 	req.Header.Add("Content-Type", "application/json")
 
 	req.Header.Add("User-Agent", "terraform-e2e")
-
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err

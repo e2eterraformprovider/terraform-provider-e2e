@@ -7,8 +7,6 @@ import (
 	// "math"
 	// "regexp"
 
-	"strconv"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	// "github.com/devteametwoe/terraform-provider-e2e/models"
 
@@ -89,7 +87,7 @@ func DataSourceNode() *schema.Resource {
 				Description: "if the node is locked or not",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				Description: "Project id associated to node",
 			},
@@ -105,7 +103,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] INSIDE NODE DATA SOURCE | read")
 	nodeId := d.Get("node_id").(string)
 
-	node, err := apiClient.GetNode(nodeId, strconv.Itoa(d.Get("project_id").(int)))
+	node, err := apiClient.GetNode(nodeId, d.Get("project_id").(string))
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 	}

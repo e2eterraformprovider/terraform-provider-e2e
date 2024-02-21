@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 
 	//"time"
@@ -67,7 +66,7 @@ func ResourceImage() *schema.Resource {
 				Description: "type of distro used",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				Description: "project_id",
 			},
@@ -108,7 +107,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	// log.Printf("projectID type: %T, value: %s\n", projectID, projectID)
 
 	log.Printf("[INFO] IMAGE CREATE")
-	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -134,7 +133,7 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Printf("[info] inside node Resource read")
 	imageId := d.Id()
 
-	imageres, err := apiClient.GetImage(imageId, strconv.Itoa(d.Get("project_id").(int)))
+	imageres, err := apiClient.GetImage(imageId, d.Get("project_id").(string))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -178,7 +177,7 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	log.Printf("[INFO] DELETE IMAGE")
 	imageId := d.Id()
 
-	err := apiClient.DeleteImage(imageId, strconv.Itoa(d.Get("project_id").(int)))
+	err := apiClient.DeleteImage(imageId, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -190,7 +189,7 @@ func resourceExistsImage(d *schema.ResourceData, m interface{}) (bool, error) {
 	apiClient := m.(*client.Client)
 
 	ImageId := d.Id()
-	_, err := apiClient.GetImage(ImageId, strconv.Itoa(d.Get("project_id").(int)))
+	_, err := apiClient.GetImage(ImageId, d.Get("project_id").(string))
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {

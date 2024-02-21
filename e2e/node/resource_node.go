@@ -46,7 +46,7 @@ func ResourceNode() *schema.Resource {
 				Description: "name of the Plan",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				Description: "project id associated to the node.",
 			},
@@ -265,7 +265,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	// 	}
 	// }
 
-	resnode, err := apiClient.NewNode(&node, strconv.Itoa(d.Get("project_id").(int)))
+	resnode, err := apiClient.NewNode(&node, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -299,7 +299,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 
-	node, err := apiClient.GetNode(nodeId, strconv.Itoa(d.Get("project_id").(int)))
+	node, err := apiClient.GetNode(nodeId, d.Get("project_id").(string))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -341,7 +341,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	nodeId := d.Id()
 
-	_, err := apiClient.GetNode(nodeId, strconv.Itoa(d.Get("project_id").(int)))
+	_, err := apiClient.GetNode(nodeId, d.Get("project_id").(string))
 	if err != nil {
 
 		return diag.Errorf("error finding Item with ID %s", nodeId)
@@ -357,7 +357,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("cannot change the power status as the node is locked")
 		}
 		log.Printf("[INFO] %s ", d.Get("power_status").(string))
-		apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+		apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), d.Get("project_id").(string))
 	}
 
 	if d.HasChange("lock_node") {
@@ -365,13 +365,13 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
 		}
 		if d.Get("lock_node").(bool) == true {
-			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), d.Get("project_id").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
 		}
 		if d.Get("lock_node").(bool) == false {
-			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), d.Get("project_id").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -388,7 +388,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if d.Get("status").(string) == "Powered off" {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), d.Get("project_id").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -410,7 +410,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Node already in Reinstalling state")
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), strconv.Itoa(d.Get("project_id").(int)))
+			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), d.Get("project_id").(string))
 			d.Set("reinstall_node", false)
 			if err != nil {
 				return diag.FromErr(err)
@@ -425,7 +425,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				return diag.Errorf("save_image_name empty")
 			}
 
-			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), strconv.Itoa(d.Get("project_id").(int)))
+			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), d.Get("project_id").(string))
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -444,7 +444,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	if node_status == "Saving" || node_status == "Creating" {
 		return diag.Errorf("Node in %s state", node_status)
 	}
-	err := apiClient.DeleteNode(nodeId, strconv.Itoa(d.Get("project_id").(int)))
+	err := apiClient.DeleteNode(nodeId, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -456,7 +456,7 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 	apiClient := m.(*client.Client)
 
 	nodeId := d.Id()
-	_, err := apiClient.GetNode(nodeId, strconv.Itoa(d.Get("project_id").(int)))
+	_, err := apiClient.GetNode(nodeId, d.Get("project_id").(string))
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {

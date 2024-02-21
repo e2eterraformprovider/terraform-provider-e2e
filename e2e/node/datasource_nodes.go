@@ -8,7 +8,6 @@ import (
 	// "math"
 	// "regexp"
 
-	"strconv"
 	// "strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -31,7 +30,7 @@ func DataSourceNodes() *schema.Resource {
 				Description: "Region should specified",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				Description: "project id associated to images",
 			},
@@ -86,7 +85,7 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside nodes data source ")
-	Response, err := apiClient.GetNodes(d.Get("region").(string), strconv.Itoa(d.Get("project_id").(int)))
+	Response, err := apiClient.GetNodes(d.Get("region").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
