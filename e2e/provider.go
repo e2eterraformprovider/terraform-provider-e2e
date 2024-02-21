@@ -39,6 +39,7 @@ func Provider() *schema.Provider {
 			"example_node":         node.ResourceNode(),
 			"example_image":        image.ResourceImage(),
 			"example_loadbalancer": loadbalancer.ResourceLoadBalancer(),
+			"example_vpc":          vpc.ResouceVpc(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"example_node":   node.DataSourceNode(),

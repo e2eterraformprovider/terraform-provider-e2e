@@ -3,7 +3,7 @@ package models
 type LoadBalancerCreate struct {
 	PlanName         string                 `json:"plan_name"`
 	LbName           string                 `json:"lb_name"`
-	LbType           string                 `json:"lb_type"`
+	LbType           string                 `json:"lb_type,omitempty"`
 	LbMode           string                 `json:"lb_mode"`
 	LbPort           string                 `json:"lb_port"`
 	NodeListType     string                 `json:"node_list_type"`

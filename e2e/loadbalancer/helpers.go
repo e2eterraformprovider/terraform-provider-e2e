@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -63,6 +64,9 @@ func ExpandServers(server_details interface{}, apiClient *client.Client) ([]mode
 
 		servers = append(servers, r)
 	}
+	if len(servers) == 0 {
+		return make([]models.Server, 0), nil
+	}
 	return servers, nil
 }
 
@@ -100,13 +104,11 @@ func ExpandAclMap(config []interface{}) ([]models.AclMapInfo, error) {
 	return aclMap, nil
 }
 
-func ExpandVpcList(vpc_list []interface{}) ([]models.VpcDetail, error) {
-	var m interface{}
-	apiClient := m.(*client.Client)
+func ExpandVpcList(vpc_list []interface{}, apiClient *client.Client) ([]models.VpcDetail, error) {
 	var vpc_details []models.VpcDetail
 
 	for _, id := range vpc_list {
-		vpc_detail, err := apiClient.GetVpc(id.(string))
+		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)))
 		if err != nil {
 			return nil, err
 		}

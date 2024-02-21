@@ -231,7 +231,8 @@ func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", UrlEndPoint, &buf)
+	log.Printf("================LOAD BALANCER UPDATE API INFO==================, %s, %s", UrlEndPoint, &buf)
+	req, err := http.NewRequest("PUT", UrlEndPoint, &buf)
 	if err != nil {
 		log.Printf("[ERROR] LoadBalancerBackendUpdate | NEW_REQUEST_ERROR | %s", err)
 		return nil, err
@@ -264,5 +265,6 @@ func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId
 		log.Printf("[ERROR] LoadBalancerBackendUpdate | UNMARSHAL_RESPONSE | %s", err)
 		return nil, err
 	}
+	log.Printf("[INFO] LoadBalancerBackendUpdate | LOAD BALANCER API UPDATE CALL SUCCESS | RESPONSE | %s", jsonRes)
 	return jsonRes, nil
 }
