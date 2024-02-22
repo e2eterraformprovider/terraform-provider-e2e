@@ -5,3 +5,5 @@ terraform.tfstate.backup
 .terraform
 terraform-provider-e2e
 .terraform.lock.hcl
+temp.txt
+doubt.txt
