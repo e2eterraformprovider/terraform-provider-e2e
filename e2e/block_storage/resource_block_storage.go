@@ -228,7 +228,7 @@ func validateSize(i interface{}, key string) (ws []string, es []error) {
 		return
 	}
 
-	validSizes := []float64{5, 10} // These values are just for testing on stage environment
+	validSizes := []float64{250, 500, 1000, 2000, 4000, 8000} // These values are the size options available on MyAccount
 	valid := false
 	for _, size := range validSizes {
 		if bsSize == size {
