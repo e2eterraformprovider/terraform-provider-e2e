@@ -32,9 +32,9 @@ func Provider() *schema.Provider {
 			"api_endpoint": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "https://api-stage.e2enetworks.net/myaccount/api/v1/",
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api-stage.e2enetworks.net/myaccount/api/v1/"),
-				Description: "specify the endpoint , default endpoint is https://api-stage.e2enetworks.net/myaccount/api/v1/",
+				Default:     "https://api.e2enetworks.com/myaccount/api/v1/",
+				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
+				Description: "specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
