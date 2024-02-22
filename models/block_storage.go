@@ -4,8 +4,6 @@ type BlockStorageCreate struct {
 	Name string  `json:"name"`
 	Size float64 `json:"size"`
 	IOPS int     `json:"iops"`
-	// ProjectID int    `json:"project_id"`
-	// Location  string `json:"location"`
 }
 
 type BlockStorageResponse struct {
@@ -15,21 +13,9 @@ type BlockStorageResponse struct {
 	Message string                 `json:"message"`
 }
 
-// type BlockStorage struct {
-// 	ID           int         `json:"id"`
-// 	ImageName    string      `json:"image_name"`
-// 	ResourceType interface{} `json:"resource_type"`
-// 	LabelID      interface{} `json:"label_id"`
-// }
-
 type BlockAction struct {
 }
 
-// Just Trying
-// type BlockStorageParams struct {
-// 	ProjectID int    `json:"project_id"`
-// 	Location  string `json:"location"`
-// }
 
 type BlockStorage struct {
 	BlockID  int    `json:"block_id"`
