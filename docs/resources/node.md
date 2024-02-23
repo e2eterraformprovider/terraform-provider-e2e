@@ -28,6 +28,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `image` : (Required)(String) The name of the image you have selected format 
 - `name` : (Required)(String) The name of the resource, also acts as it's unique ID
 - `plan` : (Required)(String) name of the Plan
+- `project_id` : (Required)(String) project id associated to the node.
 - `region` : (Required) (String) Location where node is to be launched
 - `label` : (Optional)(String) The name of the group . Default value is "default"
 - `backup` : (Optional)(Boolean) Tells you the state of your backups
