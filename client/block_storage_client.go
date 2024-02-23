@@ -42,13 +42,11 @@ func (c *Client) NewBlockStorage(item *models.BlockStorageCreate, project_id int
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
-		log.Printf("yaaaa toh idhar fattttttaaaaaa haiiiiiiii!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    (1)")
 		return nil, err
 	}
 
 	err = CheckResponseStatus(response)
 	if err != nil {
-		log.Printf("yaaaa fir idhar fattttttaaaaaa haiiiiiiii!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    (2)")
 		return nil, err
 	}
 
@@ -60,10 +58,8 @@ func (c *Client) NewBlockStorage(item *models.BlockStorageCreate, project_id int
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
 	if err != nil {
-		log.Printf("kahi idhar toh nahi fattttttaaaaaa haiiiiiiii???????????????????????   (3)")
 		return nil, err
 	}
-	log.Printf("kuch samajh nhi aa rha haiiiiiiiiiii!!!!!!!!!!!!!!!!!!!!!!   (4)")
 	return jsonRes, nil
 }
 
