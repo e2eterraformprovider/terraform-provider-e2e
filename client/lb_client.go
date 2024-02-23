@@ -11,11 +11,12 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
-func (c *Client) AddParamsAndHeader(req *http.Request, location string) (*http.Request, error) {
+func (c *Client) AddParamsAndHeader(req *http.Request, location string, project_id string) (*http.Request, error) {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -24,7 +25,7 @@ func (c *Client) AddParamsAndHeader(req *http.Request, location string) (*http.R
 	return req, nil
 }
 
-func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]interface{}, error) {
+func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate, project_id string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -42,6 +43,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]in
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -66,7 +68,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate) (map[string]in
 	return jsonRes, nil
 }
 
-func (c *Client) GetLoadBalancerInfo(lbId string, location string) (map[string]interface{}, error) {
+func (c *Client) GetLoadBalancerInfo(lbId string, location string, project_id string) (map[string]interface{}, error) {
 	urlLbInfo := c.Api_endpoint + "appliances/" + lbId + "/"
 	req, err := http.NewRequest("GET", urlLbInfo, nil)
 	if err != nil {
@@ -75,7 +77,7 @@ func (c *Client) GetLoadBalancerInfo(lbId string, location string) (map[string]i
 
 	log.Printf("[INFO] CLIENT | LOAD BALANCER READ")
 
-	req, err = c.AddParamsAndHeader(req, location)
+	req, err = c.AddParamsAndHeader(req, location, project_id)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +113,7 @@ func (c *Client) GetLoadBalancerInfo(lbId string, location string) (map[string]i
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteLoadBalancer(lbId string, location string) error {
+func (c *Client) DeleteLoadBalancer(lbId string, location string, project_id string) error {
 	urlLbInfo := c.Api_endpoint + "appliances/" + lbId + "/"
 	req, err := http.NewRequest("DELETE", urlLbInfo, nil)
 	if err != nil {
@@ -120,7 +122,7 @@ func (c *Client) DeleteLoadBalancer(lbId string, location string) error {
 
 	log.Printf("[INFO] CLIENT | LOAD BALANCER DELETE")
 
-	req, err = c.AddParamsAndHeader(req, location)
+	req, err = c.AddParamsAndHeader(req, location, project_id)
 	if err != nil {
 		return err
 	}
@@ -141,7 +143,7 @@ func (c *Client) DeleteLoadBalancer(lbId string, location string) error {
 	return nil
 }
 
-func (c *Client) UpdateLoadBalancerAction(data map[string]interface{}, lbId string, location string) error {
+func (c *Client) UpdateLoadBalancerAction(data map[string]interface{}, lbId string, location string, project_id string) error {
 	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/actions/"
 
 	requestBody, err := json.Marshal(data)
@@ -156,7 +158,7 @@ func (c *Client) UpdateLoadBalancerAction(data map[string]interface{}, lbId stri
 		return err
 	}
 
-	req, err = c.AddParamsAndHeader(req, location)
+	req, err = c.AddParamsAndHeader(req, location, project_id)
 	if err != nil {
 		log.Printf("[ERROR] UpdateLoadBalancerAction | ADDING_PARAMS_HEADER_ERROR | %s", err)
 		return err
@@ -178,7 +180,7 @@ func (c *Client) UpdateLoadBalancerAction(data map[string]interface{}, lbId stri
 	return nil
 }
 
-func (c *Client) IPV6LoadBalancerAction(data map[string]interface{}, lbId string, location string) error {
+func (c *Client) IPV6LoadBalancerAction(data map[string]interface{}, lbId string, location string, project_id string) error {
 	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/ipv6/"
 
 	requestBody, err := json.Marshal(data)
@@ -193,7 +195,7 @@ func (c *Client) IPV6LoadBalancerAction(data map[string]interface{}, lbId string
 		return err
 	}
 
-	req, err = c.AddParamsAndHeader(req, location)
+	req, err = c.AddParamsAndHeader(req, location, project_id)
 	if err != nil {
 		log.Printf("[ERROR] IPV6LoadBalancerAction | ADDING_PARAMS_HEADER_ERROR | %s", err)
 		return err
@@ -215,7 +217,7 @@ func (c *Client) IPV6LoadBalancerAction(data map[string]interface{}, lbId string
 	return nil
 }
 
-func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId string, location string) (map[string]interface{}, error) {
+func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId string, location string, project_id string) (map[string]interface{}, error) {
 	UrlEndPoint := c.Api_endpoint + "appliances/load-balancers/" + lbId + "/"
 
 	buf := bytes.Buffer{}
@@ -238,7 +240,7 @@ func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId
 		return nil, err
 	}
 
-	req, err = c.AddParamsAndHeader(req, location)
+	req, err = c.AddParamsAndHeader(req, location, project_id)
 	if err != nil {
 		log.Printf("[ERROR] LoadBalancerBackendUpdate | ADDING_PARAMS_HEADER_ERROR | %s", err)
 		return nil, err

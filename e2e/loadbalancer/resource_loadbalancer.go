@@ -350,6 +350,17 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Optional: true,
 			Default:  "",
 		},
+		"power_status": {
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     "power_on",
+			Description: "power_on to start the load balancer and power_off to power off the load balancer",
+		},
+		"project_id": {
+			Type:        schema.TypeString,
+			Required:    true,
+			Description: "This is your project ID in which you want to create the resource.",
+		},
 		"public_ip": {
 			Type:        schema.TypeString,
 			Computed:    true,
@@ -390,12 +401,6 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "This is the status of your loadbalancer, only to get the status from my account.",
-		},
-		"power_status": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "power_on",
-			Description: "power_on to start the load balancer and power_off to power off the load balancer",
 		},
 	}
 }
@@ -496,7 +501,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if diags != nil {
 		return diags
 	}
-	response, err := apiClient.NewLoadBalancer(loadBalancerObj)
+	response, err := apiClient.NewLoadBalancer(loadBalancerObj, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -526,7 +531,7 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	log.Printf("=============INSIDE RESOURCE READ LOAD BALANCER==========================")
 	lbId := d.Id()
 	location := d.Get("location").(string)
-	lb, err := apiClient.GetLoadBalancerInfo(lbId, location)
+	lb, err := apiClient.GetLoadBalancerInfo(lbId, location, d.Get("project_id").(string))
 	log.Println("===========GET_LOAD_BALANCER_RESPONSE==========", lb)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", lbId)
@@ -572,7 +577,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	lbId := d.Id()
 	location := d.Get("location").(string)
 	lb_status := d.Get("status").(string)
-	response, err := apiClient.GetLoadBalancerInfo(lbId, location)
+	response, err := apiClient.GetLoadBalancerInfo(lbId, location, d.Get("project_id").(string))
 	data := response["data"].(map[string]interface{})
 	if err != nil {
 		return diag.Errorf("error Fetching Load Balancer resource with ID %s", lbId)
@@ -588,7 +593,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		}
 
 		payload := map[string]interface{}{"type": d.Get("power_status").(string)}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -606,7 +611,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 			"name":      data["name"].(string),
 			"plan_name": newPlanName,
 		}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -622,7 +627,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 			"type": "rename",
 			"name": d.Get("lb_name").(string),
 		}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location)
+		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -644,7 +649,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 				"detach_ipv6": lb_context["host_target_ipv6"].(string),
 			}
 		}
-		err := apiClient.IPV6LoadBalancerAction(payload, lbId, location)
+		err := apiClient.IPV6LoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -655,7 +660,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if diags != nil {
 		return diags
 	}
-	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location)
+	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location, d.Get("project_id").(string))
 	resData := res["data"].(map[string]interface{})
 	if resData["is_credit_sufficient"] == false {
 		return diag.Errorf("Credit is not sufficient")
@@ -674,7 +679,7 @@ func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("Load Balancer is in %s state. Currently can not destroy the resource.", lb_status)
 	}
 
-	err := apiClient.DeleteLoadBalancer(lbId, d.Get("location").(string))
+	err := apiClient.DeleteLoadBalancer(lbId, d.Get("location").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
