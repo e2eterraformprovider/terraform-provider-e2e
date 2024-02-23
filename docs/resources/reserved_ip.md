@@ -25,15 +25,13 @@ description: |-
 
 ### Read-Only
 
-- `appliance_type` (String) type of appliance
+- `appliance_type` (String) type of appliance from whom it is attached
 - `bought_at` (String) time at which the reserve ip is bought
 - `id` (String) The ID of this resource.
 - `ip_address` (String) ip address of the reserve ip
-- `project_name` (String) project name
+- `project_name` (String) project name  in which the reserve ip is to be created
 - `reserve_id` (Number) reserve id
-- `reserved_type` (String) type of reserve ip
-- `status` (String) status of the reserve ip
-- `vm_id` (String) specify the vm id
-- `vm_name` (String) vm name
-
-
+- `reserved_type` (String) type of reserve_ip (example - PublicIP, AddonIP)
+- `status` (String) status of the reserve_ip (example - Attached, Available)
+- `vm_id` (String) ID of virtual machine from whom it is attached
+- `vm_name` (String) vm name from whom it is attached
