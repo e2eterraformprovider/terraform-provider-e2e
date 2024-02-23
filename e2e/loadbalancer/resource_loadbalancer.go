@@ -360,6 +360,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeString,
 			Required:    true,
 			Description: "This is your project ID in which you want to create the resource.",
+			ForceNew:    true,
 		},
 		"public_ip": {
 			Type:        schema.TypeString,
@@ -391,6 +392,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Optional:    true,
 			Default:     "Delhi",
 			Description: "This is the region of your loadbalancer",
+			ForceNew:    true,
 		},
 		"host_target_ipv6": {
 			Type:        schema.TypeString,
