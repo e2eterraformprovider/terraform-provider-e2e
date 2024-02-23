@@ -98,7 +98,7 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	blockStorage := models.BlockStorageCreate{
 		Name: d.Get("name").(string),
 		Size: d.Get("size").(float64),
-		IOPS: d.Get("iops").(int), //I think because we are not taking this from the end user as input
+		// IOPS: d.Get("iops").(int), //I think because we are not taking this from the end user as input
 	}
 
 	iops := calculateIOPS(blockStorage.Size)
@@ -106,7 +106,6 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	resBlockStorage, err := apiClient.NewBlockStorage(&blockStorage, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
-		log.Printf("Idhar fattaaaaaa")
 		return diag.FromErr(err)
 	}
 
