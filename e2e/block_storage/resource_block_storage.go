@@ -209,12 +209,26 @@ func resourceExistsBlockStorage(d *schema.ResourceData, m interface{}) (bool, er
 }
 
 func calculateIOPS(size float64) int {
-	if size == 5 {
-		return 75
-	} else if size == 10 {
-		return 150
+	switch size {
+	case 250:
+		return 5000
+	case 500:
+		return 10000
+	case 1000:
+		return 20000
+	case 2000:
+		return 40000
+	case 4000:
+		return 80000
+	case 8000:
+		return 120000
+	case 16000:
+		return 240000
+	case 24000:
+		return 360000
+	default:
+		return 0
 	}
-	return 0
 }
 
 func convertIntoGB(bsSizeRes float64) float64 {
