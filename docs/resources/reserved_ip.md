@@ -21,7 +21,7 @@ description: |-
 
 ### Optional
 
-- `test_field_internal` (String)
+- `location` (String) Location where node is to be launched
 
 ### Read-Only
 

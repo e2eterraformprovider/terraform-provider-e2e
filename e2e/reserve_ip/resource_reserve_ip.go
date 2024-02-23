@@ -30,6 +30,11 @@ func ResourceReserveIP() *schema.Resource {
 				Description: "specify the project id in which the reserve ip is to be created",
 				ForceNew:    true,
 			},
+			"location": {
+				Type:     schema.TypeString,
+				Default:  "Delhi",
+				Optional: true,
+			},
 			"ip_address": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -75,10 +80,6 @@ func ResourceReserveIP() *schema.Resource {
 				Computed:    true,
 				Description: "project name",
 			},
-			"test_field_internal": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
 		},
 
 		CreateContext: resourceCreateReserveIP,
@@ -104,7 +105,7 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
 
-	res, err := apiClient.NewReservedIp(d.Get("project_id").(string), "Delhi")
+	res, err := apiClient.NewReservedIp(d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -140,9 +141,9 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 
-	reserveId := d.Id()
+	reserveId := d.Get("ip_address").(string)
 	project_id := d.Get("project_id").(string)
-	res, err := apiClient.GetReservedIp(reserveId, project_id, "Delhi")
+	res, err := apiClient.GetReservedIp(reserveId, project_id, d.Get("location").(string))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -157,21 +158,19 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 	if !codeok {
 		return diag.Errorf(res.Message)
 	}
-	data := res.Data[0]
-	log.Printf("[INFO] ReserveIP READ | BEFORE SETTING DATA %+v, %v, %T =======================", data, data.Status, data.Status)
-	// if err != nil {
-	// 	return diag.FromErr(err)
-	// }
-	d.Set("ip_address", data.IPAddress)
-	d.Set("status", data.Status)
-	d.Set("bought_at", data.BoughtAt)
-	d.Set("vm_id", data.VMID)
-	d.Set("vm_name", data.VMName)
-	d.Set("appliance_type", data.ApplianceType)
-	d.Set("reserved_type", data.ReservedType)
-	d.Set("reserve_id", strconv.FormatFloat(data.ReserveID, 'f', -1, 64))
-	d.Set("project_name", data.ProjectName)
-
+	if true || len(res.Data) == 1 {
+		data := res.Data[0]
+		log.Printf("[INFO] ReserveIP READ | BEFORE SETTING DATA %+v, %v, %T =======================", data, data.Status, data.Status)
+		d.Set("ip_address", data.IPAddress)
+		d.Set("status", data.Status)
+		d.Set("bought_at", data.BoughtAt)
+		d.Set("vm_id", data.VMID)
+		d.Set("vm_name", data.VMName)
+		d.Set("appliance_type", data.ApplianceType)
+		d.Set("reserved_type", data.ReservedType)
+		d.Set("reserve_id", strconv.FormatFloat(data.ReserveID, 'f', -1, 64))
+		d.Set("project_name", data.ProjectName)
+	}
 	return diags
 }
 
@@ -194,7 +193,7 @@ func resourceDeleteReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 	ip_address := d.Get("ip_address").(string)
 	project_id := d.Get("project_id").(string)
 
-	err := apiClient.DeleteReserveIP(ip_address, project_id, "Delhi")
+	err := apiClient.DeleteReserveIP(ip_address, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
