@@ -471,8 +471,97 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 	}
 	return jsonRes, nil
 }
+func (c *Client) NewReservedIp(project_id string, location string) (map[string]interface{}, error) {
 
-func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, error) {
+	UrlReservedIp := c.Api_endpoint + "reserve_ips/"
+	log.Printf("[INFO] Url = %s", UrlReservedIp)
+	req, err := http.NewRequest("POST", UrlReservedIp, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	log.Printf("\n\n[INFO] CLIENT NEW RESERVED IP | STATUS_CODE: %+v ==================***************\n\n", response)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("unauthorized | status %v | The provided api_token or api_key or project_id seem to be incorrect. Please revise them accordingly", response.StatusCode)
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (c *Client) DeleteReserveIP(ip_address string, project_id string, location string) error {
+	urlNode := c.Api_endpoint + "reserve_ips/" + ip_address + "/actions/"
+	req, err := http.NewRequest("DELETE", urlNode, nil)
+	if err != nil {
+		log.Printf("[INFO] error inside delete reserve ip")
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[INFO] error inside delete reserve ip")
+		return err
+	}
+	log.Printf("CLIENT DELETE NODE | STATUS_CODE: %d", response.StatusCode)
+	return nil
+
+}
+
+func (c *Client) GetReservedIp(ip_address string, project_id string, location string) (*models.ResponseReserveIps, error) {
+
+	urlNode := c.Api_endpoint + "reserve_ips/" + ip_address + "/actions/"
+	req, err := http.NewRequest("GET", urlNode, nil)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[INFO] error inside get reserve ip")
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ResponseReserveIps{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get reserve ip | error while unmarshlling")
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GetReservedIps(project_id string, location string) (*models.ResponseReserveIps, error) {
 
 	urlGetReserveIps := c.Api_endpoint + "reserve_ips/"
 	req, err := http.NewRequest("GET", urlGetReserveIps, nil)
@@ -482,13 +571,14 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
-		log.Printf("[INFO] error inside get vpcs")
+		log.Printf("[INFO] error inside GetReservedIps")
 		return nil, err
 	}
 
@@ -497,7 +587,7 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	res := models.ResponseReserveIps{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
-		log.Printf("[INFO] inside get vpcs | error while unmarshlling")
+		log.Printf("[INFO] inside GetReservedIps | error while unmarshlling")
 		return nil, err
 	}
 	return &res, nil

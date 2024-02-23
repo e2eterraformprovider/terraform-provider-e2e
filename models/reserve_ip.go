@@ -16,4 +16,5 @@ type ReserveIp struct {
 	ReserveID     float64 `json:"reserve_id"`
 	ApplianceType string  `json:"appliance_type"`
 	ReservedType  string  `json:"reserved_type"`
+	ProjectName   string  `json:"project_name"`
 }
