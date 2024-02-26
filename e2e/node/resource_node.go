@@ -446,7 +446,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	if node_status == "Saving" || node_status == "Creating" {
 		return diag.Errorf("Node in %s state", node_status)
 	}
-	err := apiClient.DeleteNode(nodeId,project_id)
+	err := apiClient.DeleteNode(nodeId, project_id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
