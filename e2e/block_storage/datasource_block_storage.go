@@ -25,10 +25,8 @@ func DataSourceBlockStorage() *schema.Resource {
 			},
 			"size": {
 				Type:        schema.TypeFloat,
-				Required:    true,
-				ForceNew:    true,
+				Computed:    true,
 				Description: "Size of the block storage in GB",
-				// ValidateFunc: validation.FloInSlice([]float64{5, 10}), // These values are just for testing on stage environment
 			},
 			"iops": {
 				Type:        schema.TypeInt,
