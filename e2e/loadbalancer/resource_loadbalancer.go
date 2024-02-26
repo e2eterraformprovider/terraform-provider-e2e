@@ -52,10 +52,10 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			ValidateFunc: node.ValidateName,
 		},
 		"project_id": {
-			Type:        schema.TypeInt,
+			Type:        schema.TypeString,
 			Required:    true,
+			Description: "This is your project ID in which you want to create the resource.",
 			ForceNew:    true,
-			Description: "ID of the project. It should be unique",
 		},
 		"lb_type": {
 			Type:        schema.TypeString,
@@ -361,12 +361,6 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Optional:    true,
 			Default:     "power_on",
 			Description: "power_on to start the load balancer and power_off to power off the load balancer",
-		},
-		"project_id": {
-			Type:        schema.TypeString,
-			Required:    true,
-			Description: "This is your project ID in which you want to create the resource.",
-			ForceNew:    true,
 		},
 		"public_ip": {
 			Type:        schema.TypeString,
