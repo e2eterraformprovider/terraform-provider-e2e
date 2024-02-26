@@ -8,8 +8,6 @@ import (
 	"log"
 	"net/http"
 
-	// "strconv"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
