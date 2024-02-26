@@ -7,6 +7,21 @@ description: |-
 ---
 
 # e2e_sfs (Resource)
+Provides an e2e node resource. This resource allows you to manage nodes on your e2e clusters. When applied, a new node is created. When destroyed, this node is removed.
+
+
+# Example uses
+```hcl
+ resource "e2e_sfs" "sfs1" {
+    name   = "sfs-999"
+    plan   = "5GB"
+    vpc_id = "143"
+    disk_size = 5
+    project_id = "325"
+    disk_iops = 75
+    region = "ncr"
+ }
+ ```
 
 
 

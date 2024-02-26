@@ -15,9 +15,8 @@ import (
 
 
 
-func (c *Client)NewSfs(item *models.SfsCreate,project_id string)(map[string]interface{}, error){
+func (c *Client)NewSfs(item *models.SfsCreate, project_id string)(map[string]interface{}, error){
 	buf := bytes.Buffer{}
-	log.Printf("this is items =============================================================%V",*item)
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
 		return nil, err
@@ -30,7 +29,7 @@ func (c *Client)NewSfs(item *models.SfsCreate,project_id string)(map[string]inte
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
-	params.Add("project_id",project_id)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -66,13 +65,12 @@ func (c *Client) GetSfs(SfsId string , project_id string) (map[string]interface{
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
-	params.Add("project_id",project_id)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 
-	// log.Printf("req url GetNode = %v", req.URL)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -101,7 +99,7 @@ func (c *Client) GetSfs(SfsId string , project_id string) (map[string]interface{
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteSFs(SfsId string,project_id string) error {
+func (c *Client) DeleteSFs(SfsId string, project_id string) error {
 
 	UrlSfs := c.Api_endpoint + "efs/" + "delete/"+SfsId + "/"
 	req, err := http.NewRequest("DELETE", UrlSfs, nil)
@@ -111,7 +109,7 @@ func (c *Client) DeleteSFs(SfsId string,project_id string) error {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
-	params.Add("project_id",project_id)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
