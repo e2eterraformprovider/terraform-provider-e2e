@@ -178,7 +178,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	nodeAction, err := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(nodeAction))
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (c *Client) DeleteNode(nodeId string) error {
 	return nil
 }
 
-func (c *Client) GetSavedImages(location string) (*models.ImageListResponse, error) {
+func (c *Client) GetSavedImages(location string, project_id string) (*models.ImageListResponse, error) {
 
 	urlImages := c.Api_endpoint + "images/" + "saved-images" + "/"
 
@@ -257,6 +257,7 @@ func (c *Client) GetSavedImages(location string) (*models.ImageListResponse, err
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
@@ -600,7 +601,7 @@ func (c *Client) GetReservedIps(project_id string, location string) (*models.Res
 
 }
 
-func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
+func (c *Client) GetImage(imageId string, project_id string) (*models.ImageResponse, error) {
 	urlGetImage := c.Api_endpoint + "images/" + imageId + "/"
 	req, err := http.NewRequest("GET", urlGetImage, nil)
 	if err != nil {
@@ -608,6 +609,7 @@ func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -629,20 +631,21 @@ func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
 	return &res, nil
 
 }
-func (c *Client) DeleteImage(imageId string) error {
+func (c *Client) DeleteImage(imageId string, project_id string) error {
 	urlNode := c.Api_endpoint + "images/" + imageId + "/"
 	deleteBody := models.ImageDeleteBody{
 		Action_type: "delete_image",
 	}
 	deleteBodyMarshalled, err := json.Marshal(deleteBody)
 
-	req, err := http.NewRequest("POST", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
+	req, err := http.NewRequest("DELETE", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
 	if err != nil {
 		return err
 	}
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)

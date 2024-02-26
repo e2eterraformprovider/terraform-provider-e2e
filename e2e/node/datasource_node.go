@@ -7,8 +7,6 @@ import (
 	// "math"
 	// "regexp"
 
-	// "strconv"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	// "github.com/devteametwoe/terraform-provider-e2e/models"
 
