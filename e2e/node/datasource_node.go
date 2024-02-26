@@ -91,6 +91,7 @@ func DataSourceNode() *schema.Resource {
 			"project_id": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The ID of the project associated with the node",
 			},
 		},
@@ -105,7 +106,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] INSIDE NODE DATA SOURCE | read")
 	nodeId := d.Get("node_id").(string)
     project_id:=d.Get("project_id").(string)
-	node, err := apiClient.GetNode(nodeId,project_id)
+	node, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 	}
@@ -125,7 +126,6 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
-	d.Set("project_id", data["project_id"].(string))
 	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", *d)
 
 	return diags

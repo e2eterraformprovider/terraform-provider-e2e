@@ -30,6 +30,12 @@ func DataSourceNodes() *schema.Resource {
 				Required:    true,
 				Description: "Region should specified",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "The ID of the project associated with the node",
+			},
 			"nodes_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
