@@ -8,7 +8,14 @@ description: |-
 
 # e2e_blockstorage (Data Source)
 
-
+## Example Usage
+```hcl
+ data "e2e_blockstorage" "blockstorage_test" {
+    block_id          = 491 //Just an example
+    project_id        = 21212 //Just an example
+    size              = 250
+ }
+```
 
 
 

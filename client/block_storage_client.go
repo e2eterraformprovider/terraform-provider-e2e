@@ -29,16 +29,7 @@ func (c *Client) NewBlockStorage(item *models.BlockStorageCreate, project_id int
 	if err != nil {
 		return nil, err
 	}
-
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", strconv.Itoa(project_id))
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
@@ -70,16 +61,7 @@ func (c *Client) GetBlockStorage(blockStorageID string, project_id int, location
 		return nil, err
 	}
 	log.Printf("[INFO] CLIENT | BLOCK STORAGE READ")
-	params := req.URL.Query()
-	project_id = 328
-	log.Printf("%v", project_id)
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", strconv.Itoa(project_id))
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
@@ -117,15 +99,7 @@ func (c *Client) DeleteBlockStorage(blockStorageID string, project_id int, locat
 	if err != nil {
 		return err
 	}
-
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", strconv.Itoa(project_id))
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return err
@@ -135,4 +109,16 @@ func (c *Client) DeleteBlockStorage(blockStorageID string, project_id int, locat
 		return err
 	}
 	return nil
+}
+
+func addParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, project_id int, location string) *http.Request {
+	params := req.URL.Query()
+	params.Add("apikey", Api_key)
+	params.Add("project_id", strconv.Itoa(project_id))
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	return req
 }

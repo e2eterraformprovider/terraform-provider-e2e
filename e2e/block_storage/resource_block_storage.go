@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"regexp"
 	"strconv"
-
 	"strings"
-	// "time"
+
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -25,7 +24,7 @@ func ResourceBlockStorage() *schema.Resource {
 				Required:     true,
 				Description:  "The name of the block storage, also acts as its unique ID",
 				ForceNew:     true,
-				ValidateFunc: validateName,
+				ValidateFunc: node.ValidateName,
 			},
 			"size": {
 				Type:     schema.TypeFloat,
@@ -74,22 +73,6 @@ func ResourceBlockStorage() *schema.Resource {
 	}
 }
 
-func validateName(v interface{}, k string) (ws []string, es []error) {
-	var errs []error
-	var warns []string
-	value, ok := v.(string)
-	if !ok {
-		errs = append(errs, fmt.Errorf("expected name to be string"))
-		return warns, errs
-	}
-	whiteSpace := regexp.MustCompile(`\s+`)
-	if whiteSpace.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name cannot contain whitespace. Got %s", value))
-		return warns, errs
-	}
-	return warns, errs
-}
-
 func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
@@ -98,7 +81,6 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	blockStorage := models.BlockStorageCreate{
 		Name: d.Get("name").(string),
 		Size: d.Get("size").(float64),
-		// IOPS: d.Get("iops").(int), //I think because we are not taking this from the end user as input
 	}
 
 	iops := calculateIOPS(blockStorage.Size)
@@ -241,7 +223,7 @@ func validateSize(i interface{}, key string) (ws []string, es []error) {
 		return
 	}
 
-	validSizes := []float64{250, 500, 1000, 2000, 4000, 8000} // These values are the size options available on MyAccount
+	validSizes := []float64{250, 500, 1000, 2000, 4000, 8000, 16000, 24000} // These values are the size options available on MyAccount
 	valid := false
 	for _, size := range validSizes {
 		if bsSize == size {
