@@ -8,6 +8,13 @@ description: |-
 
 # e2e_vpcs (Data Source)
 
+## Example Usage
+```hcl
+ data "e2e_vpcs" "vpc_name" {
+    project_id        = "21212" //Just an example
+    region            = "Delhi"
+ }
+```
 
 
 
@@ -17,6 +24,7 @@ description: |-
 
 ### Argument Reference
 - `region` (String)  Region to list the vpcs  (available locations: Delhi, Mumbai)
+- `project_id` (String)  ID of the associated project.
 
 ### Attribute Reference (Read Only)
 
