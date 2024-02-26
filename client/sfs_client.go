@@ -11,7 +11,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
-func (c *Client)NewSfs(item *models.SfsCreate, project_id string)(map[string]interface{}, error){
+func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location string)(map[string]interface{}, error){
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -23,13 +23,8 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string)(map[string]int
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", project_id)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
@@ -50,7 +45,7 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string)(map[string]int
 	}
 	return jsonRes, nil
 }
-func (c *Client) GetSfs(SfsId string , project_id string) (map[string]interface{}, error) {
+func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[string]interface{}, error) {
 
 	UrlSfs := c.Api_endpoint + "efs/" + SfsId + "/"
 	req, err := http.NewRequest("GET", UrlSfs, nil)
@@ -58,14 +53,8 @@ func (c *Client) GetSfs(SfsId string , project_id string) (map[string]interface{
 		return nil, err
 	}
 	log.Printf("[INFO] Client | NODE READ")
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("contact_person_id", "null")
-	params.Add("project_id", project_id)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
@@ -95,22 +84,16 @@ func (c *Client) GetSfs(SfsId string , project_id string) (map[string]interface{
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteSFs(SfsId string, project_id string) error {
+func (c *Client) DeleteSFs(SfsId string, project_id string , location string) error {
 
-	UrlSfs := c.Api_endpoint + "efs/" + "delete/"+SfsId + "/"
+	UrlSfs := c.Api_endpoint + "efs/" + "delete/"+ SfsId + "/"
 	req, err := http.NewRequest("DELETE", UrlSfs, nil)
 	if err != nil {
 		return err
 	}
 
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", project_id)
-	params.Add("contact_person_id", "null")
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return err
@@ -125,4 +108,59 @@ func (c *Client) DeleteSFs(SfsId string, project_id string) error {
 	}
 
 	return nil
+}
+
+
+func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSfss, error) {
+
+	urlGetSfsss := c.Api_endpoint + "efs/"
+	log.Printf("api================================================%v",urlGetSfsss)
+	req, err := http.NewRequest("GET", urlGetSfsss, nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] CLIENT GET NODES")
+	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			log.Printf("GET NODES | INSIDE NO SUCCESS AND ERROR MSG")
+			return nil, fmt.Errorf("%v", err)
+		}
+
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	fmt.Println(response.Body)
+
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ResponseSfss{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func AddParamsAndHeaders(req *http.Request, Api_key string, Auth_token string, project_id string, location string) *http.Request {
+	params := req.URL.Query()
+	params.Add("apikey", Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	return req
 }

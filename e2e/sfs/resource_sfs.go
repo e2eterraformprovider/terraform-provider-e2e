@@ -73,7 +73,7 @@ func ResourceSfs() *schema.Resource {
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:   true,
+				ForceNew:    true,
 				Description: "Location where node is to be launched",
 				Default:     "Delhi",
 			},
@@ -120,7 +120,8 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 		
 	}
 	project_id:=d.Get("project_id").(string)
-	res_Sfs, err := apiClient.NewSfs(&node,project_id)
+	location:=d.Get("region").(string)
+	res_Sfs, err := apiClient.NewSfs(&node, project_id, location)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -152,8 +153,8 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	log.Printf("[info] inside node Resource read")
 	Sfs_id := d.Id()
 	project_id:=d.Get("project_id").(string)
-	
-	Sfs, err := apiClient.GetSfs(Sfs_id,project_id)
+	location:=d.Get("region").(string)
+	Sfs, err := apiClient.GetSfs(Sfs_id, project_id, location)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -183,7 +184,8 @@ func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	if node_status == "Creating" {
 		return diag.Errorf("Node in %s state", node_status)
 	}
-	err := apiClient.DeleteSFs(Sfs_id,project_id)
+	location:=d.Get("region").(string)
+	err := apiClient.DeleteSFs(Sfs_id, project_id, location)
 	if err != nil {
 		return diag.FromErr(err)
 	}
