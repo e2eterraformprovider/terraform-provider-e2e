@@ -358,7 +358,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.Errorf("cannot change the power status as the node is locked")
 		}
 		log.Printf("[INFO] %s ", d.Get("power_status").(string))
-		apiClient.UpdateNode(nodeId,d.Get("power_status").(string), d.Get("name").(string), project_id)
+		apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), project_id)
 	}
 
 	if d.HasChange("lock_node") {
@@ -389,7 +389,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			if d.Get("status").(string) == "Powered off" {
 				return diag.Errorf("cannot reboot as the node is powered off")
 			}
-			_, err := apiClient.UpdateNode(nodeId,"reboot", d.Get("name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id)
 			if err != nil {
 				return diag.FromErr(err)
 			}
@@ -426,7 +426,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				return diag.Errorf("save_image_name empty")
 			}
 
-			_, err := apiClient.UpdateNode(nodeId,"save_images", d.Get("save_image_name").(string), project_id)
+			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), project_id)
 			if err != nil {
 				return diag.FromErr(err)
 			}
