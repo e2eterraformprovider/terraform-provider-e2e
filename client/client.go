@@ -31,8 +31,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error) {
-
+func (c *Client) NewNode(item *models.NodeCreate, project_id string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -46,8 +45,8 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 	}
 
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -74,7 +73,8 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 
 }
 
-func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
+func (c *Client) GetNode(nodeId string, project_id string) (map[string]interface{}, error) {
+
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("GET", urlNode, nil)
 	if err != nil {
@@ -82,14 +82,13 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	}
 	log.Printf("[INFO] CLIENT | NODE READ")
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
-
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -110,17 +109,14 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-
 	if err != nil {
 		log.Printf("[ERROR] CLIENT GET NDE | error when unmarshalling")
 		return nil, err
 	}
-
 	return jsonRes, nil
 }
 
-func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
-
+func (c *Client) GetNodes(location string, project_id string) (*models.ResponseNodes, error) {
 	urlGetNodes := c.Api_endpoint + "nodes/"
 	req, err := http.NewRequest("GET", urlGetNodes, nil)
 	if err != nil {
@@ -128,16 +124,14 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	}
 	log.Printf("[INFO] CLIENT GET NODES")
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
-
 	req.Header.Add("User-Agent", "terraform-e2e")
-
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -149,11 +143,9 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 			log.Printf("GET NODES | INSIDE NO SUCCESS AND ERROR MSG")
 			return nil, fmt.Errorf("%v", err)
 		}
-
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	fmt.Println(response.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -165,11 +157,10 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
 		return nil, err
 	}
-
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string, action string, Name string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,
@@ -184,6 +175,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
@@ -215,16 +207,16 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	return jsonRes, err
 }
 
-func (c *Client) DeleteNode(nodeId string) error {
+func (c *Client) DeleteNode(nodeId string, project_id string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("DELETE", urlNode, nil)
 	if err != nil {
 		return err
 	}
-
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
@@ -242,19 +234,16 @@ func (c *Client) DeleteNode(nodeId string) error {
 		}
 		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-
 	return nil
 }
 
 func (c *Client) GetSavedImages(location string, project_id string) (*models.ImageListResponse, error) {
 
 	urlImages := c.Api_endpoint + "images/" + "saved-images" + "/"
-
 	req, err := http.NewRequest("GET", urlImages, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
@@ -297,7 +286,6 @@ func (c *Client) GetSecurityGroups() (*models.SecurityGroupsResponse, error) {
 		log.Printf("[INFO] error inside get security groups")
 		return nil, err
 	}
-
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	res := models.SecurityGroupsResponse{}

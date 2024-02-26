@@ -16,13 +16,13 @@ func GetLbPort(mode string) string {
 	return "443"
 }
 
-func ExpandBackends(config []interface{}, apiClient *client.Client) ([]models.Backend, error) {
+func ExpandBackends(config []interface{}, apiClient *client.Client, project_id string) ([]models.Backend, error) {
 	backends := make([]models.Backend, 0, len(config))
 
 	for _, backend := range config {
 		detail := backend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient)
+		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient, project_id)
 		if err != nil {
 			return nil, err
 		}
@@ -42,12 +42,12 @@ func ExpandBackends(config []interface{}, apiClient *client.Client) ([]models.Ba
 	return backends, nil
 }
 
-func ExpandServers(server_details interface{}, apiClient *client.Client) ([]models.Server, error) {
+func ExpandServers(server_details interface{}, apiClient *client.Client, project_id string) ([]models.Server, error) {
 	var servers []models.Server
 
 	for _, server := range server_details.([]interface{}) {
 		server_detail := server.(map[string]interface{})
-		node, err := apiClient.GetNode(server_detail["id"].(string))
+		node, err := apiClient.GetNode(server_detail["id"].(string), project_id)
 		if err != nil {
 			return nil, err
 		}
@@ -140,13 +140,13 @@ func ExpandEnableEosLogger(config []interface{}) (models.EosDetail, error) {
 	return eosDetail, nil
 }
 
-func ExpandTcpBackend(config []interface{}, apiClient *client.Client) ([]models.TcpBackendDetail, error) {
+func ExpandTcpBackend(config []interface{}, apiClient *client.Client, project_id string) ([]models.TcpBackendDetail, error) {
 	tcpBackends := make([]models.TcpBackendDetail, 0, len(config))
 
 	for _, tcpBackend := range config {
 		detail := tcpBackend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient)
+		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient, project_id)
 		if err != nil {
 			return nil, err
 		}

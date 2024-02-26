@@ -27,6 +27,12 @@ func DataSourceNodes() *schema.Resource {
 				Required:    true,
 				Description: "Region should specified",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "The ID of the project associated with the node",
+			},
 			"nodes_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -78,7 +84,8 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside nodes data source ")
-	Response, err := apiClient.GetNodes(d.Get("region").(string))
+	project_id:=d.Get("project_id").(string)
+	Response, err := apiClient.GetNodes(d.Get("region").(string),project_id)
 	if err != nil {
 		return diag.FromErr(err)
 	}

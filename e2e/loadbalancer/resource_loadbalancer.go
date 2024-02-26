@@ -454,7 +454,7 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 	}
 	tcpBackend, ok := d.GetOk("tcp_backend")
 	if ok {
-		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.([]interface{}), apiClient)
+		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.([]interface{}), apiClient, d.Get("project_id").(string))
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
@@ -465,7 +465,7 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 
 	backends, ok := d.GetOk("backends")
 	if ok {
-		backendDetail, err := ExpandBackends(backends.([]interface{}), apiClient)
+		backendDetail, err := ExpandBackends(backends.([]interface{}), apiClient, d.Get("project_id").(string))
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
