@@ -30,7 +30,7 @@ func DataSourceVpcs() *schema.Resource {
 				Description: "Region should specified",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "ID of the project. It should be unique",
@@ -92,7 +92,7 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] Inside vpcs data source ")
 
 	region, okRegion := d.Get("region").(string)
-	projectID, okProjectID := d.Get("project_id").(int)
+	projectID, okProjectID := d.Get("project_id").(string)
 	if !okRegion || !okProjectID {
 		return diag.Errorf("region or project_id is not set or has an unexpected type")
 	}

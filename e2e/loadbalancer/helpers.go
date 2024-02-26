@@ -108,7 +108,7 @@ func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *cl
 	var vpc_details []models.VpcDetail
 
 	for _, id := range vpc_list {
-		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(int), d.Get("location").(string))
+		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(string), d.Get("location").(string))
 		if err != nil {
 			return nil, err
 		}

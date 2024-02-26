@@ -40,6 +40,12 @@ func ResourceNode() *schema.Resource {
 				Description: "The name of the group",
 				Default:     "default",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "ID of the project. It should be unique",
+			},
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -248,7 +254,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if node.Vpc_id != "" {
-		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(int), d.Get("region").(string))
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("region").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}

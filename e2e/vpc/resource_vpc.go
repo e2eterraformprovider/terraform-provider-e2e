@@ -34,7 +34,7 @@ func ResouceVpc() *schema.Resource {
 				Required: true,
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "ID of the project. It should be unique",
@@ -90,7 +90,7 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs  resourcsource | read ")
-	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(int), d.Get("region").(string))
+	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(string), d.Get("region").(string))
 	if err != nil {
 		return diag.Errorf("error finding vpcs ")
 	}
@@ -114,7 +114,7 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 		VpcName:     d.Get("vpc_name").(string),
 		NetworkSize: d.Get("network_size").(float64),
 	}
-	resvpc, err := apiClient.CreateVpc(d.Get("region").(string), &newvpc, d.Get("project_id").(int))
+	resvpc, err := apiClient.CreateVpc(d.Get("region").(string), &newvpc, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -151,7 +151,7 @@ func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	var diags diag.Diagnostics
 	vpcId := d.Id()
 
-	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(int), d.Get("region").(string))
+	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(string), d.Get("region").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
