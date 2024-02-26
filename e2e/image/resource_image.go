@@ -40,6 +40,7 @@ func ResourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "project_id",
+				ForceNew:    true,
 			},
 			"template_id": {
 				Type:        schema.TypeInt,
@@ -103,10 +104,9 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
-	// projectID := d.Get("project_id").(string)
-	// log.Printf("projectID type: %T, value: %s\n", projectID, projectID)
 
 	log.Printf("[INFO] IMAGE CREATE")
+
 	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
