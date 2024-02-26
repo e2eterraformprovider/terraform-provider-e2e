@@ -160,7 +160,7 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string,action string, Name string, project_id string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,

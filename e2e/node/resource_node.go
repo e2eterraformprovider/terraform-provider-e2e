@@ -266,7 +266,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	// 	}
 	//
 	project_id:=d.Get("project_id").(string)
-	resnode, err := apiClient.NewNode(&node,project_id)
+	resnode, err := apiClient.NewNode(&node, project_id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -300,7 +300,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 	project_id:=d.Get("project_id").(string)
-	node, err := apiClient.GetNode(nodeId,project_id)
+	node, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -342,7 +342,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	nodeId := d.Id()
 	project_id:=d.Get("project_id").(string)
-	_, err := apiClient.GetNode(nodeId,project_id)
+	_, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 
 		return diag.Errorf("error finding Item with ID %s", nodeId)
