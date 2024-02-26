@@ -38,7 +38,6 @@ func DataSourceObjectStore() schema.Resource {
 						"status": {
 							Type:     schema.TypeString,
 							Computed: true,
-							ForceNew: true,
 							ValidateFunc: validation.StringInSlice(
 								[]string{
 									"NEW", "CREATING", "FAILED", "WARNING", "AVAILABLE", "DELETED",

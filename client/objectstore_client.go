@@ -30,7 +30,7 @@ func (client *Client) CreateBucket(buckets *models.ObjectStorePayload) (map[stri
 	if error_while_encoding != nil {
 		return nil, error_while_encoding
 	}
-	BucketCreateUrl := client.Api_endpoint + "buckets/" + buckets.BucketName
+	BucketCreateUrl := client.Api_endpoint + "storage/buckets/" + buckets.BucketName
 	create_request, error := http.NewRequest("POST", BucketCreateUrl, &payload_buffer)
 	if error != nil {
 		return nil, error
@@ -59,7 +59,7 @@ func (client *Client) CreateBucket(buckets *models.ObjectStorePayload) (map[stri
 
 func (client *Client) GetBuckets(location string, project_id string) (*models.ResponseBuckets, error) {
 
-	urlGetNodes := client.Api_endpoint + "buckets/"
+	urlGetNodes := client.Api_endpoint + "storage/buckets/"
 	readrequest, err := http.NewRequest("GET", urlGetNodes, nil)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 
 func (client *Client) GetBucket(bucket_name string, location string, project_id string) (map[string]interface{}, error) {
 
-	urlGetNodes := client.Api_endpoint + "buckets/" + bucket_name
+	urlGetNodes := client.Api_endpoint + "storage/buckets/" + bucket_name
 	readrequest, err := http.NewRequest("GET", urlGetNodes, nil)
 	if err != nil {
 		return nil, err
@@ -138,4 +138,68 @@ func (client *Client) GetBucket(bucket_name string, location string, project_id 
 		return nil, err
 	}
 	return jsonRes, nil
+}
+
+func (client *Client) SetBucketVersioning(bucket_name string, location string, project_id string, action string) (map[string]interface{}, error) {
+
+	item := map[string]string{
+		"bucket_name":          bucket_name,
+		"new_versioning_state": action,
+	}
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		return nil, err
+	}
+	BucketVersioningUrl := client.Api_endpoint + "storage/bucket_versioning" + bucket_name
+	versioning_request, err := http.NewRequest("PUT", BucketVersioningUrl, &buf)
+	if err != nil {
+		return nil, err
+	}
+	versioning_request = client.setParamsAndHeaders(versioning_request, location, project_id)
+	versioning_response, err := client.HttpClient.Do(versioning_request)
+
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(versioning_response)
+	if err != nil {
+		return nil, err
+	}
+	defer versioning_response.Body.Close()
+	resBody, _ := ioutil.ReadAll(versioning_response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (client *Client) DeleteBucket(bucket_name string, location string, project_id string) error {
+
+	urlNode := client.Api_endpoint + "storage/buckets/" + bucket_name + "/"
+	deleterequest, err := http.NewRequest("DELETE", urlNode, nil)
+	if err != nil {
+		return err
+	}
+
+	deleterequest = client.setParamsAndHeaders(deleterequest, location, project_id)
+
+	response, err := client.HttpClient.Do(deleterequest)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+
+	return nil
 }
