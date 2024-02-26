@@ -13,7 +13,6 @@ description: |-
  data "e2e_blockstorage" "blockstorage_test" {
     block_id          = 491 //Just an example
     project_id        = 21212 //Just an example
-    size              = 250
  }
 ```
 
@@ -26,7 +25,6 @@ description: |-
 
 - `block_id` (String) ID of the node to be specified to read that particular node
 - `project_id` (Number) ID of the project. 
-- `size` (Number) Size of the block storage in GB. Choose from: { 250, 5000, 1000, 2000, 4000, 8000, 16000, 24000}.
 
 ### Optional
 
