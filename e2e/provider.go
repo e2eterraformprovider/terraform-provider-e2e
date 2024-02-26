@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	blockstorage "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/block_storage"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
