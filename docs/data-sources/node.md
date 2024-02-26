@@ -18,7 +18,6 @@ description: |-
 ### Argument Reference
 
 - `node_id` (String) The id of the node is required to read that node.
-- `project_id` : (Required)(String) project id associated to the node.
 
 ### Attribute Reference (Read Only)
 

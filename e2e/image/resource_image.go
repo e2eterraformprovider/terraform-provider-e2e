@@ -36,6 +36,11 @@ func ResourceImage() *schema.Resource {
 				Required:    true,
 				Description: "Name of the image",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "project_id",
+			},
 			"template_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
@@ -64,11 +69,6 @@ func ResourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "type of distro used",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "project_id",
 			},
 		},
 

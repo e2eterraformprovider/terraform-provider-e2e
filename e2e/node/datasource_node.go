@@ -86,11 +86,6 @@ func DataSourceNode() *schema.Resource {
 				Computed:    true,
 				Description: "if the node is locked or not",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Project id associated to node",
-			},
 		},
 
 		ReadContext: dataSourceReadNode,
@@ -103,7 +98,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	log.Printf("[INFO] INSIDE NODE DATA SOURCE | read")
 	nodeId := d.Get("node_id").(string)
 
-	node, err := apiClient.GetNode(nodeId, d.Get("project_id").(string))
+	node, err := apiClient.GetNode(nodeId)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 	}
