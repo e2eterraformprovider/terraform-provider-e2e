@@ -8,8 +8,6 @@ import (
 	// "math"
 	// "regexp"
 
-	// "strings"
-
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
