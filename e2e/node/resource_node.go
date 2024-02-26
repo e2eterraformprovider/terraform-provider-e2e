@@ -32,7 +32,7 @@ func ResourceNode() *schema.Resource {
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
 				ForceNew:     true,
-				ValidateFunc: validateName,
+				ValidateFunc: ValidateName,
 			},
 			"label": {
 				Type:        schema.TypeString,
@@ -206,7 +206,7 @@ func ResourceNode() *schema.Resource {
 	}
 }
 
-func validateName(v interface{}, k string) (ws []string, es []error) {
+func ValidateName(v interface{}, k string) (ws []string, es []error) {
 
 	var errs []error
 	var warns []string
