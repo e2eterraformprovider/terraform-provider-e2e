@@ -29,6 +29,11 @@ func DataSourceReserveIps() *schema.Resource {
 				Required:    true,
 				Description: "need to specify the region  (Mumbai/Delhi)",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "specify the project id",
+			},
 			"reserve_ips_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -92,7 +97,7 @@ func dataSourceReadReserveIps(ctx context.Context, d *schema.ResourceData, m int
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetReservedIps(d.Get("region").(string), d.Get("project_id").(int))
+	Response, err := apiClient.GetReservedIps(d.Get("project_id").(string), d.Get("region").(string))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -39,6 +40,7 @@ func Provider() *schema.Provider {
 			"e2e_image":        image.ResourceImage(),
 			"e2e_loadbalancer": loadbalancer.ResourceLoadBalancer(),
 			"e2e_vpc":          vpc.ResouceVpc(),
+			"e2e_reserved_ip":  reserve_ip.ResourceReserveIP(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":   node.DataSourceNode(),
