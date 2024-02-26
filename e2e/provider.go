@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
