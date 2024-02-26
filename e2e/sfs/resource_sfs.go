@@ -30,51 +30,58 @@ func ResourceSfs() *schema.Resource {
 			"name": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:   true,
 				Description:  "The name of the resource, also acts as it's unique ID",
 				ValidateFunc: validateName,
 			},
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "name of the Plan",
+				ForceNew:   true,
+				Description: "Details  of the Plan",
 			},
 			"vpc_id":{
-				Type:        schema.TypeInt,
+				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:   true,
 				Description: "virtual private cloud id of sfs",
 			},
 			"disk_size":{
 				Type:        schema.TypeInt,
 				Required:    true,
+				ForceNew:   true,
 				Description: "size of disk to be created",
 			},
 			"project_id":{
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "size of disk to be created",
 			},
 			"disk_iops":{
 				Type:       schema.TypeInt,
 				Required:   true,
+				ForceNew:   true,
 				Description:  "input output per second",
 			},
 			"status":{
 				Type:       schema.TypeString,
 				Computed:   true,
+				Optional:   true,
 				Description:  "status will be updated after creation",
 			},
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				ForceNew:   true,
 				Description: "Location where node is to be launched",
 				Default:     "Delhi",
 			},
+		
 		},
 		CreateContext: resourceCreateSfs,
 		ReadContext:   resourceReadSfs,
-		UpdateContext: resourceUpdateSfs,
 		DeleteContext: resourceDeleteSfs,
-		Exists:        resourceExistsSfs,
 		Importer: &schema.ResourceImporter{
 				State: schema.ImportStatePassthrough,
 			},
@@ -100,20 +107,22 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 
 
 func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.SFSClient)
+	apiClient := m.(*client.Client)
+	log.Printf("apiclient ========================================================== %v",apiClient)
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	node := models.SfsCreate{
 		Name:              d.Get("name").(string),
 		Plan:              d.Get("plan").(string),
-		Vpc_id:            d.Get("vpc_id").(int),
+		Vpc_id:            d.Get("vpc_id").(string),
 		Disk_size:         d.Get("disk_size").(int),
 		Disk_iops:         d.Get("disk_iops").(int),
 		
 	}
 	project_id:=d.Get("project_id").(string)
 	res_Sfs, err := apiClient.NewSfs(&node,project_id)
+	log.Printf("apiclient ========================================================== %v",res_Sfs)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -128,66 +137,63 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 		return diag.Errorf(res_Sfs["message"].(string))
 	}
 	log.Printf("[INFO] sfs creation | before setting fields")
-	sfsId := data["id"].(float64)
-	sfsId = math.Round(sfsId)
+	sfsId, ok := data["efs_id"].(float64)
+	if !ok {
+		return diag.Errorf("unable to retrieve valid 'id' from response")
+	}
+	
 	d.SetId(strconv.Itoa(int(math.Round(sfsId))))
-	d.Set("status",data["status"].(string))
+	// d.Set("status", data["status"].(string))
+
 	return diags
-}
+	}
 
 func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.SFSClient)
+	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	log.Printf("[info] inside node Resource read")
-	nodeId := d.Id()
+	Sfs_id := d.Id()
 	project_id:=d.Get("project_id").(string)
 	log.Printf("*************************====project_id type %T, value : %s \n", project_id, project_id)
 
-	node, err := apiClient.GetSfs(nodeId,project_id)
+	Sfs, err := apiClient.GetSfs(Sfs_id,project_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
 		} else {
-			return diag.Errorf("error finding Item with ID %s", nodeId)
+			return diag.Errorf("error finding Item with ID %s", Sfs_id)
 
 		}
 	}
 	log.Printf("[info] node Resource read | before setting data")
-	data := node["data"].(map[string]interface{})
+	data := Sfs["data"].(map[string]interface{})
 	d.Set("name", data["name"].(string))
-	d.Set("plan", data["efs_plan_name"].(string))
-	d.Set("status", data["status"].(string))
-	d.Set("vpc_id",data["vpc_id"].(int))
-	d.Set("disk_size",data["efs_sisk_size"].(int))
-	d.Set("disk_iops",data["efs_disk_iops"].(int))
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Available" {
 		d.Set("status", "power_on")
 	}
-	// if d.Get("status").(string) == "Powered off" {
-	// 	d.Set("power_status", "power_off")
-	// }
+	
 	return diags
 
 }
 
-func resourceUpdateSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// apiClient := m.(*client.SFSClient)
-
-	
-
-	return resourceReadSfs(ctx, d, m)
-
-}
 func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	Sfs_id := d.Id()
+	project_id:=d.Get("project_id").(string)
+	node_status := d.Get("status").(string)
+	if node_status == "Creating" {
+		return diag.Errorf("Node in %s state", node_status)
+	}
+	err := apiClient.DeleteSFs(Sfs_id,project_id)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId("")
 	return diags
 }
 
-func resourceExistsSfs(d *schema.ResourceData, m interface{}) (bool, error) {
-	
-	return true, nil
-}
+
 

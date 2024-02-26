@@ -62,5 +62,5 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	api_key := d.Get("api_key").(string)
 	auth_token := d.Get("auth_token").(string)
 	api_endpoint := d.Get("api_endpoint").(string)
-	return client.NewClient(api_key, auth_token, api_endpoint), nil
+	return client.NewClient(api_key, auth_token, api_endpoint),nil
 }
