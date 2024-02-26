@@ -98,7 +98,9 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+
 	log.Printf("[INFO] IMAGE CREATE ")
+
 	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string))
 	if err != nil {
 		return diag.FromErr(err)
