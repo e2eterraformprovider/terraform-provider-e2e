@@ -11,10 +11,6 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
-
-
-
-
 func (c *Client)NewSfs(item *models.SfsCreate, project_id string)(map[string]interface{}, error){
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)

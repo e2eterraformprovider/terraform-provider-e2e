@@ -108,7 +108,6 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 
 func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
-	log.Printf("apiclient ========================================================== %v",apiClient)
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
@@ -122,7 +121,6 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 	project_id:=d.Get("project_id").(string)
 	res_Sfs, err := apiClient.NewSfs(&node,project_id)
-	log.Printf("apiclient ========================================================== %v",res_Sfs)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -143,7 +141,6 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 	
 	d.SetId(strconv.Itoa(int(math.Round(sfsId))))
-	// d.Set("status", data["status"].(string))
 
 	return diags
 	}
@@ -155,8 +152,7 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	log.Printf("[info] inside node Resource read")
 	Sfs_id := d.Id()
 	project_id:=d.Get("project_id").(string)
-	log.Printf("*************************====project_id type %T, value : %s \n", project_id, project_id)
-
+	
 	Sfs, err := apiClient.GetSfs(Sfs_id,project_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
