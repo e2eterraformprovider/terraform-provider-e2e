@@ -1,0 +1,44 @@
+(1) Why did we not cretae an attribute in the node schema for ngc_container_id AND reserve_ip_pool
+
+
+
+
+
+terraform {
+  required_providers {
+    example = {
+      source  = "terraform-example.com/exampleprovider/example"
+      version = "~> 1.0.0"
+    }
+  }
+}
+
+
+provider "example" {
+  api_key    = "f7702781-6266-45b2-9882-8b3e4bea2019"
+  auth_token = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJGSjg2R2NGM2pUYk5MT2NvNE52WmtVQ0lVbWZZQ3FvcXRPUWVNZmJoTmxFIn0.eyJleHAiOjE3Mzk4NTc2OTksImlhdCI6MTcwODMyMTY5OSwianRpIjoiOTgyMjU3YWMtYmE3ZC00MzE3LTgyNTctMmZmYTRjNTMzZjM0IiwiaXNzIjoiaHR0cDovLzE3Mi4xNi4yMzUuMTM6ODA4MC9hdXRoL3JlYWxtcy9hcGltYW4iLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiODhjZjBmNjMtOTAzNi00M2Q5LWFkMTMtNWNhOTVmZGE3NzY3IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiYXBpbWFudWkiLCJzZXNzaW9uX3N0YXRlIjoiN2Q0ZWM2MTgtMjM2Zi00ZWQ1LWI1YjktODBiNzFkNmFjYTI0IiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwOi8vMTcyLjE2LjIzNS4xMzo4MDgwIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsInVtYV9hdXRob3JpemF0aW9uIiwiYXBpdXNlciIsImRlZmF1bHQtcm9sZXMtYXBpbWFuIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJwcm9maWxlIGVtYWlsIiwic2lkIjoiN2Q0ZWM2MTgtMjM2Zi00ZWQ1LWI1YjktODBiNzFkNmFjYTI0IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJuYW1lIjoiUHVsa2l0IEd1cHRhIiwiaXNfcHJpbWFyeV9jb250YWN0Ijp0cnVlLCJwcmltYXJ5X2VtYWlsIjoicHVsa2l0Lmd1cHRhK3N0YWdlQGUyZW5ldHdvcmtzLmNvbSIsInByZWZlcnJlZF91c2VybmFtZSI6InB1bGtpdC5ndXB0YStzdGFnZUBlMmVuZXR3b3Jrcy5jb20iLCJnaXZlbl9uYW1lIjoiUHVsa2l0IiwiZmFtaWx5X25hbWUiOiJHdXB0YSIsImVtYWlsIjoicHVsa2l0Lmd1cHRhK3N0YWdlQGUyZW5ldHdvcmtzLmNvbSJ9.ib7-7nTfWXGHdAYmfM3IWjU4vLAsQU9leyFWB23_Fz_A2gxWBY2YleZuJEG5J-AVi81WT2op9w2SwEP-Yq3IqbQnWydz-JTU1yheNzMEtTEzt_KnNT1GcLE7beEDR7eRt6jzFvj1PC8I3z4PuNzx960pOg46LtXDoom7ZRMjsg4"
+  api_endpoint = "https://api-stage.e2enetworks.net/myaccount/api/v1/"
+}
+
+resource "example_blockstorage" "bs_testing1"{
+  name = "testing_creation_bs"
+  size = 5
+  project_id = "312"
+  location = "Delhi"
+}
+
+resource "example_blockstorage" "bs_testing2"{
+  name = "testing_creation_bs2"
+  size = 5
+  project_id = "312"
+  location = "Delhi"
+}
+
+
+
+
+
+
+
+
+

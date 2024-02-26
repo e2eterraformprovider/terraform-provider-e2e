@@ -248,7 +248,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if node.Vpc_id != "" {
-		vpc_details, err := apiClient.GetVpc(node.Vpc_id)
+		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(int), d.Get("region").(string))
 		if err != nil {
 			return diag.FromErr(err)
 		}

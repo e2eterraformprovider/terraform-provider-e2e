@@ -104,11 +104,11 @@ func ExpandAclMap(config []interface{}) ([]models.AclMapInfo, error) {
 	return aclMap, nil
 }
 
-func ExpandVpcList(vpc_list []interface{}, apiClient *client.Client) ([]models.VpcDetail, error) {
+func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *client.Client) ([]models.VpcDetail, error) {
 	var vpc_details []models.VpcDetail
 
 	for _, id := range vpc_list {
-		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)))
+		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(int), d.Get("location").(string))
 		if err != nil {
 			return nil, err
 		}

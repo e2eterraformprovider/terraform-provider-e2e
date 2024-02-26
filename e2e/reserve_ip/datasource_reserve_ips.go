@@ -92,7 +92,7 @@ func dataSourceReadReserveIps(ctx context.Context, d *schema.ResourceData, m int
 
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetReservedIps(d.Get("region").(string))
+	Response, err := apiClient.GetReservedIps(d.Get("region").(string), d.Get("project_id").(int))
 	if err != nil {
 		return diag.Errorf("error finding saved images")
 	}

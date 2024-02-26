@@ -4,7 +4,6 @@ import (
 	"context"
 	// "fmt"
 	"log"
-	"math"
 
 	// "regexp"
 
@@ -33,6 +32,12 @@ func ResouceVpc() *schema.Resource {
 			"vpc_name": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"project_id": {
+				Type:        schema.TypeInt,
+				Required:    true,
+				ForceNew:    true,
+				Description: "ID of the project. It should be unique",
 			},
 			"network_size": {
 				Type:     schema.TypeFloat,
@@ -85,7 +90,7 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs  resourcsource | read ")
-	Response, err := apiClient.GetVpc(d.Id())
+	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(int), d.Get("region").(string))
 	if err != nil {
 		return diag.Errorf("error finding vpcs ")
 	}
@@ -109,7 +114,7 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 		VpcName:     d.Get("vpc_name").(string),
 		NetworkSize: d.Get("network_size").(float64),
 	}
-	resvpc, err := apiClient.CreateVpc(d.Get("region").(string), &newvpc)
+	resvpc, err := apiClient.CreateVpc(d.Get("region").(string), &newvpc, d.Get("project_id").(int))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -119,10 +124,18 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 
 	data := resvpc["data"].(map[string]interface{})
-	vpcId := data["network_id"].(float64)
-
 	log.Printf("[INFO] vpc creation | before setting fields")
-	d.SetId(strconv.Itoa(int(math.Round(vpcId))))
+
+	var vpcID int
+
+	if networkID, ok := data["network_id"].(float64); ok {
+		vpcID = int(networkID)
+		log.Printf("[INFO] vpc creation | network_id: %d", vpcID)
+	} else {
+		log.Printf("[ERROR] vpc creation | unable to extract network_id from data")
+	}
+
+	d.SetId(strconv.Itoa(vpcID))
 
 	return diags
 }
@@ -138,7 +151,7 @@ func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	var diags diag.Diagnostics
 	vpcId := d.Id()
 
-	_, err := apiClient.DeleteVpc(vpcId)
+	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(int), d.Get("region").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}

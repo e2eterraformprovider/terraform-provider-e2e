@@ -51,6 +51,12 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Description:  "It is the name of load balancer, letter,digit,underscore,hyphen are allowed",
 			ValidateFunc: node.ValidateName,
 		},
+		"project_id": {
+			Type:        schema.TypeInt,
+			Required:    true,
+			ForceNew:    true,
+			Description: "ID of the project. It should be unique",
+		},
 		"lb_type": {
 			Type:        schema.TypeString,
 			Optional:    true,
@@ -476,7 +482,7 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 
 	vpcList, ok := d.GetOk("vpc_list")
 	if ok {
-		vpcListDetail, err := ExpandVpcList(vpcList.(*schema.Set).List(), apiClient)
+		vpcListDetail, err := ExpandVpcList(d, vpcList.(*schema.Set).List(), apiClient)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
@@ -692,3 +698,26 @@ func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 func resourceExistsLoadBalancer(d *schema.ResourceData, m interface{}) (bool, error) {
 	return true, nil
 }
+
+// func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *client.Client) ([]models.VpcDetail, error) {
+// 	var vpc_details []models.VpcDetail
+
+// 	for _, id := range vpc_list {
+// 		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(int), d.Get("location").(string))
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		data := vpc_detail.Data
+// 		if data.State != "Active" {
+// 			return nil, fmt.Errorf("Can not attach vpc currently, vpc is in %s state", data.State)
+// 		}
+// 		r := models.VpcDetail{
+// 			Network_id: data.Network_id,
+// 			VpcName:    data.Name,
+// 			Ipv4_cidr:  data.Ipv4_cidr,
+// 		}
+
+// 		vpc_details = append(vpc_details, r)
+// 	}
+// 	return vpc_details, nil
+// }

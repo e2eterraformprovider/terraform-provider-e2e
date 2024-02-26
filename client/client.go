@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -339,7 +340,7 @@ func (c *Client) GetSshKeys() (*models.SshKeyResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
+func (c *Client) GetVpcs(location string, project_id int) (*models.VpcsResponse, error) {
 
 	urlGetVpcs := c.Api_endpoint + "vpc/" + "list/"
 	req, err := http.NewRequest("GET", urlGetVpcs, nil)
@@ -350,6 +351,7 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
+	params.Add("project_id", strconv.Itoa(project_id))
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -370,7 +372,7 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 	}
 	return &res, nil
 }
-func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
+func (c *Client) GetVpc(vpc_id string, project_id int, location string) (*models.VpcResponse, error) {
 
 	urlGetVpc := c.Api_endpoint + "vpc/" + vpc_id + "/"
 	req, err := http.NewRequest("GET", urlGetVpc, nil)
@@ -380,6 +382,8 @@ func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", strconv.Itoa(project_id))
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -402,7 +406,7 @@ func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]interface{}, error) {
+func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id int) (map[string]interface{}, error) {
 
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
@@ -420,6 +424,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]
 
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
+	params.Add("project_id", strconv.Itoa(project_id))
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -442,7 +447,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
+func (c *Client) DeleteVpc(vpcId string, project_id int, location string) (map[string]interface{}, error) {
 
 	urlVpc := c.Api_endpoint + "vpc/" + vpcId + "/"
 	log.Printf("[INFO] %s", urlVpc)
@@ -453,6 +458,8 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", strconv.Itoa(project_id))
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -471,7 +478,7 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 	return jsonRes, nil
 }
 
-func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, error) {
+func (c *Client) GetReservedIps(location string, project_id int) (*models.ResponseReserveIps, error) {
 
 	urlGetReserveIps := c.Api_endpoint + "reserve_ips/"
 	req, err := http.NewRequest("GET", urlGetReserveIps, nil)
@@ -482,6 +489,7 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
+	params.Add("project_id", strconv.Itoa(project_id))
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
