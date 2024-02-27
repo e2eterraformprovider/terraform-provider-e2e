@@ -114,12 +114,11 @@ func (c *Client) DeleteSFs(SfsId string, project_id string , location string) er
 func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSfss, error) {
 
 	urlGetSfsss := c.Api_endpoint + "efs/"
-	log.Printf("api================================================%v",urlGetSfsss)
 	req, err := http.NewRequest("GET", urlGetSfsss, nil)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] CLIENT GET NODES")
+	log.Printf("[INFO] CLIENT GET NODES sfs_list")
 	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 
 	response, err := c.HttpClient.Do(req)
@@ -136,8 +135,7 @@ func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSf
 
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	fmt.Println(response.Body)
-
+	
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +147,6 @@ func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSf
 		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
 		return nil, err
 	}
-
 	return &res, nil
 }
 

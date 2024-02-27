@@ -51,7 +51,7 @@ func DataSourceSfs() *schema.Resource {
                          Computed: true,
                      },
                      "efs_disk_size": {
-                         Type:     schema.TypeBool,
+                         Type:     schema.TypeString,
                          Computed: true,
                      },
                      "status": {
