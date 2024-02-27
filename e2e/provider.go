@@ -48,7 +48,7 @@ func Provider() *schema.Provider {
 			"e2e_vpcs":        vpc.DataSourceVpcs(),
 			"e2e_reserve_ips": reserve_ip.DataSourceReserveIps(),
 			"e2e_nodes":       node.DataSourceNodes(),
-			"e2e_sfss":        sfs.DataSourceSfs()
+			"e2e_sfss":        sfs.DataSourceSfs(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

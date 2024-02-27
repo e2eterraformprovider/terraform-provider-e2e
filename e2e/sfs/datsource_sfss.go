@@ -96,7 +96,6 @@ func dataSourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{
  if err != nil {
      return diag.FromErr(err)
  }
- log.Printf("[INFO] %v", Response)
  log.Printf("[INFO] NODES DATA SOURCE | before setting")
  d.Set("sfs_list", flattenSfs(&Response.Data))
  d.SetId("sfs_list")
