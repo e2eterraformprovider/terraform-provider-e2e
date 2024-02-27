@@ -45,6 +45,7 @@ func (c *Client) NewNode(item *models.NodeCreate, project_id string) (map[string
 	}
 
 	params := req.URL.Query()
+
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
@@ -82,6 +83,7 @@ func (c *Client) GetNode(nodeId string, project_id string) (map[string]interface
 	}
 	log.Printf("[INFO] CLIENT | NODE READ")
 	params := req.URL.Query()
+
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
 	params.Add("project_id", project_id)
@@ -169,7 +171,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	nodeAction, err := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(nodeAction))
 	if err != nil {
 		return nil, err
 	}

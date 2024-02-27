@@ -7,6 +7,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/reserve_ip"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sfs"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -43,6 +44,7 @@ func Provider() *schema.Provider {
 			"e2e_vpc":          vpc.ResouceVpc(),
 			"e2e_reserved_ip":  reserve_ip.ResourceReserveIP(),
 			"e2e_blockstorage": blockstorage.ResourceBlockStorage(),
+			"e2e_sfs":          sfs.ResourceSfs(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":   node.DataSourceNode(),
@@ -53,6 +55,7 @@ func Provider() *schema.Provider {
 			"e2e_blockstorage": blockstorage.DataSourceBlockStorage(),
 			"e2e_nodes":        node.DataSourceNodes(),
 			"e2e_reserve_ips":  reserve_ip.DataSourceReserveIps(),
+			"e2e_sfss":         sfs.DataSourceSfs(),
 		},
 		ConfigureFunc: providerConfigure,
 	}

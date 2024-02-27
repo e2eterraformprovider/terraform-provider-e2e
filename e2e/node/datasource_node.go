@@ -103,7 +103,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 	log.Printf("[INFO] INSIDE NODE DATA SOURCE | read")
 	nodeId := d.Get("node_id").(string)
-    project_id:=d.Get("project_id").(string)
+	project_id := d.Get("project_id").(string)
 	node, err := apiClient.GetNode(nodeId, project_id)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", nodeId)

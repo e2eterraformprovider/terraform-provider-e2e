@@ -84,8 +84,7 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside nodes data source ")
-	project_id:=d.Get("project_id").(string)
-	Response, err := apiClient.GetNodes(d.Get("region").(string),project_id)
+	Response, err := apiClient.GetNodes(d.Get("region").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
