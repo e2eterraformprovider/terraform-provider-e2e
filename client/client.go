@@ -31,8 +31,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error) {
-
+func (c *Client) NewNode(item *models.NodeCreate, project_id string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -48,6 +47,7 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 	params := req.URL.Query()
 
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -74,7 +74,7 @@ func (c *Client) NewNode(item *models.NodeCreate) (map[string]interface{}, error
 
 }
 
-func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
+func (c *Client) GetNode(nodeId string, project_id string) (map[string]interface{}, error) {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("GET", urlNode, nil)
@@ -86,11 +86,11 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
-
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -111,17 +111,14 @@ func (c *Client) GetNode(nodeId string) (map[string]interface{}, error) {
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
-
 	if err != nil {
 		log.Printf("[ERROR] CLIENT GET NDE | error when unmarshalling")
 		return nil, err
 	}
-
 	return jsonRes, nil
 }
 
-func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
-
+func (c *Client) GetNodes(location string, project_id string) (*models.ResponseNodes, error) {
 	urlGetNodes := c.Api_endpoint + "nodes/"
 	req, err := http.NewRequest("GET", urlGetNodes, nil)
 	if err != nil {
@@ -129,16 +126,14 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 	}
 	log.Printf("[INFO] CLIENT GET NODES")
 	params := req.URL.Query()
-
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
-
 	req.Header.Add("User-Agent", "terraform-e2e")
-
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -150,11 +145,9 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 			log.Printf("GET NODES | INSIDE NO SUCCESS AND ERROR MSG")
 			return nil, fmt.Errorf("%v", err)
 		}
-
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	fmt.Println(response.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +159,10 @@ func (c *Client) GetNodes(location string) (*models.ResponseNodes, error) {
 		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
 		return nil, err
 	}
-
 	return &res, nil
 }
 
-func (c *Client) UpdateNode(nodeId string, action string, Name string) (interface{}, error) {
+func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string) (interface{}, error) {
 
 	node_action := models.NodeAction{
 		Type: action,
@@ -185,6 +177,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
@@ -216,16 +209,16 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string) (interfac
 	return jsonRes, err
 }
 
-func (c *Client) DeleteNode(nodeId string) error {
+func (c *Client) DeleteNode(nodeId string, project_id string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("DELETE", urlNode, nil)
 	if err != nil {
 		return err
 	}
-
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
@@ -243,21 +236,19 @@ func (c *Client) DeleteNode(nodeId string) error {
 		}
 		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-
 	return nil
 }
 
-func (c *Client) GetSavedImages(location string) (*models.ImageListResponse, error) {
+func (c *Client) GetSavedImages(location string, project_id string) (*models.ImageListResponse, error) {
 
 	urlImages := c.Api_endpoint + "images/" + "saved-images" + "/"
-
 	req, err := http.NewRequest("GET", urlImages, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("contact_person_id", "null")
 	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
@@ -297,7 +288,6 @@ func (c *Client) GetSecurityGroups() (*models.SecurityGroupsResponse, error) {
 		log.Printf("[INFO] error inside get security groups")
 		return nil, err
 	}
-
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	res := models.SecurityGroupsResponse{}
@@ -340,7 +330,7 @@ func (c *Client) GetSshKeys() (*models.SshKeyResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
+func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsResponse, error) {
 
 	urlGetVpcs := c.Api_endpoint + "vpc/" + "list/"
 	req, err := http.NewRequest("GET", urlGetVpcs, nil)
@@ -351,6 +341,7 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -371,7 +362,7 @@ func (c *Client) GetVpcs(location string) (*models.VpcsResponse, error) {
 	}
 	return &res, nil
 }
-func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
+func (c *Client) GetVpc(vpc_id string, project_id string, location string) (*models.VpcResponse, error) {
 
 	urlGetVpc := c.Api_endpoint + "vpc/" + vpc_id + "/"
 	req, err := http.NewRequest("GET", urlGetVpc, nil)
@@ -381,6 +372,8 @@ func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -403,7 +396,7 @@ func (c *Client) GetVpc(vpc_id string) (*models.VpcResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]interface{}, error) {
+func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id string) (map[string]interface{}, error) {
 
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
@@ -421,6 +414,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]
 
 	params.Add("apikey", c.Api_key)
 	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -443,7 +437,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate) (map[string]
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
+func (c *Client) DeleteVpc(vpcId string, project_id string, location string) (map[string]interface{}, error) {
 
 	urlVpc := c.Api_endpoint + "vpc/" + vpcId + "/"
 	log.Printf("[INFO] %s", urlVpc)
@@ -454,6 +448,8 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -471,8 +467,97 @@ func (c *Client) DeleteVpc(vpcId string) (map[string]interface{}, error) {
 	}
 	return jsonRes, nil
 }
+func (c *Client) NewReservedIp(project_id string, location string) (map[string]interface{}, error) {
 
-func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, error) {
+	UrlReservedIp := c.Api_endpoint + "reserve_ips/"
+	log.Printf("[INFO] Url = %s", UrlReservedIp)
+	req, err := http.NewRequest("POST", UrlReservedIp, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	log.Printf("\n\n[INFO] CLIENT NEW RESERVED IP | STATUS_CODE: %+v ==================***************\n\n", response)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("unauthorized | status %v | The provided api_token or api_key or project_id seem to be incorrect. Please revise them accordingly", response.StatusCode)
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
+}
+
+func (c *Client) DeleteReserveIP(ip_address string, project_id string, location string) error {
+	urlNode := c.Api_endpoint + "reserve_ips/" + ip_address + "/actions/"
+	req, err := http.NewRequest("DELETE", urlNode, nil)
+	if err != nil {
+		log.Printf("[INFO] error inside delete reserve ip")
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[INFO] error inside delete reserve ip")
+		return err
+	}
+	log.Printf("CLIENT DELETE NODE | STATUS_CODE: %d", response.StatusCode)
+	return nil
+
+}
+
+func (c *Client) GetReservedIp(ip_address string, project_id string, location string) (*models.ResponseReserveIps, error) {
+
+	urlNode := c.Api_endpoint + "reserve_ips/" + ip_address + "/actions/"
+	req, err := http.NewRequest("GET", urlNode, nil)
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	SetBasicHeaders(c.Auth_token, req)
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		log.Printf("[INFO] error inside get reserve ip")
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	res := models.ResponseReserveIps{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		log.Printf("[INFO] inside get reserve ip | error while unmarshlling")
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) GetReservedIps(project_id string, location string) (*models.ResponseReserveIps, error) {
 
 	urlGetReserveIps := c.Api_endpoint + "reserve_ips/"
 	req, err := http.NewRequest("GET", urlGetReserveIps, nil)
@@ -482,13 +567,15 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	params.Add("location", location)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
-		log.Printf("[INFO] error inside get vpcs")
+		log.Printf("[INFO] error inside GetReservedIps")
 		return nil, err
 	}
 
@@ -497,14 +584,14 @@ func (c *Client) GetReservedIps(location string) (*models.ResponseReserveIps, er
 	res := models.ResponseReserveIps{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
-		log.Printf("[INFO] inside get vpcs | error while unmarshlling")
+		log.Printf("[INFO] inside GetReservedIps | error while unmarshlling")
 		return nil, err
 	}
 	return &res, nil
 
 }
 
-func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
+func (c *Client) GetImage(imageId string, project_id string) (*models.ImageResponse, error) {
 	urlGetImage := c.Api_endpoint + "images/" + imageId + "/"
 	req, err := http.NewRequest("GET", urlGetImage, nil)
 	if err != nil {
@@ -512,6 +599,7 @@ func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
 	}
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)
@@ -533,20 +621,21 @@ func (c *Client) GetImage(imageId string) (*models.ImageResponse, error) {
 	return &res, nil
 
 }
-func (c *Client) DeleteImage(imageId string) error {
+func (c *Client) DeleteImage(imageId string, project_id string) error {
 	urlNode := c.Api_endpoint + "images/" + imageId + "/"
 	deleteBody := models.ImageDeleteBody{
 		Action_type: "delete_image",
 	}
 	deleteBodyMarshalled, err := json.Marshal(deleteBody)
 
-	req, err := http.NewRequest("POST", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
+	req, err := http.NewRequest("DELETE", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
 	if err != nil {
 		return err
 	}
 
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
 	response, err := c.HttpClient.Do(req)

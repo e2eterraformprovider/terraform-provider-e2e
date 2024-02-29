@@ -29,6 +29,12 @@ func DataSourceVpcs() *schema.Resource {
 				Required:    true,
 				Description: "Region should specified",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "ID of the project. It should be unique",
+			},
 			"vpc_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -84,14 +90,23 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	var diags diag.Diagnostics
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] Inside vpcs data source ")
-	Response, err := apiClient.GetVpcs(d.Get("region").(string))
+
+	region, okRegion := d.Get("region").(string)
+	projectID, okProjectID := d.Get("project_id").(string)
+	if !okRegion || !okProjectID {
+		return diag.Errorf("region or project_id is not set or has an unexpected type")
+	}
+	Response, err := apiClient.GetVpcs(region, projectID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 	log.Printf("[INFO] %v", Response)
-	d.Set("vpc_list", flattenVpcs(&Response.Data))
-	d.SetId("vpc_list")
-
+	if Response.Data != nil {
+		d.Set("vpc_list", flattenVpcs(&Response.Data))
+		d.SetId("vpc_list")
+	} else {
+		log.Printf("[ERROR] VPC list is nil in the response")
+	}
 	return diags
 }
 
