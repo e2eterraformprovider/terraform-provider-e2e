@@ -187,11 +187,13 @@ func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData
 	return diags
 }
 
-func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
+func resourceExistsObjectStore(d *schema.ResourceData, m interface{}) (bool, error) {
 	apiClient := m.(*client.Client)
 
-	nodeId := d.Id()
-	_, err := apiClient.GetNode(nodeId)
+	bucketName := d.Get("name").(string)
+	projectID := fmt.Sprint(d.Get("project_id").(int))
+	region := d.Get("region").(string)
+	_, err := apiClient.GetBucket(bucketName, projectID, region)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
