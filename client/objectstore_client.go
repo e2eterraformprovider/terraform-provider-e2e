@@ -21,16 +21,18 @@ func (client *Client) setParamsAndHeaders(request *http.Request, location string
 	request.Header.Add("Authorization", "Bearer "+client.Auth_token)
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("User-Agent", "terraform-e2e")
+	log.Printf("[INFO] Set Params and Headers")
 	return request
 }
 
 func (client *Client) CreateBucket(buckets *models.ObjectStorePayload) (map[string]interface{}, error) {
+	log.Printf("[INFO] CREATE BUCKET")
 	payload_buffer := bytes.Buffer{}
 	error_while_encoding := json.NewEncoder(&payload_buffer).Encode(buckets)
 	if error_while_encoding != nil {
 		return nil, error_while_encoding
 	}
-	BucketCreateUrl := client.Api_endpoint + "storage/buckets/" + buckets.BucketName
+	BucketCreateUrl := client.Api_endpoint + "storage/buckets/" + buckets.BucketName + "/"
 	create_request, error := http.NewRequest("POST", BucketCreateUrl, &payload_buffer)
 	if error != nil {
 		return nil, error
@@ -59,14 +61,13 @@ func (client *Client) CreateBucket(buckets *models.ObjectStorePayload) (map[stri
 
 func (client *Client) GetBuckets(location string, project_id string) (*models.ResponseBuckets, error) {
 
-	urlGetNodes := client.Api_endpoint + "storage/buckets/"
-	readrequest, err := http.NewRequest("GET", urlGetNodes, nil)
+	urlGetBuckets := client.Api_endpoint + "storage/buckets/"
+	readrequest, err := http.NewRequest("GET", urlGetBuckets, nil)
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("[INFO] CLIENT GET BUCKETS")
 	readrequest = client.setParamsAndHeaders(readrequest, location, project_id)
-
 	response, err := client.HttpClient.Do(readrequest)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,6 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	fmt.Println(response.Body)
 
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 	res := models.ResponseBuckets{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
-		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
+		log.Printf("[INFO] inside get CLIENT BUCKETS | error while unmarshlling")
 		return nil, err
 	}
 	return &res, nil
@@ -99,7 +99,7 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 
 func (client *Client) GetBucket(bucket_name string, location string, project_id string) (map[string]interface{}, error) {
 
-	urlGetNodes := client.Api_endpoint + "storage/buckets/" + bucket_name
+	urlGetNodes := client.Api_endpoint + "storage/buckets/" + bucket_name + "/"
 	readrequest, err := http.NewRequest("GET", urlGetNodes, nil)
 	if err != nil {
 		return nil, err
@@ -128,8 +128,8 @@ func (client *Client) GetBucket(bucket_name string, location string, project_id 
 	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
+	log.Printf("%s", resBody)
 	stringresponse := string(resBody)
-	log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
@@ -142,6 +142,7 @@ func (client *Client) GetBucket(bucket_name string, location string, project_id 
 
 func (client *Client) SetBucketVersioning(bucket_name string, location string, project_id string, action string) (map[string]interface{}, error) {
 
+	log.Printf("[INFO] VERSIONING NAME: --> %s", action)
 	item := map[string]string{
 		"bucket_name":          bucket_name,
 		"new_versioning_state": action,
@@ -151,13 +152,14 @@ func (client *Client) SetBucketVersioning(bucket_name string, location string, p
 	if err != nil {
 		return nil, err
 	}
-	BucketVersioningUrl := client.Api_endpoint + "storage/bucket_versioning" + bucket_name
+	BucketVersioningUrl := client.Api_endpoint + "storage/bucket_versioning/" + bucket_name + "/"
 	versioning_request, err := http.NewRequest("PUT", BucketVersioningUrl, &buf)
 	if err != nil {
 		return nil, err
 	}
 	versioning_request = client.setParamsAndHeaders(versioning_request, location, project_id)
 	versioning_response, err := client.HttpClient.Do(versioning_request)
+	log.Printf("[INFO] VERSIOING RESPONSE ---> %v", versioning_response.StatusCode)
 
 	if err != nil {
 		return nil, err
@@ -168,6 +170,7 @@ func (client *Client) SetBucketVersioning(bucket_name string, location string, p
 	}
 	defer versioning_response.Body.Close()
 	resBody, _ := ioutil.ReadAll(versioning_response.Body)
+	log.Printf("[INFO] VERSIOING RESPONSE ---> %s", resBody)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}

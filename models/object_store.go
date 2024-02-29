@@ -5,9 +5,9 @@ type ObjectStore struct {
 	Name                         string  `json:"name"`
 	Status                       string  `json:"status"`
 	BucketSize                   string  `json:"bucket_size"`
-	CreatedOn                    string  `json:"created_on"`
+	CreatedOn                    string  `json:"created_at"`
 	VersioningStatus             string  `json:"versioning_status"`
-	LifecycleConfigurationStatus bool    `json:"lifecycle_configuration_status"`
+	LifecycleConfigurationStatus string  `json:"lifecycle_configuration_status"`
 }
 
 type ObjectStorePayload struct {
