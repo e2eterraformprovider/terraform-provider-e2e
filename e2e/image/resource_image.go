@@ -36,6 +36,12 @@ func ResourceImage() *schema.Resource {
 				Required:    true,
 				Description: "Name of the image",
 			},
+			"project_id": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "project_id",
+				ForceNew:    true,
+			},
 			"template_id": {
 				Type:        schema.TypeInt,
 				Computed:    true,
@@ -99,9 +105,9 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 
-	log.Printf("[INFO] IMAGE CREATE ")
+	log.Printf("[INFO] IMAGE CREATE")
 
-	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string))
+	resImage, err := apiClient.UpdateNode(d.Get("node_id").(string), "save_images", d.Get("name").(string), d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -127,7 +133,7 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Printf("[info] inside node Resource read")
 	imageId := d.Id()
 
-	imageres, err := apiClient.GetImage(imageId)
+	imageres, err := apiClient.GetImage(imageId, d.Get("project_id").(string))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -171,7 +177,7 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	log.Printf("[INFO] DELETE IMAGE")
 	imageId := d.Id()
 
-	err := apiClient.DeleteImage(imageId)
+	err := apiClient.DeleteImage(imageId, d.Get("project_id").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -183,7 +189,7 @@ func resourceExistsImage(d *schema.ResourceData, m interface{}) (bool, error) {
 	apiClient := m.(*client.Client)
 
 	ImageId := d.Id()
-	_, err := apiClient.GetImage(ImageId)
+	_, err := apiClient.GetImage(ImageId, d.Get("project_id").(string))
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
