@@ -3,6 +3,7 @@ package loadbalancer
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -187,4 +188,13 @@ func SetLoadBalancerStatus(d *schema.ResourceData, status_detail interface{}) er
 		d.Set("status", "Error")
 	}
 	return nil
+}
+
+func CheckStatus(statuslist []string, status string) bool {
+	for _, s := range statuslist {
+		if strings.EqualFold(s, status) {
+			return true
+		}
+	}
+	return false
 }

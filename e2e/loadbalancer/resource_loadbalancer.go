@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"math"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -590,7 +589,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if d.HasChange("power_status") {
 		disablePowerStatusList := []string{"Creating", "Deploying", "Upgrading"}
 
-		if slices.Contains(disablePowerStatusList, lb_status) == true {
+		if CheckStatus(disablePowerStatusList, lb_status) {
 			return diag.Errorf("Load Balancer is in %s state, can not change power status.", lb_status)
 		}
 
@@ -677,7 +676,7 @@ func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	lb_status := d.Get("status").(string)
 	disableDeleteLbStatusList := []string{"Creating", "Deploying", "Upgrading"}
 
-	if slices.Contains(disableDeleteLbStatusList, lb_status) == true {
+	if CheckStatus(disableDeleteLbStatusList, lb_status) {
 		return diag.Errorf("Load Balancer is in %s state. Currently can not destroy the resource.", lb_status)
 	}
 
