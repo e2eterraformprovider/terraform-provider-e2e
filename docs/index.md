@@ -6,7 +6,7 @@ description: |-
   
 ---
 
-# e2e Provider
+# E2E Cloud Provider
  Use the e2e  provider to interact with the many resources supported by E2E. You must configure the provider with the proper credentials before you can use it.
 
 You can use e2e terraform provider to create resources.
