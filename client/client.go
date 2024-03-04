@@ -171,7 +171,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	nodeAction, err := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(nodeAction))
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,8 @@ This resource allows you to manage reserved ip on your e2e clusters. When applie
 ## Example Usage
 ```hcl
  resource "e2e_reserved_ip" "reserved_ip1" {
-	project_id      = <add your project_id here>
+	project_id = <project_id:string>
+	location   = <bucket_region: string> (default: "Delhi")
  }
 ```
 
