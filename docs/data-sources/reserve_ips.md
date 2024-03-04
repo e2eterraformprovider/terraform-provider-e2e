@@ -10,7 +10,7 @@ description: |-
 ```hcl
 data "example_reserve_ips" "reserved_ip_list" {
   project_id = <project_id:string>
-  region = <bucket_region: string> (default: "Delhi")
+  region = <region: string> (default: "Delhi")
 }
 ```
 
