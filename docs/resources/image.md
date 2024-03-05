@@ -17,7 +17,7 @@ This resource allows you to manage images on your e2e clusters. When applied, a 
  resource "e2e_image" "image1" {
 	name     =   "demo_image"
     node_id  =   e2e_node.node1.id
-    project_id = <add your project_id here>
+    project_id = <project_id:string>
  }
 ```
 ## Schema

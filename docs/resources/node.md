@@ -19,7 +19,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
     region            = "Delhi"
     plan              = "C2.12GB"
     image             = "CentOS-7"
-    project_id        = 322
+    project_id        = <project_id:string>
  }
 ```
 ## Schema

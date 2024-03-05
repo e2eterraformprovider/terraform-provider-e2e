@@ -13,7 +13,7 @@ DataSource will list all the created Resources of nodes.
 ```hcl 
 data "e2e_nodes" "nodes324" {
    region = "Delhi"
-   project_id = "325"
+   project_id = "325" //Just an example
   }
 output "all_nodes_list" {
 value= data.e2e_nodes.sfs111.nodes324
