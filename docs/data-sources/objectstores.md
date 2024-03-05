@@ -11,7 +11,7 @@ DataSource will list all the created Resources of nodes.
 
 # Example uses
 ```hcl 
-data "example_objectstores" "eos12345"{
+data "e2e_objectstores" "eos12345"{
   region=<bucket_region: string> (default: "Delhi")
   project_id=<project_id: int>
 }

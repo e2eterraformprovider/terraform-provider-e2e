@@ -12,7 +12,7 @@ description: |-
 
 ## Example Usage
 ```hcl
-data "example_images" "image_list"{
+data "e2e_images" "image_list"{
   project_id = <project_id:string>
   region = "Delhi"
 }

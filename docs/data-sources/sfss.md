@@ -11,14 +11,14 @@ DataSource will list all created resources of SFS(scalable file system)
 
 # Example uses
 ```hcl 
-data "example_sfss" "sfs111" {
+data "e2e_sfss" "sfs111" {
    region = "Delhi"
    project_id = "1111"
  }
  ```
 ```hcl
 output "sfs_list_name" {
-  value=data.example_sfss.sfs111
+  value=data.e2e_sfss.sfs111
  }
  ```
 
