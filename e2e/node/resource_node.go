@@ -431,6 +431,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	if d.HasChange("label") {
+		log.Printf("[INFO] changed label = %s ", d.Get("label").(string))
+		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	return resourceReadNode(ctx, d, m)
 
 }
