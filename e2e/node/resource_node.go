@@ -31,7 +31,7 @@ func ResourceNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
-				ForceNew:     true,
+				ForceNew:     false,
 				ValidateFunc: ValidateName,
 			},
 			"label": {
@@ -345,6 +345,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 
+	}
+
+	if d.HasChange("name") {
+		log.Printf("[INFO] name = %s ", d.Get("name").(string))
+		apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
 	}
 
 	if d.HasChange("power_status") {
