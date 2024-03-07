@@ -23,7 +23,6 @@ func ResourceBlockStorage() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the block storage, also acts as its unique ID",
-				ForceNew:     true,
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
