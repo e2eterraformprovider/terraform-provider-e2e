@@ -43,7 +43,7 @@ func ResourceNode() *schema.Resource {
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
+				ForceNew:    false,
 				Description: "name of the Plan",
 			},
 			"backup": {
@@ -448,6 +448,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	if d.HasChange("ssh_keys") {
+		log.Printf("[INFO] changed ssh_keys = %s ", d.Get("ssh_keys"))
+		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
+		_, err = apiClient.UpdateNodeSSH(nodeId, "add_ssh_keys", d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
 	return resourceReadNode(ctx, d, m)
 
 }

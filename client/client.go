@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -201,6 +202,56 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, err
+}
+
+func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interface{}, project_id string, location string) (interface{}, error) {
+
+	ssh_keys_map := generateSSHKeyMap(ssh_keys)
+	node_action := models.NodeActionSSH{
+		Type:     action,
+		SSH_KEYS: ssh_keys_map,
+	}
+	nodeAction, err := json.Marshal(node_action)
+	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
+	log.Printf("[info] %s", url)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	req.URL.RawQuery = params.Encode()
+	log.Printf("[INFO] inside update ssh req = %+v", req)
+	// return nil, err
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] inside update %s %d", action, response.StatusCode)
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String()[:5000])
+	}
+	defer response.Body.Close()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
