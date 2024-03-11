@@ -215,11 +215,15 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interface{}, project_id string, location string) (interface{}, error) {
 
 	ssh_keys_map := generateSSHKeyMap(ssh_keys)
+	if len(ssh_keys_map) == 0 {
+		ssh_keys_map = make([]map[string]interface{}, 0)
+	}
+	log.Printf("[INFO] inside update ssh | ssh_keys_map = %+v", ssh_keys_map)
 	node_action := models.NodeActionSSH{
 		Type:     action,
 		SSH_KEYS: ssh_keys_map,
 	}
-	nodeAction, err := json.Marshal(node_action)
+	nodeAction, _ := json.Marshal(node_action)
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
@@ -248,7 +252,7 @@ func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interfac
 		if err != nil {
 			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
 		}
-		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String()[:5000])
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	defer response.Body.Close()
 	resBody, _ := io.ReadAll(response.Body)
