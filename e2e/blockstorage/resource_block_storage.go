@@ -20,10 +20,10 @@ func ResourceBlockStorage() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "The name of the block storage, also acts as its unique ID",
-				ForceNew:     true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The name of the block storage, also acts as its unique ID",
+				// ForceNew:     true,
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
@@ -153,8 +153,20 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("error finding Block Storage with ID %s", blockStorageID)
 
 	}
-	return diag.Errorf("you cannot update parameters after block storage creation. kindly destroy it and then create a new block storage.")
-
+	diags := diag.Errorf("you cannot update parameters after block storage creation. kindly destroy it and then create a new block storage.")
+	if d.HasChange("name") {
+		prevName, currName := d.GetChange("name")
+		log.Printf("[INFO] prevName %s, currName %s", prevName.(string), currName.(string))
+		d.Set("name", prevName)
+		return diags
+	}
+	if d.HasChange("size") {
+		prevSize, currSize := d.GetChange("size")
+		log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
+		d.Set("size", prevSize)
+		return diags
+	}
+	return resourceReadBlockStorage(ctx, d, m)
 }
 
 func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
