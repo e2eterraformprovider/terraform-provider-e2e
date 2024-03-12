@@ -318,20 +318,6 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	log.Printf("[info] node Resource read | before setting data")
 	data := node["data"].(map[string]interface{})
 
-	sshKeys := make([]string, 0)
-	if sshKeysInterface, ok := data["ssh_keys"].([]interface{}); ok {
-		for _, ele := range sshKeysInterface {
-			if sshKeyMap, ok := ele.(map[string]interface{}); ok {
-				if sshKey, ok := sshKeyMap["ssh_key"].(string); ok {
-					sshKeys = append(sshKeys, sshKey)
-				}
-			}
-		}
-	} else {
-		fmt.Println("ssh_keys not found or not of expected type")
-	}
-	log.Printf("[info] node Resource read | after setting data ssh_keys = %s", sshKeys)
-
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
 	d.Set("plan", data["plan"].(string))
@@ -344,7 +330,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
-	d.Set("ssh_keys", sshKeys)
+
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {
 		d.Set("power_status", "power_on")
