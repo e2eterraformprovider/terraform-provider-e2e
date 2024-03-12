@@ -1,4 +1,4 @@
-module  github.com/e2eterraformprovider/terraform-provider-e2e
+module github.com/e2eterraformprovider/terraform-provider-e2e
 
 go 1.18
 
@@ -48,6 +48,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/posener/complete v1.2.3 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
