@@ -26,10 +26,6 @@ This resource allows you to manage vpc on your e2e clusters. When applied, a new
 - `region` (String) Region should specified
 - `vpc_name` (String)
 
-### Optional
-
-- `network_size` (Number)
-
 ### Read-Only
 
 - `created_at` (String)
