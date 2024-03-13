@@ -348,8 +348,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("name") {
-		log.Printf("[INFO] name = %s ", d.Get("name").(string))
-		apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
+		log.Printf("[INFO] ndoeId = %v, name = %s ", d.Id(), d.Get("name").(string))
+		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if d.HasChange("power_status") {
