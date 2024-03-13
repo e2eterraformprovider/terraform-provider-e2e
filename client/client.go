@@ -358,37 +358,6 @@ func (c *Client) GetSecurityGroups() (*models.SecurityGroupsResponse, error) {
 	return &res, nil
 }
 
-func (c *Client) GetSshKeys() (*models.SshKeyResponse, error) {
-
-	urlSshKeys := c.Api_endpoint + "ssh_keys/"
-	req, err := http.NewRequest("GET", urlSshKeys, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
-	response, err := c.HttpClient.Do(req)
-	if err != nil {
-		log.Printf("[INFO] error inside get ssh keys")
-		return nil, err
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	res := models.SshKeyResponse{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
-		return nil, err
-	}
-	return &res, nil
-}
-
 func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsResponse, error) {
 
 	urlGetVpcs := c.Api_endpoint + "vpc/" + "list/"
