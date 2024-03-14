@@ -26,49 +26,49 @@ import (
 func ResourceSfs() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-
+         
 			"name": {
 				Type:         schema.TypeString,
 				Required:     true,
-				ForceNew:     true,
+				ForceNew:   true,
 				Description:  "The name of the resource, also acts as it's unique ID",
 				ValidateFunc: validateName,
 			},
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
+				ForceNew:   true,
 				Description: "Details  of the Plan",
 			},
-			"vpc_id": {
+			"vpc_id":{
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
+				ForceNew:   true,
 				Description: "virtual private cloud id of sfs",
 			},
-			"disk_size": {
+			"disk_size":{
 				Type:        schema.TypeInt,
 				Required:    true,
-				ForceNew:    true,
+				ForceNew:   true,
 				Description: "size of disk to be created",
 			},
-			"project_id": {
+			"project_id":{
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "size of disk to be created",
 			},
-			"disk_iops": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
-				Description: "input output per second",
+			"disk_iops":{
+				Type:       schema.TypeInt,
+				Required:   true,
+				ForceNew:   true,
+				Description:  "input output per second",
 			},
-			"status": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Optional:    true,
-				Description: "status will be updated after creation",
+			"status":{
+				Type:       schema.TypeString,
+				Computed:   true,
+				Optional:   true,
+				Description:  "status will be updated after creation",
 			},
 			"region": {
 				Type:        schema.TypeString,
@@ -77,14 +77,15 @@ func ResourceSfs() *schema.Resource {
 				Description: "Location where node is to be launched",
 				Default:     "Delhi",
 			},
+		
 		},
 		CreateContext: resourceCreateSfs,
 		ReadContext:   resourceReadSfs,
 		DeleteContext: resourceDeleteSfs,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
-		},
-	}
+				State: schema.ImportStatePassthrough,
+			},
+}
 }
 
 func validateName(v interface{}, k string) (ws []string, es []error) {
@@ -165,11 +166,11 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	log.Printf("[info] node Resource read | before setting data")
 	data := Sfs["data"].(map[string]interface{})
 	d.Set("name", data["name"].(string))
-	log.Printf("[info] SFS Resource read | after setting data")
+	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Available" {
 		d.Set("status", "power_on")
 	}
-
+	
 	return diags
 
 }
