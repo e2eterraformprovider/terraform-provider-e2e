@@ -20,10 +20,10 @@ func ResourceBlockStorage() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "The name of the block storage, also acts as its unique ID",
-				ForceNew:     true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The name of the block storage, also acts as its unique ID",
+				// ForceNew:     true,
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
@@ -145,16 +145,57 @@ func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	apiClient := m.(*client.Client)
-
+	var diags diag.Diagnostics
 	blockStorageID := d.Id()
 
-	_, err := apiClient.GetBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
-		return diag.Errorf("error finding Block Storage with ID %s", blockStorageID)
-
+		if strings.Contains(err.Error(), "not found") {
+			d.SetId("")
+			return diags
+		}
+		return diag.Errorf("error finding Block Storage with ID %s: %s", blockStorageID, err.Error())
 	}
-	return diag.Errorf("you cannot update parameters after block storage creation. kindly destroy it and then create a new block storage.")
+	if d.HasChange("name") {
+		prevName, currName := d.GetChange("name")
+		log.Printf("[INFO] prevName %s, currName %s", prevName.(string), currName.(string))
+		d.Set("name", prevName)
+		return diags
+	}
+	if d.HasChange("size") {
+		if d.Get("status") == "Attached" {
+			prevSize, currSize := d.GetChange("size")
+			tolerance := 1e-6
+			if currSize.(float64) > prevSize.(float64)+tolerance {
+				log.Printf("[INFO] BLOCK STORAGE UPGRADE STARTS")
+				vmID := blockStorage["data"].(map[string]interface{})["vm_detail"].(map[string]interface{})["vm_id"]
+				blockStorage := models.BlockStorageUpgrade{
+					Name:  d.Get("name").(string),
+					Size:  d.Get("size").(float64),
+					VM_ID: vmID.(float64),
+				}
+				log.Printf("[INFO] BlockStorage details: %+v %T", blockStorage, blockStorage.VM_ID)
+				resBlockStorage, err := apiClient.UpdateBlockStorageSize(&blockStorage, blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
 
+				log.Printf("[INFO] BLOCK STORAGE UPGRADE | RESPONSE BODY | %+v", resBlockStorage)
+				if _, codeok := resBlockStorage["code"]; !codeok {
+					return diag.Errorf(resBlockStorage["message"].(string))
+				}
+				return diags
+			}
+			d.Set("size", prevSize)
+			return diag.Errorf("You cannot downgrade a Block Storage Volume")
+		} else {
+			prevSize, currSize := d.GetChange("size")
+			log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
+			d.Set("size", prevSize)
+			return diag.Errorf("You cannot upgrade a block storage volume unless it is attached to a node")
+		}
+	}
+	return resourceReadBlockStorage(ctx, d, m)
 }
 
 func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
