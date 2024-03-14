@@ -424,6 +424,10 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	if err != nil {
 		return nil, err
 	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
