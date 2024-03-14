@@ -160,7 +160,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		prevName, currName := d.GetChange("name")
 		log.Printf("[INFO] prevName %s, currName %s", prevName.(string), currName.(string))
 		d.Set("name", prevName)
-		return diags
+		return diag.Errorf("Renaming of Block Storage is not permitted!")
 	}
 	if d.HasChange("size") {
 		if d.Get("status") == "Attached" {
