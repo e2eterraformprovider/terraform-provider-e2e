@@ -421,6 +421,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	req.Header.Add("User-Agent", "terraform-e2e")
 	response, err := c.HttpClient.Do(req)
 
+	log.Printf("inside create vpc req = %+v, res = %+v, Error = %+v", req, response, err)
 	if err != nil {
 		return nil, err
 	}
@@ -434,6 +435,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+	log.Printf("inside create vpc Json Response = %+v", err)
 
 	if err != nil {
 		return nil, err
