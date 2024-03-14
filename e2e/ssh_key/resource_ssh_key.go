@@ -19,7 +19,7 @@ func ResourceSshKey() *schema.Resource {
 
 			"label": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				Description: "The label(name) of the ssh key",
 				ForceNew:    true,
 			},
@@ -28,11 +28,13 @@ func ResourceSshKey() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "your ssh key",
+				ForceNew:    true,
 			},
 			"project_id": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The ID of the project associated with the ssh key",
+				ForceNew:    true,
 			},
 			"timestamp": {
 				Type:        schema.TypeString,
