@@ -53,6 +53,7 @@ func Provider() *schema.Provider {
 			"example_node":   node.DataSourceNode(),
 			"example_images": image.DataSourceImages(),
 			//"example_security_groups": security_group.DataSourceSecurityGroups(),
+			"example_ssh_key":      ssh_key.DataSourceSshKey(),
 			"example_ssh_keys":     ssh_key.DataSourceSshKeys(),
 			"example_vpcs":         vpc.DataSourceVpcs(),
 			"example_blockstorage": blockstorage.DataSourceBlockStorage(),

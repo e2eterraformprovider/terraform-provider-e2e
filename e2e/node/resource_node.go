@@ -123,7 +123,7 @@ func ResourceNode() *schema.Resource {
 			"ssh_keys": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Specify the ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
+				Description: "Specify the label of ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 			"is_active": {
@@ -240,6 +240,13 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	copy_ssh_keys := d.Get("ssh_keys")
+	new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), d.Get("project_id").(string))
+
+	if Err != nil {
+		return Err
+	}
+	d.Set("ssh_keys", new_SSH_keys)
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
 	node := models.NodeCreate{
@@ -290,6 +297,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	nodeId := data["id"].(float64)
 	nodeId = math.Round(nodeId)
 	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
+	d.Set("ssh_keys", copy_ssh_keys)
 	d.Set("is_active", data["is_active"].(bool))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
@@ -303,6 +311,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	copy_ssh_keys := d.Get("ssh_keys")
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -330,6 +339,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
+	d.Set("ssh_keys", copy_ssh_keys)
 
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" {
@@ -441,15 +451,24 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("ssh_keys") {
-		prevSshKeys, _ := d.GetChange("ssh_keys")
+		prevSshKeys, currSshKeys := d.GetChange("ssh_keys")
 
 		log.Printf("[INFO] changed ssh_keys = %s ", d.Get("ssh_keys"))
 		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
+
+		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id)
+		if Err != nil {
+			d.Set("ssh_keys", prevSshKeys)
+			return Err
+		}
+		d.Set("ssh_keys", new_SSH_keys)
 		_, err = apiClient.UpdateNodeSSH(nodeId, "add_ssh_keys", d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
+		d.Set("ssh_keys", currSshKeys)
 		if err != nil {
 			d.Set("ssh_keys", prevSshKeys)
 			return diag.FromErr(err)
 		}
+
 	}
 	return resourceReadNode(ctx, d, m)
 

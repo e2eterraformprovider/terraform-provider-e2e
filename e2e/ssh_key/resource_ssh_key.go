@@ -3,6 +3,8 @@ package ssh_key
 import (
 	"context"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -32,16 +34,6 @@ func ResourceSshKey() *schema.Resource {
 				Required:    true,
 				Description: "The ID of the project associated with the ssh key",
 			},
-			"location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "The Location(region) where the ssh key is to be created",
-			},
-			"pk": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Unique Id for the SSH Key",
-			},
 			"timestamp": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -53,6 +45,7 @@ func ResourceSshKey() *schema.Resource {
 		ReadContext:   resourceReadSshKey,
 		UpdateContext: resourceUpdateSshKey,
 		DeleteContext: resourceDeleteSshKey,
+		Exists:        resourceExistsSshKey,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -70,25 +63,31 @@ func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	project_id := d.Get("project_id").(string)
-	res, err := apiClient.AddSshKey(ssh_key, project_id, d.Get("location").(string))
+	res, err := apiClient.AddSshKey(ssh_key, project_id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
 	log.Printf("[INFO] SSH_KEY CREATE | RESPONSE BODY | %+v", res)
-	if _, codeok := res["code"]; !codeok {
-		return diag.Errorf(res["message"].(string))
+	if code, codeok := res["code"].(float64); !codeok || int(code) < 200 || int(code) >= 300 {
+		// log.Printf("res['code'] = %v, res['code'].(int) = %T", res["code"], res["code"].(int))
+		log.Printf("code = %v, type = %T", code, code)
+		return diag.Errorf("%v | %v", res["message"].(string), res["errors"])
 	}
 
+	log.Printf("[INFO] Ssh key creation | res = %+v, type = %T", res, res)
 	data := res["data"].(map[string]interface{})
 
-	log.Printf("[INFO] Ssh key creation | before setting fields")
+	ssh_key_id := strconv.FormatFloat(data["pk"].(float64), 'f', 0, 64)
+	log.Printf("[INFO] SSH KEY CREATE | SSH KEY ID | %+v, Type = %T", ssh_key_id, ssh_key_id)
+	log.Printf("[INFO] SSH KEY CREATE | label | %+v, Type = %T", data["label"], data["label"])
+	log.Printf("[INFO] SSH KEY CREATE | ssh_key | %+v, Type = %T", data["ssh_key"], data["ssh_key"])
+	log.Printf("[INFO] SSH KEY CREATE | timestamp | %+v, Type = %T", data["timestamp"], data["timestamp"])
+	d.SetId(ssh_key_id)
 
 	d.Set("label", data["label"].(string))
 	d.Set("ssh_key", data["ssh_key"].(string))
-	d.Set("pk", data["pk"].(string))
 	d.Set("timestamp", data["timestamp"].(string))
-	d.Set("project_id", data["project_id"].(string))
 	return diags
 }
 
@@ -97,20 +96,21 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	log.Printf("[info] inside SSH key Resource read")
-	sshKeyId := d.Get("pk").(string)
+	label := d.Get("label").(string)
 	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	res, err := apiClient.ReadSshKey(sshKeyId, project_id, location)
+	res, err := apiClient.GetSshKey(label, project_id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[info] node Resource read | before setting data")
+	log.Printf("[info] SSH Key Resource read | res = %+v, type = %T", res, res)
 	data := res["data"].(map[string]interface{})
+
+	ssh_key_id := strconv.FormatFloat(data["pk"].(float64), 'f', 0, 64)
+	d.SetId(ssh_key_id)
+
 	d.Set("label", data["label"].(string))
 	d.Set("ssh_key", data["ssh_key"].(string))
-	d.Set("pk", data["pk"].(string))
 	d.Set("timestamp", data["timestamp"].(string))
-	d.Set("project_id", data["project_id"].(string))
 
 	log.Printf("[info] SSH Key Resource read | after setting data")
 	return diags
@@ -120,7 +120,7 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
-	ssh_key_id := d.Get("pk").(string)
+	ssh_key_id := d.Id()
 	project_id := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 
@@ -139,19 +139,19 @@ func resourceUpdateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 
 }
 
-// func resourceExistsSshKey(d *schema.ResourceData, m interface{}) (bool, error) {
-// 	apiClient := m.(*client.Client)
+func resourceExistsSshKey(d *schema.ResourceData, m interface{}) (bool, error) {
+	apiClient := m.(*client.Client)
 
-// 	nodeId := d.Id()
-// 	project_id := d.Get("project_id").(string)
-// 	_, err := apiClient.GetNode(nodeId, project_id)
+	ssh_key_id := d.Id()
+	project_id := d.Get("project_id").(string)
+	_, err := apiClient.GetSshKey(ssh_key_id, project_id)
 
-// 	if err != nil {
-// 		if strings.Contains(err.Error(), "not found") {
-// 			return false, nil
-// 		} else {
-// 			return false, err
-// 		}
-// 	}
-// 	return true, nil
-// }
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return true, nil
+}
