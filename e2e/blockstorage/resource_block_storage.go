@@ -27,9 +27,8 @@ func ResourceBlockStorage() *schema.Resource {
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
-				Type:     schema.TypeFloat,
-				Required: true,
-				// ForceNew:     true,
+				Type:         schema.TypeFloat,
+				Required:     true,
 				Description:  "Size of the block storage in GB",
 				ValidateFunc: validateSize,
 			},

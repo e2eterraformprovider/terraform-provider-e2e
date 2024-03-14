@@ -31,7 +31,6 @@ func ResourceNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
-				ForceNew:     false,
 				ValidateFunc: ValidateName,
 			},
 			"label": {
