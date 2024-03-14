@@ -54,7 +54,6 @@ func ResourceNode() *schema.Resource {
 			"image": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 				Description: "The name of the image you have selected format :- ( os-version )",
 			},
 			"default_public_ip": {
