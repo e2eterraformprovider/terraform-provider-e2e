@@ -54,6 +54,7 @@ func ResourceNode() *schema.Resource {
 			"image": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The name of the image you have selected format :- ( os-version )",
 			},
 			"default_public_ip": {
@@ -94,8 +95,8 @@ func ResourceNode() *schema.Resource {
 			"region": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Location where node is to be launched",
-				Default:     "Delhi",
+				Description: "region",
+				Default:     "ncr",
 			},
 			"reserve_ip": {
 				Type:        schema.TypeString,
@@ -198,6 +199,12 @@ func ResourceNode() *schema.Resource {
 				ForceNew:    true,
 				Description: "The ID of the project associated with the node",
 			},
+			"location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Delhi",
+				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -263,7 +270,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 	project_id := d.Get("project_id").(string)
-	resnode, err := apiClient.NewNode(&node, project_id)
+	resnode, err := apiClient.NewNode(&node, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -445,6 +452,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			return diag.FromErr(err)
 		}
 	}
+	if d.HasChange("location") {
+		prevLocation, currLocation := d.GetChange("location")
+		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
+		d.Set("location", prevLocation)
+		return diag.Errorf("location cannot be updated once you create the node.")
+	}
 	if d.HasChange("plan") {
 		prevPlan, currPlan := d.GetChange("plan")
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
@@ -471,7 +484,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 	if node_status == "Saving" || node_status == "Creating" {
 		return diag.Errorf("Node in %s state", node_status)
 	}
-	err := apiClient.DeleteNode(nodeId, project_id)
+	err := apiClient.DeleteNode(nodeId, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.FromErr(err)
 	}
