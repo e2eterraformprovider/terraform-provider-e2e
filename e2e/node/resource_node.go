@@ -435,7 +435,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		prevPlan, currPlan := d.GetChange("plan")
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 		d.Set("plan", prevPlan)
-		return diag.Errorf("Plan cannot be updated once you create the node.")
+		return diag.Errorf("currently plan cannot be updated once you create the node.")
 	}
 	if d.HasChange("image") {
 		prevImage, currImage := d.GetChange("image")
