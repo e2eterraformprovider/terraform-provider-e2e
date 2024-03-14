@@ -31,7 +31,7 @@ func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
 	}
 }
 
-func (c *Client) NewNode(item *models.NodeCreate, project_id string) (map[string]interface{}, error) {
+func (c *Client) NewNode(item *models.NodeCreate, project_id string, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -48,10 +48,12 @@ func (c *Client) NewNode(item *models.NodeCreate, project_id string) (map[string
 
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
+	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
+	log.Printf("inside new Nodes req = %+v", req)
 	response, err := c.HttpClient.Do(req)
 
 	if err != nil {
@@ -209,7 +211,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	return jsonRes, err
 }
 
-func (c *Client) DeleteNode(nodeId string, project_id string) error {
+func (c *Client) DeleteNode(nodeId string, project_id string, location string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
 	req, err := http.NewRequest("DELETE", urlNode, nil)
@@ -219,11 +221,13 @@ func (c *Client) DeleteNode(nodeId string, project_id string) error {
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
+	params.Add("location", location)
 	params.Add("contact_person_id", "null")
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
+	log.Printf("inside delete node req.URL = %s", req.URL)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return err
@@ -421,6 +425,11 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	req.Header.Add("User-Agent", "terraform-e2e")
 	response, err := c.HttpClient.Do(req)
 
+	log.Printf("inside create vpc req = %+v, res = %+v, Error = %+v", req, response, err)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
 	if err != nil {
 		return nil, err
 	}
@@ -430,6 +439,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+	log.Printf("inside create vpc Json Response = %+v", err)
 
 	if err != nil {
 		return nil, err
