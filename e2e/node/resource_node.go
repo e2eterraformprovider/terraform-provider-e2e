@@ -43,7 +43,6 @@ func ResourceNode() *schema.Resource {
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 				Description: "name of the Plan",
 			},
 			"backup": {
@@ -205,7 +204,6 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "Delhi",
-				ForceNew:    true,
 				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
 			},
 		},
@@ -446,6 +444,13 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if err != nil {
 			return diag.FromErr(err)
 		}
+	}
+
+	if d.HasChange("location") {
+		prevLocation, currLocation := d.GetChange("location")
+		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
+		d.Set("location", prevLocation)
+		return diag.Errorf("location cannot be updated once you create the node.")
 	}
 
 	return resourceReadNode(ctx, d, m)
