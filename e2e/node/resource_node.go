@@ -310,7 +310,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	data := node["data"].(map[string]interface{})
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
-	d.Set("plan", data["plan"].(string))
+	// d.Set("plan", data["plan"].(string))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
@@ -444,6 +444,18 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if err != nil {
 			return diag.FromErr(err)
 		}
+	}
+	if d.HasChange("plan") {
+		prevPlan, currPlan := d.GetChange("plan")
+		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
+		d.Set("plan", prevPlan)
+		return diag.Errorf("currently plan cannot be updated once you create the node.")
+	}
+	if d.HasChange("image") {
+		prevImage, currImage := d.GetChange("image")
+		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
+		d.Set("image", prevImage.(string))
+		return diag.Errorf("Image cannot be updated once you create the node.")
 	}
 
 	return resourceReadNode(ctx, d, m)
