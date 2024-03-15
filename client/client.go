@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -211,6 +212,60 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 	return jsonRes, err
 }
 
+func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interface{}, project_id string, location string) (interface{}, error) {
+
+	ssh_keys_map := generateSSHKeyMap(ssh_keys)
+	if len(ssh_keys_map) == 0 {
+		ssh_keys_map = make([]map[string]interface{}, 0)
+	}
+	log.Printf("[INFO] inside update ssh | ssh_keys_map = %+v", ssh_keys_map)
+	node_action := models.NodeActionSSH{
+		Type:     action,
+		SSH_KEYS: ssh_keys_map,
+	}
+	nodeAction, _ := json.Marshal(node_action)
+	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
+	log.Printf("[info] %s", url)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	req.URL.RawQuery = params.Encode()
+	log.Printf("[INFO] inside update ssh req = %+v", req)
+	// return nil, err
+	response, err := c.HttpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[INFO] inside update %s %d", action, response.StatusCode)
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	defer response.Body.Close()
+	resBody, _ := io.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, err
+}
+
 func (c *Client) DeleteNode(nodeId string, project_id string, location string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
@@ -298,37 +353,6 @@ func (c *Client) GetSecurityGroups() (*models.SecurityGroupsResponse, error) {
 	err = json.Unmarshal(body, &res)
 	if err != nil {
 		log.Printf("[INFO] inside get security groups | error while unmarshlling")
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (c *Client) GetSshKeys() (*models.SshKeyResponse, error) {
-
-	urlSshKeys := c.Api_endpoint + "ssh_keys/"
-	req, err := http.NewRequest("GET", urlSshKeys, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
-	response, err := c.HttpClient.Do(req)
-	if err != nil {
-		log.Printf("[INFO] error inside get ssh keys")
-		return nil, err
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	res := models.SshKeyResponse{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		log.Printf("[INFO] inside get ssh_keys | error while unmarshlling")
 		return nil, err
 	}
 	return &res, nil
