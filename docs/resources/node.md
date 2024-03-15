@@ -16,7 +16,7 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 ```hcl
  resource "e2e_node" "node1" {
 	name              = "node_name"
-    region            = "Delhi"
+    location          = "Delhi"
     plan              = "C2.12GB"
     image             = "CentOS-7"
     project_id        = <project_id:string>

@@ -35,6 +35,10 @@ func (c *Client) AddSshKey(item models.AddSshKey, project_id string) (map[string
 	if err != nil {
 		return nil, err
 	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -66,6 +70,11 @@ func (c *Client) GetSshKey(label string, project_id string) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -93,6 +102,10 @@ func (c *Client) DeleteSshKey(pk string, project_id string, location string) err
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
 	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	err = CheckResponseStatus(response)
 	if err != nil {
 		return err
 	}
