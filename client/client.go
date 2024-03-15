@@ -449,6 +449,11 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	req.Header.Add("User-Agent", "terraform-e2e")
 	response, err := c.HttpClient.Do(req)
 
+	log.Printf("inside create vpc req = %+v, res = %+v, Error = %+v", req, response, err)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseCreatedStatus(response)
 	if err != nil {
 		return nil, err
 	}
@@ -458,6 +463,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+	log.Printf("inside create vpc Json Response = %+v", err)
 
 	if err != nil {
 		return nil, err
@@ -691,6 +697,18 @@ func CheckResponseStatus(response *http.Response) error {
 			return fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
 		}
 		return fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	return nil
+}
+
+func CheckResponseCreatedStatus(response *http.Response) error {
+	if response.StatusCode != http.StatusCreated {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return fmt.Errorf("got a non 201 status code: %v", response.StatusCode)
+		}
+		return fmt.Errorf("got a non 201 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	return nil
 }

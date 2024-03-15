@@ -61,10 +61,6 @@ func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	log.Printf("[INFO] SSH KEY DATA SOURCE | READ | data : %+v", data)
 
 	ssh_key_id := strconv.FormatFloat(data["pk"].(float64), 'f', 0, 64)
-	// log.Printf("[INFO] SSH KEY DATA SOURCE | READ | ssh_key_id : %T, %+v", ssh_key_id, ssh_key_id)
-	// log.Printf("[INFO] SSH KEY DATA SOURCE | READ | label : %T, %+v", data["label"], data["label"])
-	// log.Printf("[INFO] SSH KEY DATA SOURCE | READ | ssh_key : %T, %+v", data["ssh_key"], data["ssh_key"])
-	// log.Printf("[INFO] SSH KEY DATA SOURCE | READ | project_name : %T, %+v", data["project_name"], data["project_name"])
 
 	d.SetId(ssh_key_id)
 

@@ -6,6 +6,12 @@ type BlockStorageCreate struct {
 	IOPS int     `json:"iops"`
 }
 
+type BlockStorageUpgrade struct {
+	Name  string  `json:"name"`
+	Size  float64 `json:"block_storage_size"`
+	VM_ID float64 `json:"vm_id"`
+}
+
 type BlockStorageResponse struct {
 	Code    int                    `json:"code"`
 	Data    []BlockStorage         `json:"data"`

@@ -30,7 +30,6 @@ func ResourceNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "The name of the resource, also acts as it's unique ID",
-				ForceNew:     true,
 				ValidateFunc: ValidateName,
 			},
 			"label": {
@@ -42,7 +41,6 @@ func ResourceNode() *schema.Resource {
 			"plan": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    false,
 				Description: "name of the Plan",
 			},
 			"backup": {
@@ -55,7 +53,6 @@ func ResourceNode() *schema.Resource {
 			"image": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 				Description: "The name of the image you have selected format :- ( os-version )",
 			},
 			"default_public_ip": {
@@ -204,7 +201,6 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "Delhi",
-				ForceNew:    true,
 				Description: "Location where you want to create node.(ex - \"Delhi\", \"Mumbai\").",
 			},
 		},
@@ -329,7 +325,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
-	d.Set("plan", data["plan"].(string))
+	// d.Set("plan", data["plan"].(string))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
@@ -364,6 +360,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		return diag.Errorf("error finding Item with ID %s", nodeId)
 
+	}
+
+	if d.HasChange("name") {
+		log.Printf("[INFO] ndoeId = %v, name = %s ", d.Id(), d.Get("name").(string))
+		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if d.HasChange("power_status") {
@@ -450,10 +454,18 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	if d.HasChange("label") {
+		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
+		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	if d.HasChange("ssh_keys") {
 		prevSshKeys, currSshKeys := d.GetChange("ssh_keys")
 
-		log.Printf("[INFO] changed ssh_keys = %s ", d.Get("ssh_keys"))
+		log.Printf("[INFO] nodeId = %v changed ssh_keys = %s ", d.Id(), d.Get("ssh_keys"))
 		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
 
 		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id)
@@ -470,6 +482,25 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 
 	}
+	if d.HasChange("location") {
+		prevLocation, currLocation := d.GetChange("location")
+		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
+		d.Set("location", prevLocation)
+		return diag.Errorf("location cannot be updated once you create the node.")
+	}
+	if d.HasChange("plan") {
+		prevPlan, currPlan := d.GetChange("plan")
+		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
+		d.Set("plan", prevPlan)
+		return diag.Errorf("currently plan cannot be updated once you create the node.")
+	}
+	if d.HasChange("image") {
+		prevImage, currImage := d.GetChange("image")
+		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
+		d.Set("image", prevImage.(string))
+		return diag.Errorf("Image cannot be updated once you create the node.")
+	}
+
 	return resourceReadNode(ctx, d, m)
 
 }
