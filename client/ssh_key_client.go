@@ -70,17 +70,20 @@ func (c *Client) GetSshKey(label string, project_id string) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	err = CheckResponseStatus(response)
-	if err != nil {
-		return nil, err
-	}
+	// err = CheckResponseStatus(response)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
+	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", resBody)
 	stringresponse := string(resBody)
+	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", jsonRes)
 	if err != nil {
 		return nil, err
 	}
@@ -105,10 +108,10 @@ func (c *Client) DeleteSshKey(pk string, project_id string, location string) err
 	if err != nil {
 		return err
 	}
-	err = CheckResponseStatus(response)
-	if err != nil {
-		return err
-	}
+	// err = CheckResponseStatus(response)
+	// if err != nil {
+	// 	return err
+	// }
 	defer response.Body.Close()
 	return nil
 }

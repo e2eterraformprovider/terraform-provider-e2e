@@ -32,7 +32,7 @@ func ResourceSshKey() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The ID of the project associated with the ssh key",
-				//ForceNew:    true,
+				ForceNew:    true,
 			},
 			"timestamp": {
 				Type:        schema.TypeString,
@@ -110,7 +110,7 @@ func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	var diags diag.Diagnostics
 	ssh_key_id := d.Id()
 	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	location := "Delhi"
 
 	err := apiClient.DeleteSshKey(ssh_key_id, project_id, location)
 	if err != nil {
