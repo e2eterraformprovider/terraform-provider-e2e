@@ -4,6 +4,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/kubernetes"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/objectstore"
@@ -39,14 +40,15 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"e2e_node":         node.ResourceNode(),
-			"e2e_image":        image.ResourceImage(),
-			"e2e_loadbalancer": loadbalancer.ResourceLoadBalancer(),
-			"e2e_vpc":          vpc.ResouceVpc(),
-			"e2e_reserved_ip":  reserve_ip.ResourceReserveIP(),
-			"e2e_blockstorage": blockstorage.ResourceBlockStorage(),
-			"e2e_sfs":          sfs.ResourceSfs(),
-			"e2e_objectstore":  objectstore.ResourceObjectStore(),
+			"e2e_node":           node.ResourceNode(),
+			"e2e_image":          image.ResourceImage(),
+			"e2e_loadbalancer":   loadbalancer.ResourceLoadBalancer(),
+			"e2e_vpc":            vpc.ResouceVpc(),
+			"e2e_reserved_ip":    reserve_ip.ResourceReserveIP(),
+			"e2e_blockstorage":   blockstorage.ResourceBlockStorage(),
+			"e2e_sfs":            sfs.ResourceSfs(),
+			"e2e_objectstore":    objectstore.ResourceObjectStore(),
+			"example_kubernetes": kubernetes.ResourceKubernetesService(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":   node.DataSourceNode(),
