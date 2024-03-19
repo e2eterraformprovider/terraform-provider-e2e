@@ -24,6 +24,7 @@ description: |-
 - `label` : (String) The name of the group
 - `name` : (String) The name of the resource
 - `plan` : (String) name of the Plan
+- `short_plan` : (String) plan comes from backend.
 - `is_locked` (Boolean) Node is locked when value is true.
 - `created_at` (String) Creation time of the node
 - `disk` (String) Disc info of the node
