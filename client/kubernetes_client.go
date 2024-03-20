@@ -166,6 +166,31 @@ func (c *Client) GetKubernetesServiceInfo(kubernetesID string, location string, 
 	return jsonRes, nil
 }
 
+func (c *Client) DeleteKubernetesService(kubernetesID string, location string, project_id int) error {
+	deleteURL := c.Api_endpoint + "kubernetes/" + kubernetesID
+	req, err := http.NewRequest("DELETE", deleteURL, nil)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[INFO] CLIENT | KUBERNETES DELETE")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func RemoveExtraFieldsFromKubernetes(buf *bytes.Buffer) (bytes.Buffer, error) {
 
 	jsonData := buf.Bytes()

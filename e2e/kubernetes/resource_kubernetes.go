@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-
-	// "strings"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
@@ -534,10 +533,34 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceDeleteKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
+	kubernetesID := d.Id()
+	status := d.Get("status").(string)
+	if status != "Running" {
+		return diag.Errorf("Kubernetes is in %s state. You can delete it once it comes to the Running state.", status)
+	}
+	err := apiClient.DeleteKubernetesService(kubernetesID, d.Get("location").(string), d.Get("project_id").(int))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId("")
 	return diags
 }
 
 func resourceExistsKubernetesService(d *schema.ResourceData, m interface{}) (bool, error) {
+	apiClient := m.(*client.Client)
+
+	kubernetesId := d.Id()
+	location := d.Get("location").(string)
+	_, err := apiClient.GetKubernetesServiceInfo(kubernetesId, location, d.Get("project_id").(int))
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
 	return true, nil
 }
