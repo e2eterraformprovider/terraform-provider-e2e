@@ -43,11 +43,6 @@ func ResourceNode() *schema.Resource {
 				Required:    true,
 				Description: "name of the Plan",
 			},
-			"short_plan": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "plan comes from backend",
-			},
 			"backup": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -305,7 +300,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("status", data["status"].(string))
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
-	d.Set("short_plan", data["plan"].(string))
 	return diags
 }
 
@@ -331,7 +325,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
-	d.Set("short_plan", data["plan"].(string))
+	d.Set("plan", data["plan"].(string))
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
