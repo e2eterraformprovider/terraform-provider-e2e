@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -189,16 +190,31 @@ func RemoveExtraFieldsFromKubernetes(buf *bytes.Buffer) (bytes.Buffer, error) {
 			workerNode, workerNodePresent := nodePoolMap["worker_node"].(float64)
 			if workerNodePresent {
 				if workerNode == 0 {
+					log.Printf("-------------------WORKER_NODE ARE 0-----------------:")
 					// If worker_node is present and its value is 0, delete the "worker_node" field
 					delete(nodePoolMap, "worker_node")
 				} else if workerNode >= 2 {
 					// If worker_node is greater than or equal to 2, check if "elasticity_dict" is present
-					if _, elasticityDictPresent := nodePoolMap["elasticity_dict"]; elasticityDictPresent {
+					if _, elasticityDictPresent := nodePoolMap["elasticity_dict"].([]interface{}); elasticityDictPresent {
 						// If present, delete the "elasticity_dict" field
 						log.Printf("Deleted elasticity_dict since worker_node field is >= 2")
 						delete(nodePoolMap, "elasticity_dict")
 					}
+					if _, scheduledDictPresent := nodePoolMap["elasticity_dict"]; scheduledDictPresent {
+						// If present, delete the "elasticity_dict" field
+						log.Printf("Deleted elasticity_dict since worker_node field is >= 2")
+						delete(nodePoolMap, "scheduled_dict")
+					}
 				}
+			}
+			policyType, policyTypePresent := nodePoolMap["policy_type"].(string)
+			if !policyTypePresent || (policyType == "Scheduled") {
+				// If policy_type does not contain the keyword "Scheduled", remove scheduled_dict
+				delete(nodePoolMap, "elasticity_dict")
+			}
+			if !policyTypePresent || !strings.Contains(policyType, "Scheduled") {
+				// If policy_type does not contain the keyword "Scheduled", remove scheduled_dict
+				delete(nodePoolMap, "scheduled_dict")
 			}
 		}
 	}

@@ -98,24 +98,43 @@ func ResourceKubernetesService() *schema.Resource {
 								"Autoscale",
 							}, false),
 						},
-						"parameter": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "CPU",
-							Description: "Parameter (e.g., CPU, Memory)",
-							ValidateFunc: validation.Any(
-								validation.StringInSlice([]string{"Memory", "CPU"}, false),
-								validation.StringMatch(
-									regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
-									"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
-								),
-							),
-						},
+						// "parameter": {
+						// 	Type:        schema.TypeString,
+						// 	Optional:    true,
+						// 	Default:     "CPU",
+						// 	Description: "Parameter (e.g., CPU, Memory)",
+						// 	ValidateFunc: validation.Any(
+						// 		validation.StringInSlice([]string{"Memory", "CPU"}, false),
+						// 		validation.StringMatch(
+						// 			regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
+						// 			"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
+						// 		),
+						// 	),
+						// },
 						"worker_node": {
 							Type:         schema.TypeInt,
 							Optional:     true, //If the type is autoscale then this field is not needed. Otherwise the default value will be 3
 							Description:  "Number of worker nodes in the pool",
 							ValidateFunc: validation.IntBetween(2, 25),
+						},
+						"min_vms": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      0,
+							ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
+							Description:  "Minimum number of virtual machines",
+						},
+						"cardinality": {
+							Type:        schema.TypeInt,
+							Computed:    true,
+							Description: "Cardinality computed from min_vms",
+						},
+						"max_vms": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Default:      0,
+							ValidateFunc: validation.IntAtMost(25),
+							Description:  "Maximum number of virtual machines",
 						},
 						"elasticity_dict": {
 							Type:        schema.TypeList,
@@ -129,23 +148,23 @@ func ResourceKubernetesService() *schema.Resource {
 										Description: "Worker settings in the elasticity dictionary",
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
-												"min_vms": {
-													Type:         schema.TypeInt,
-													Required:     true,
-													ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
-													Description:  "Minimum number of virtual machines",
-												},
-												"cardinality": {
-													Type:        schema.TypeInt,
-													Computed:    true,
-													Description: "Cardinality computed from min_vms",
-												},
-												"max_vms": {
-													Type:         schema.TypeInt,
-													Required:     true,
-													ValidateFunc: validation.IntAtMost(25),
-													Description:  "Maximum number of virtual machines",
-												},
+												// "min_vms": {
+												// 	Type:         schema.TypeInt,
+												// 	Required:     true,
+												// 	ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
+												// 	Description:  "Minimum number of virtual machines",
+												// },
+												// "cardinality": {
+												// 	Type:        schema.TypeInt,
+												// 	Computed:    true,
+												// 	Description: "Cardinality computed from min_vms",
+												// },
+												// "max_vms": {
+												// 	Type:         schema.TypeInt,
+												// 	Required:     true,
+												// 	ValidateFunc: validation.IntAtMost(25),
+												// 	Description:  "Maximum number of virtual machines",
+												// },
 												"period_number": {
 													Type:        schema.TypeInt,
 													Required:    true,
@@ -154,11 +173,24 @@ func ResourceKubernetesService() *schema.Resource {
 												"policy_paramter_type": {
 													Type:        schema.TypeString,
 													Required:    true,
-													Description: "Its value can be Default or Custom",
+													Description: "Its value can be Default or Custom. If it is custom then you must provide the parameter field.",
 													ValidateFunc: validation.StringInSlice([]string{
 														"Default",
 														"Custom",
 													}, false),
+												},
+												"parameter": {
+													Type:        schema.TypeString,
+													Optional:    true,
+													Default:     "CPU",
+													Description: "Parameter (e.g., CPU, Memory)",
+													ValidateFunc: validation.Any(
+														validation.StringInSlice([]string{"Memory", "CPU"}, false),
+														validation.StringMatch(
+															regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
+															"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
+														),
+													),
 												},
 												"elasticity_policies": {
 													Type:        schema.TypeList,
@@ -237,25 +269,89 @@ func ResourceKubernetesService() *schema.Resource {
 								},
 							},
 						},
+						"scheduled_dict": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: "Scheduled dictionary for the worker node pool",
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"worker": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: "Worker settings in the scheduled dictionary",
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												// "min_vms": {
+												// 	Type:         schema.TypeInt,
+												// 	Required:     true,
+												// 	ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
+												// 	Description:  "Minimum number of virtual machines",
+												// },
+												// "cardinality": {
+												// 	Type:        schema.TypeInt,
+												// 	Computed:    true,
+												// 	Description: "Cardinality computed from min_vms",
+												// },
+												// "max_vms": {
+												// 	Type:         schema.TypeInt,
+												// 	Required:     true,
+												// 	ValidateFunc: validation.IntAtMost(25),
+												// 	Description:  "Maximum number of virtual machines",
+												// },
+												// "policy_paramter_type": {
+												// 	Type:        schema.TypeString,
+												// 	Required:    true,
+												// 	Description: "Its value can be Default or Custom",
+												// 	ValidateFunc: validation.StringInSlice([]string{
+												// 		"Default",
+												// 		"Custom",
+												// 	}, false),
+												// },
+												"scheduled_policies": {
+													Type:     schema.TypeList,
+													Required: true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"upscale_cardinality": {
+																Type:        schema.TypeInt,
+																Required:    true,
+																Description: "The cardinality for upscaling",
+															},
+															"upscale_recurrence": {
+																Type:         schema.TypeString,
+																Required:     true,
+																Description:  "The recurrence timing for upscaling",
+																ValidateFunc: validation.StringInSlice([]string{"0 12 * * *", "0 0 1 * *", "0 20 * * *", "0 9 * * 1-5", "0 9-13 * * *"}, false),
+															},
+															"downscale_cardinality": {
+																Type:        schema.TypeInt,
+																Required:    true,
+																Description: "The cardinality for downscaling",
+															},
+															"downscale_recurrence": {
+																Type:         schema.TypeString,
+																Required:     true,
+																Description:  "The recurrence timing for downscaling",
+																ValidateFunc: validation.StringInSlice([]string{"0 2 * * *", "0 0 15 * *", "30 5 * * 1-5", "0 0 * * 6,7", "0 0 12 1 1"}, false),
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 						"policy_type": {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "Policy type for the worker node pool",
-							// ValidateFunc: validation.StringInSlice([]string{
-							// 	"Default",
-							// 	"Custom",
-							// }, false),
 						},
 						"custom_param_name": {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "Custom parameter name for the worker node pool",
-							// ValidateFunc: validation.All(
-							// 	validation.StringMatch(
-							// 		regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
-							// 		"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
-							// 	),
-							// ),
 						},
 						"custom_param_value": {
 							Type:        schema.TypeString,
