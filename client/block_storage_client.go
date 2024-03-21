@@ -144,54 +144,21 @@ func (c *Client) UpdateBlockStorage(item *models.BlockStorageUpgrade, blockStora
 	}
 	return jsonRes, nil
 }
-func (c *Client) AttachBlockStorage(item *models.BlockStorageAttach, blockStorageID string, project_id int, location string) (map[string]interface{}, error) {
+func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Action string, blockStorageID string, project_id int, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
 		return nil, err
 	}
-	urlNode := c.Api_endpoint + "block_storage/" + blockStorageID + "/vm/attach/"
+	urlNode := c.Api_endpoint + "block_storage/" + blockStorageID + "/vm/" + Action + "/"
 	req, err := http.NewRequest("PUT", urlNode, &buf)
 	if err != nil {
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	log.Printf("[INFO] CLIENT | ATTACH BLOCK STORAGE | before request %+v", req)
+	log.Printf("[INFO] CLIENT | ATTACH/DETACH BLOCK STORAGE | before request %+v", req)
 	response, err := c.HttpClient.Do(req)
-	log.Printf("[INFO] CLIENT | ATTACH BLOCK STORAGE | after response %+v", response)
-	if err == nil {
-		err = CheckResponseStatus(response)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
-	stringresponse := string(resBody)
-	resBytes := []byte(stringresponse)
-
-	var jsonRes map[string]interface{}
-	err = json.Unmarshal(resBytes, &jsonRes)
-	if err != nil {
-		return nil, err
-	}
-	return jsonRes, nil
-}
-
-func (c *Client) DetachBlockStorage(item *models.BlockStorageAttach, blockStorageID string, project_id int, location string) (map[string]interface{}, error) {
-	buf := bytes.Buffer{}
-	err := json.NewEncoder(&buf).Encode(item)
-	if err != nil {
-		return nil, err
-	}
-	urlNode := c.Api_endpoint + "block_storage/" + blockStorageID + "/vm/detach/"
-	req, err := http.NewRequest("PUT", urlNode, &buf)
-	if err != nil {
-		return nil, err
-	}
-	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	response, err := c.HttpClient.Do(req)
+	log.Printf("[INFO] CLIENT | ATTACH/DETACH BLOCK STORAGE | after response %+v", response)
 	if err == nil {
 		err = CheckResponseStatus(response)
 	}

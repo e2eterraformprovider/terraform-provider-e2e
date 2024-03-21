@@ -178,7 +178,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 			blockStorage := models.BlockStorageAttach{
 				VM_ID: vm_id,
 			}
-			res, err := apiClient.DetachBlockStorage(&blockStorage, blockStorageID, project_id, location)
+			res, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "detach", blockStorageID, project_id, location)
 			if err != nil {
 				setPrevState(d, prevVMID, prevName, prevSize)
 				return diag.FromErr(err)
@@ -198,7 +198,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					blockStorage := models.BlockStorageAttach{
 						VM_ID: vm_id,
 					}
-					resBlockStorage, err := apiClient.AttachBlockStorage(&blockStorage, blockStorageID, project_id, location)
+					resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
 					if err != nil {
 						setPrevState(d, "", prevName, prevSize)
 						return diag.FromErr(err)
