@@ -306,7 +306,6 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("disk", data["disk"].(string))
 	d.Set("price", data["price"].(string))
 	d.Set("vm_id", int(data["vm_id"].(float64)))
-	d.Set("short_plan", data["plan"].(string))
 	return diags
 }
 
