@@ -28,10 +28,10 @@ func ResourceBlockStorage() *schema.Resource {
 				ValidateFunc: node.ValidateName,
 			},
 			"size": {
-				Type:        schema.TypeFloat,
-				Required:    true,
-				Description: "Size of the block storage in GB",
-				// ValidateFunc: validateSize,
+				Type:         schema.TypeFloat,
+				Required:     true,
+				Description:  "Size of the block storage in GB",
+				ValidateFunc: validateSize,
 			},
 			"iops": {
 				Type:        schema.TypeString,
@@ -155,7 +155,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	project_id := d.Get("project_id").(int)
 	location := d.Get("location").(string)
 
-	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+	blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
@@ -238,7 +238,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					VM_ID: vmID.(float64),
 				}
 				log.Printf("[INFO] BlockStorage details: %+v %T", blockStorage, blockStorage.VM_ID)
-				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
+				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, project_id, location)
 				if err != nil {
 					return diag.FromErr(err)
 				}
