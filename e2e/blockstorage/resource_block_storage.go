@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
@@ -198,6 +199,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 					blockStorage := models.BlockStorageAttach{
 						VM_ID: vm_id,
 					}
+					time.Sleep(15 * time.Second)
 					resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
 					if err != nil {
 						setPrevState(d, "", prevName, prevSize)
