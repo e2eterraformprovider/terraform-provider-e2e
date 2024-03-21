@@ -188,32 +188,29 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
 
 		}
-		if currVMID != "" {
+		if currVMID != "" || currVMID != nil {
 			if d.Get("status") == "Available" {
-				if currVMID != "" || currVMID != nil {
-					vm_id, err := strconv.Atoi(currVMID.(string))
-					if err != nil {
-						setPrevState(d, "", prevName, prevSize)
-						return diag.FromErr(err)
-					}
-					blockStorage := models.BlockStorageAttach{
-						VM_ID: vm_id,
-					}
-					time.Sleep(15 * time.Second)
-					resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
-					if err != nil {
-						setPrevState(d, "", prevName, prevSize)
-						return diag.FromErr(err)
-					}
-
-					log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", resBlockStorage)
-					if _, codeok := resBlockStorage["code"]; !codeok {
-						setPrevState(d, "", prevName, prevSize)
-						return diag.Errorf(resBlockStorage["message"].(string))
-					}
-					return diags
+				vm_id, err := strconv.Atoi(currVMID.(string))
+				if err != nil {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.FromErr(err)
+				}
+				blockStorage := models.BlockStorageAttach{
+					VM_ID: vm_id,
+				}
+				time.Sleep(15 * time.Second)
+				resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
+				if err != nil {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.FromErr(err)
 				}
 
+				log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", resBlockStorage)
+				if _, codeok := resBlockStorage["code"]; !codeok {
+					setPrevState(d, "", prevName, prevSize)
+					return diag.Errorf(resBlockStorage["message"].(string))
+				}
+				return diags
 			} else {
 				setPrevState(d, prevVMID, prevName, prevSize)
 				return diag.Errorf("block storage cannot be attached to a node unless it is in available state")
