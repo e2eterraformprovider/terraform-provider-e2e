@@ -188,6 +188,8 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 			log.Printf("[INFO] BLOCK STORAGE DETACH | RESPONSE BODY | %+v", res)
 
 		}
+		waitForDetach(apiClient, blockStorageID, project_id, location)
+
 		if currVMID != "" || currVMID != nil {
 			if d.Get("status") == "Available" {
 				vm_id, err := strconv.Atoi(currVMID.(string))
@@ -198,7 +200,6 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				blockStorage := models.BlockStorageAttach{
 					VM_ID: vm_id,
 				}
-				time.Sleep(15 * time.Second)
 				resBlockStorage, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, "attach", blockStorageID, project_id, location)
 				if err != nil {
 					setPrevState(d, "", prevName, prevSize)
@@ -237,17 +238,21 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				log.Printf("[INFO] BlockStorage details: %+v %T", blockStorage, blockStorage.VM_ID)
 				resBlockStorage, err := apiClient.UpdateBlockStorage(&blockStorage, blockStorageID, project_id, location)
 				if err != nil {
+					d.Set("size", prevSize)
+					d.Set("name", prevName)
 					return diag.FromErr(err)
 				}
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE | RESPONSE BODY | %+v", resBlockStorage)
 				if _, codeok := resBlockStorage["code"]; !codeok {
+					d.Set("size", prevSize)
+					d.Set("name", prevName)
 					return diag.Errorf(resBlockStorage["message"].(string))
 				}
 				return diags
 			}
 			d.Set("size", prevSize)
 			d.Set("name", prevName)
-			return diag.Errorf("New disk size has to be greater than current one")
+			return diag.Errorf("You cannot change the block storage size and name unless you are upgrading it")
 		} else {
 			d.Set("size", prevSize)
 			d.Set("name", prevName)
@@ -343,4 +348,20 @@ func setPrevState(d *schema.ResourceData, prevVMID, prevName, prevSize interface
 	d.Set("vm_id", prevVMID)
 	d.Set("name", prevName)
 	d.Set("size", prevSize)
+}
+
+func waitForDetach(apiClient *client.Client, blockStorageID string, project_id int, location string) diag.Diagnostics {
+	for {
+		blockStorage, err := apiClient.GetBlockStorage(blockStorageID, project_id, location)
+		if err != nil {
+			log.Printf("[ERROR] Error getting block storage %s", err)
+			return diag.FromErr(err)
+		}
+		data := blockStorage["data"].(map[string]interface{})
+		if data["status"] == "Available" {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return nil
 }
