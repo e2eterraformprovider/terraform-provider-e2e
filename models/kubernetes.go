@@ -60,3 +60,19 @@ type KubernetesCreate struct {
 	SKUID     string     `json:"sku_id"`
 	NodePools []NodePool `json:"node_pools"`
 }
+
+type NodePoolUpdate struct {
+	MinVms           int                `json:"min_vms"`
+	Cardinality      int                `json:"cardinality"`
+	MaxVms           int                `json:"max_vms"`
+	PlanID           string             `json:"plan_id"`
+	ElasticityPolicy []ElasticityPolicy `json:"elasticity_policies"`
+	ScheduledPolicy  []SchedulePolicy   `json:"scheduled_policies"`
+	PolicyType       string             `json:"policy_type,omitempty"`
+	CustomParamName  string             `json:"custom_param_name,omitempty"`
+	CustomParamValue string             `json:"custom_param_value,omitempty"`
+}
+
+type NodePoolAdd struct {
+	NodePools []NodePool `json:"node_pools"`
+}

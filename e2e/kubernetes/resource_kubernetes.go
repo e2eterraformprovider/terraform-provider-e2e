@@ -88,6 +88,11 @@ func ResourceKubernetesService() *schema.Resource {
 							Required:    true,
 							Description: "Specs name of the worker node pool",
 						},
+						"service_id": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Services ID of the worker node pool",
+						},
 						"node_pool_type": {
 							Type:        schema.TypeString,
 							Required:    true,
@@ -125,8 +130,8 @@ func ResourceKubernetesService() *schema.Resource {
 						},
 						"cardinality": {
 							Type:        schema.TypeInt,
-							Computed:    true,
-							Description: "Cardinality computed from min_vms",
+							Optional:    true, //NEW CHANGE
+							Description: "Cardinality computed from min_vms during creation",
 						},
 						"max_vms": {
 							Type:         schema.TypeInt,
@@ -147,23 +152,6 @@ func ResourceKubernetesService() *schema.Resource {
 										Description: "Worker settings in the elasticity dictionary",
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
-												// "min_vms": {
-												// 	Type:         schema.TypeInt,
-												// 	Required:     true,
-												// 	ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
-												// 	Description:  "Minimum number of virtual machines",
-												// },
-												// "cardinality": {
-												// 	Type:        schema.TypeInt,
-												// 	Computed:    true,
-												// 	Description: "Cardinality computed from min_vms",
-												// },
-												// "max_vms": {
-												// 	Type:         schema.TypeInt,
-												// 	Required:     true,
-												// 	ValidateFunc: validation.IntAtMost(25),
-												// 	Description:  "Maximum number of virtual machines",
-												// },
 												"period_number": {
 													Type:        schema.TypeInt,
 													Required:    true,
@@ -236,29 +224,6 @@ func ResourceKubernetesService() *schema.Resource {
 																Required:    true,
 																Description: "Cooldown",
 															},
-															// "parameter": {
-															// 	Type:        schema.TypeString,
-															// 	Required:    true,
-															// 	Default:     "CPU",
-															// 	Description: "Parameter (e.g., CPU)",
-															// 	ValidateFunc: validation.Any(
-															// 		validation.StringInSlice([]string{"Memory", "CPU"}, false),
-															// 		validation.StringMatch(
-															// 			regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
-															// 			"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
-															// 		),
-															// 	),
-															// },
-															// "remove_worker_operator": {
-															// 	Type:        schema.TypeString,
-															// 	Required:    true,
-															// 	Description: "Operator for removing worker (e.g., <, <=)",
-															// },
-															// "remove_worker_value": {
-															// 	Type:        schema.TypeInt,
-															// 	Required:    true,
-															// 	Description: "Value for removing worker",
-															// },
 														},
 													},
 												},
@@ -280,32 +245,6 @@ func ResourceKubernetesService() *schema.Resource {
 										Description: "Worker settings in the scheduled dictionary",
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
-												// "min_vms": {
-												// 	Type:         schema.TypeInt,
-												// 	Required:     true,
-												// 	ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
-												// 	Description:  "Minimum number of virtual machines",
-												// },
-												// "cardinality": {
-												// 	Type:        schema.TypeInt,
-												// 	Computed:    true,
-												// 	Description: "Cardinality computed from min_vms",
-												// },
-												// "max_vms": {
-												// 	Type:         schema.TypeInt,
-												// 	Required:     true,
-												// 	ValidateFunc: validation.IntAtMost(25),
-												// 	Description:  "Maximum number of virtual machines",
-												// },
-												// "policy_paramter_type": {
-												// 	Type:        schema.TypeString,
-												// 	Required:    true,
-												// 	Description: "Its value can be Default or Custom",
-												// 	ValidateFunc: validation.StringInSlice([]string{
-												// 		"Default",
-												// 		"Custom",
-												// 	}, false),
-												// },
 												"scheduled_policies": {
 													Type:     schema.TypeList,
 													Required: true,
@@ -426,10 +365,6 @@ func CreateKubernetesObject(m interface{}, d *schema.ResourceData, slugName stri
 	log.Printf("[INFO] KUBERNETES OBJECT CREATION STARTS")
 	d.Set("sku_id", "1178")
 	log.Printf("---------------IDHAR TOH PAHUCHA(2)-----------------")
-	// slugName, err := GetSlugName(context.TODO(), d, nil)
-	// if err != nil {
-	// 	return nil, diag.FromErr(err)
-	// }
 	kubernetesObj := models.KubernetesCreate{
 		Name:     d.Get("name").(string),
 		Version:  d.Get("version").(string),
@@ -498,11 +433,6 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 
 }
 
-func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-	return diags
-}
-
 func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
@@ -529,6 +459,10 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	d.Set("status", data["state"].(string))
 	d.Set("version", data["version"].(string))
 	d.Set("created_at", data["created_at"].(string))
+	error := GetNodePoolServiceMapping(ctx, d, m)
+	if error != nil {
+		return diag.FromErr(error)
+	}
 	return diags
 }
 
@@ -563,4 +497,175 @@ func resourceExistsKubernetesService(d *schema.ResourceData, m interface{}) (boo
 		}
 	}
 	return true, nil
+}
+
+func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	apiClient := m.(*client.Client)
+	status := d.Get("status").(string)
+	if status != "Running" {
+		return diag.Errorf("Kubernetes is in %s state. You can update it once it comes to the Running state.", status)
+	}
+	//Setting the service_id field in the node_pools list
+	if d.HasChange("node_pools") {
+		log.Printf("----------------------CAUGHT A CHANGE IN NODE POOLS ATLEAST-------------------")
+		oldData, newData := d.GetChange("node_pools")
+
+		oldNodePools := oldData.([]interface{})
+		newNodePools := newData.([]interface{})
+
+		for _, oldNodePool := range oldNodePools {
+			oldNodePoolMap := oldNodePool.(map[string]interface{})
+			oldServiceID := oldNodePoolMap["service_id"].(string)
+			found := false
+			if len(newNodePools) <= 0 {
+				return diag.Errorf("Atleast one node pool must be present in a kubernetes cluster!")
+			}
+			log.Printf("----------------------SEARCHING IF ANY NODE POOL IS MISSING OR NOT-------------------")
+			// Check if the old service_id exists in the new node pools
+			for _, newNodePool := range newNodePools {
+				newNodePoolMap := newNodePool.(map[string]interface{})
+				newServiceID := newNodePoolMap["service_id"].(string)
+				if oldServiceID == newServiceID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Printf("----------------------THIS NODE POOL IS MISSING: %+v-------------------", oldServiceID)
+				response, err := apiClient.DeleteNodePool(oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+				log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Resource.go)----------------: %+v", response)
+				if err != nil {
+					if response == nil {
+						return nil
+					}
+					if len(response) > 0 {
+						return diag.Errorf("Error: %s", response["errors"])
+					}
+					return diag.FromErr(err)
+				}
+				return nil
+			}
+		}
+
+		var nodePoolList []interface{}
+		for i := range newNodePools {
+			newNodePoolMap := newNodePools[i].(map[string]interface{})
+			newServiceID := newNodePoolMap["service_id"].(string)
+			found := false
+			// Checking if the old service_id exists in the new node pools
+			log.Printf("----------------------CHECKING IF THERE IS ANY ADDITION OF NODE POOLS-------------------")
+			for _, oldNodePool := range oldNodePools {
+				oldNodePoolMap := oldNodePool.(map[string]interface{})
+				oldServiceID := oldNodePoolMap["service_id"].(string)
+				// If exists then check if there is any change in cardinality
+				if newServiceID == oldServiceID {
+					found = true
+					log.Printf("----------------------IT CAME HERE MEANING ATLEAST THIS NODE POOL IS NOT NEWLY ADDED. NOW CHECKING IF THERE IS ANY CHANGE IN ITS FIELDS -------------------")
+					oldCardinality := oldNodePoolMap["cardinality"].(int)
+					newCardinality := newNodePoolMap["cardinality"].(int)
+					log.Printf("----------------PREV CARD:%+v     NEW CARD:%+v------------------", oldCardinality, newCardinality)
+					if newCardinality < 2 {
+						return diag.Errorf("Cardinality of worker nodes cannot be less than 2")
+					}
+					// If the cardinality has changed, call the API passing the corresponding service_id
+					if oldCardinality != newCardinality {
+						// nodePoolServiceID := newNodePools[i].(map[string]interface{})["service_id"].(string)
+						log.Printf("----------------------THERE IS A CHANGE IN CARDINALITY-------------------")
+						response, err := apiClient.UpdateNodePoolCardinality(newServiceID, d.Get("project_id").(int), d.Get("location").(string))
+						if err != nil {
+							if response == nil {
+								return nil
+							}
+							if len(response) > 0 {
+								return diag.Errorf("Error: %s", response["errors"])
+							}
+							return diag.FromErr(err)
+						}
+						return nil
+					}
+					old_node_pool_type := oldNodePoolMap["node_pool_type"].(string)
+					new_node_pool_type := newNodePoolMap["node_pool_type"].(string)
+					// You cannot change the node pool type from Static to Autoscale and vice versa
+					if old_node_pool_type != new_node_pool_type {
+						return diag.Errorf("You cannot change the node pool type")
+					}
+					log.Printf("----------------------GOING INTO Helper's ExpandNPUpdate Function-------------------")
+					nodePoolObject, err := ExpandNPUpdate(newNodePoolMap, apiClient, d.Get("project_id").(int), d.Get("location").(string))
+					if err != nil {
+						return diag.FromErr(err)
+					}
+					log.Printf("----------------------SUCCESSFUL UPDATE OBJECT CREATION, MAKING A REQUEST NOW FOR UPDATE-------------------")
+					response, err := apiClient.UpdateNodePoolDetails(&nodePoolObject, newServiceID, d.Get("project_id").(int), d.Get("location").(string))
+					if err != nil {
+						return diag.FromErr(err)
+					}
+					if _, codeOK := response["code"]; !codeOK {
+						return diag.Errorf(response["message"].(string))
+					}
+					return nil
+
+				}
+			}
+			//If not found meaning this is a new NodePool
+			if !found {
+				nodePoolList = append(nodePoolList, newNodePools[i])
+				nodePoolsDetail, err := ExpandNodePools(nodePoolList, apiClient, d.Get("project_id").(int), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+				kubernetesObj := models.NodePoolAdd{}
+				kubernetesObj.NodePools = nodePoolsDetail
+				log.Printf("----------------------ADDING A NEW NODE POOL-------------------")
+				response, err := apiClient.AddNodePool(&kubernetesObj, newServiceID, d.Get("project_id").(int), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+				if _, codeOK := response["code"]; !codeOK {
+					return diag.Errorf(response["message"].(string))
+				}
+				return nil
+			}
+		}
+	}
+
+	return resourceReadKubernetesService(ctx, d, m)
+}
+
+func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m interface{}) error {
+	apiClient := m.(*client.Client)
+	log.Printf("[INFO] KUBERNETES CLUSTER NODE POOLS MAPPING STARTS")
+	clusterID := d.Id()
+	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
+	nodePoolList, err := apiClient.GetKubernetesNodePools(clusterID, d.Get("project_id").(int), d.Get("location").(string))
+	if err != nil {
+		return fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
+	}
+	if err != nil {
+		return fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
+	}
+
+	// Initialize the map to store service_name and service_id mappings
+	serviceMapping := make(map[string]interface{})
+
+	// Extract service_name and service_id from each item in the data array
+	for _, nodePool := range nodePoolList["data"].([]interface{}) {
+		nodePoolData := nodePool.(map[string]interface{})
+		serviceName := nodePoolData["service_name"].(string)
+		serviceID := nodePoolData["service_id"].(float64) // Assuming service_id is a number
+		serviceMapping[serviceName] = serviceID
+	}
+
+	prevNodepool, currNodePool := d.GetChange("node_pools")
+	currNodePool = currNodePool.([]interface{})
+	for i, np := range prevNodepool.([]interface{}) {
+		nodePool := np.(map[string]interface{})
+		serviceName := nodePool["name"].(string)
+		if serviceID, ok := serviceMapping[serviceName]; ok {
+			d.Get("node_pools").([]interface{})[i].(map[string]interface{})["service_id"] = serviceID
+		} else {
+			return fmt.Errorf("service_name '%s' not found in the mapping", serviceName)
+		}
+	}
+	return nil
+
 }
