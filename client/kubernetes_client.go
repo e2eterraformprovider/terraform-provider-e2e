@@ -299,8 +299,9 @@ func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, locati
 	return jsonRes, nil
 }
 
-func (c *Client) UpdateNodePoolCardinality(nodePoolServiceID string, project_id int, location string) (map[string]interface{}, error) {
-	urlNode := c.Api_endpoint + "kubernetes/cluster-update/" + nodePoolServiceID
+func (c *Client) UpdateNodePoolCardinality(nodePoolServiceID float64, project_id int, location string) (map[string]interface{}, error) {
+	serviceIDInString := strconv.FormatFloat(nodePoolServiceID, 'f', -1, 64)
+	urlNode := c.Api_endpoint + "kubernetes/cluster-update/" + serviceIDInString
 	req, err := http.NewRequest("PUT", urlNode, nil)
 	if err != nil {
 		return nil, err
@@ -328,19 +329,21 @@ func (c *Client) UpdateNodePoolCardinality(nodePoolServiceID string, project_id 
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteNodePool(nodePoolServiceID string, project_id int, location string) (map[string]interface{}, error) {
-	urlNode := c.Api_endpoint + "kubernetes/delete-node-pool-service/" + nodePoolServiceID
+func (c *Client) DeleteNodePool(nodePoolServiceID float64, project_id int, location string) (map[string]interface{}, error) {
+	serviceIDInString := strconv.FormatFloat(nodePoolServiceID, 'f', -1, 64)
+	urlNode := c.Api_endpoint + "kubernetes/delete-node-pool-service/" + serviceIDInString
 	req, err := http.NewRequest("DELETE", urlNode, nil)
 	if err != nil {
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+	log.Printf("--------PRINTING DELETE NODE POOL REQUEST %T---------: %+v", serviceIDInString, req)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
-	log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Resource.go)----------------: %+v", response)
+	log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Client.go)----------------: %+v", response)
 	if response.StatusCode == http.StatusNoContent {
 		return nil, nil
 	}
@@ -357,7 +360,7 @@ func (c *Client) DeleteNodePool(nodePoolServiceID string, project_id int, locati
 	return jsonRes, nil
 }
 
-func (c *Client) AddNodePool(item *models.NodePoolAdd, nodePoolServiceID string, project_id int, location string) (map[string]interface{}, error) {
+func (c *Client) AddNodePool(item *models.NodePoolAdd, kubernetesClusterID string, project_id int, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
@@ -367,13 +370,12 @@ func (c *Client) AddNodePool(item *models.NodePoolAdd, nodePoolServiceID string,
 	if err != nil {
 		return nil, err
 	}
-
 	buf, err = RemoveExtraFieldsFromKubernetes(&buf)
 	if err != nil {
 		return nil, err
 	}
-	urlNode := c.Api_endpoint + "kubernetes/add-node-pools/" + nodePoolServiceID
-	req, err := http.NewRequest("POST", urlNode, nil)
+	urlNode := c.Api_endpoint + "kubernetes/add-node-pools/" + kubernetesClusterID
+	req, err := http.NewRequest("POST", urlNode, &buf)
 	if err != nil {
 		return nil, err
 	}
@@ -398,23 +400,25 @@ func (c *Client) AddNodePool(item *models.NodePoolAdd, nodePoolServiceID string,
 	return jsonRes, nil
 }
 
-func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServiceID string, project_id int, location string) (map[string]interface{}, error) {
+func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServiceID float64, project_id int, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] CLIENT KUBERNETES ADD NODE POOL| BEFORE REQUEST")
+	log.Printf("[INFO] CLIENT KUBERNETES UPDATE NODE POOL| BEFORE REQUEST")
 	if err != nil {
 		return nil, err
 	}
-	urlNode := c.Api_endpoint + "kubernetes/update-node-pool/" + nodePoolServiceID
+	serviceIDInString := strconv.FormatFloat(nodePoolServiceID, 'f', -1, 64)
+	urlNode := c.Api_endpoint + "kubernetes/update-node-pool/" + serviceIDInString
 	req, err := http.NewRequest("PUT", urlNode, &buf)
 	if err != nil {
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 	response, err := c.HttpClient.Do(req)
+	log.Printf("-------------UPDATE NODE POOL REPONSE: %+v-----------------", response)
 	if err != nil {
 		return nil, err
 	}
