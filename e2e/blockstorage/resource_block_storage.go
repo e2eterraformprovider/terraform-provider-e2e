@@ -295,26 +295,8 @@ func resourceExistsBlockStorage(d *schema.ResourceData, m interface{}) (bool, er
 }
 
 func calculateIOPS(size float64) string {
-	switch size {
-	case 250:
-		return "5000"
-	case 500:
-		return "10000"
-	case 1000:
-		return "20000"
-	case 2000:
-		return "40000"
-	case 4000:
-		return "80000"
-	case 8000:
-		return "120000"
-	case 16000:
-		return "240000"
-	case 24000:
-		return "360000"
-	default:
-		return "0"
-	}
+	iops := size * 15
+	return strconv.Itoa(int(iops))
 }
 
 func convertIntoGB(bsSizeRes float64) float64 {
@@ -361,6 +343,7 @@ func waitForDetach(apiClient *client.Client, blockStorageID string, project_id i
 		if data["status"] == "Available" {
 			break
 		}
+		// Wait for 2 seconds before checking the status again (is Volume Detached?)
 		time.Sleep(2 * time.Second)
 	}
 	return nil
