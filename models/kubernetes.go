@@ -76,3 +76,7 @@ type NodePoolUpdate struct {
 type NodePoolAdd struct {
 	NodePools []NodePool `json:"node_pools"`
 }
+
+type NodePoolResize struct {
+	NodePoolSize int `json:"cardinality"`
+}

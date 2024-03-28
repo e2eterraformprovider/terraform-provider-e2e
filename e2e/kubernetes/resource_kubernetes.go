@@ -130,6 +130,11 @@ func ResourceKubernetesService() *schema.Resource {
 						},
 						"cardinality": {
 							Type:        schema.TypeInt,
+							Computed:    true, //NEW CHANGE
+							Description: "Cardinality computed from min_vms during creation",
+						},
+						"node_pool_size": {
+							Type:        schema.TypeInt,
 							Optional:    true, //NEW CHANGE
 							Description: "Cardinality computed from min_vms during creation",
 						},
@@ -510,7 +515,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	//Setting the service_id field in the node_pools list
 	if d.HasChange("node_pools") {
 		log.Printf("----------------------CAUGHT A CHANGE IN NODE POOLS ATLEAST-------------------")
 		oldData, newData := d.GetChange("node_pools")
@@ -521,7 +525,11 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 		for _, oldNodePool := range oldNodePools {
 			oldNodePoolMap := oldNodePool.(map[string]interface{})
 			oldNPName := oldNodePoolMap["name"].(string)
-			oldServiceID := serviceMapping[oldNPName].(float64)
+			oldServiceFind := serviceMapping[oldNPName]
+			if oldServiceFind == nil {
+				return diag.Errorf("The Node Pool you are trying to delete does not exist!")
+			}
+			oldServiceID := oldServiceFind.(float64)
 			found := false
 			if len(newNodePools) <= 0 {
 				return diag.Errorf("Atleast one node pool must be present in a kubernetes cluster!")
@@ -540,6 +548,14 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			}
 			if !found {
 				log.Printf("----------------------THIS NODE POOL IS MISSING: %+v-------------------", oldServiceID)
+				kubernetes, err := apiClient.CheckNodePoolStatus(kubernetesId, d.Get("project_id").(int), d.Get("location").(string))
+				if err != nil {
+					return diag.Errorf("error finding Item with ID %s", kubernetesId)
+				}
+				if !IsNodePoolRunning(oldServiceID, kubernetes["data"].([]interface{})) {
+					d.Set("node_pools", oldData)
+					return diag.Errorf("You can delete a Node Pool once it comes to the running state")
+				}
 				response, err := apiClient.DeleteNodePool(oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
 				log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Resource.go)----------------: %+v", response)
 				if err != nil {
@@ -547,15 +563,15 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 						return nil
 					}
 					if len(response) > 0 {
-						return diag.Errorf("Error: %s", response["errors"])
+						return diag.Errorf("Error: %s", response["Status"])
 					}
 					return diag.FromErr(err)
 				}
-				return nil
+				// return nil
 			}
 		}
 
-		var nodePoolList []interface{}
+		// var nodePoolList []interface{}
 		for i := range newNodePools {
 			newNodePoolMap := newNodePools[i].(map[string]interface{})
 			newNPName := newNodePoolMap["name"].(string)
@@ -572,16 +588,26 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					found = true
 					log.Printf("----------------------IT CAME HERE MEANING ATLEAST THIS NODE POOL IS NOT NEWLY ADDED. NOW CHECKING IF THERE IS ANY CHANGE IN ITS FIELDS -------------------")
 					oldCardinality := oldNodePoolMap["cardinality"].(int)
-					newCardinality := newNodePoolMap["cardinality"].(int)
-					log.Printf("----------------PREV CARD:%+v     NEW CARD:%+v------------------", oldCardinality, newCardinality)
-					// if newCardinality < 2 {
-					// 	return diag.Errorf("Cardinality of worker nodes cannot be less than 2")
-					// }
+					if oldNodePoolMap["node_pool_type"].(string) == "Static" {
+						oldCardinality = oldNodePoolMap["worker_node"].(int)
+					}
+					node_pool_size := oldCardinality
+					if newNodePoolMap["node_pool_size"].(int) != 0 {
+						node_pool_size = newNodePoolMap["node_pool_size"].(int)
+					}
+					log.Printf("----------------PREV CARD:%+v     NEW CARD:%+v------------------", oldCardinality, node_pool_size)
+					if node_pool_size < 2 {
+						return diag.Errorf("Cardinality of worker nodes cannot be less than 2")
+					}
 					// If the cardinality has changed, call the API passing the corresponding service_id
-					if oldCardinality != newCardinality {
+					if oldCardinality != node_pool_size {
 						// nodePoolServiceID := newNodePools[i].(map[string]interface{})["service_id"].(string)
 						log.Printf("----------------------THERE IS A CHANGE IN CARDINALITY-------------------")
-						response, err := apiClient.UpdateNodePoolCardinality(oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+						nodePoolResize := models.NodePoolResize{
+							NodePoolSize: newNodePoolMap["node_pool_size"].(int),
+						}
+						newNodePoolMap["cardinality"] = newNodePoolMap["node_pool_size"].(int)
+						response, err := apiClient.UpdateNodePoolCardinality(&nodePoolResize, oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
 						if err != nil {
 							if response == nil {
 								// return nil
@@ -612,6 +638,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					log.Printf("----------------------PAYLOAD FOR NODE POOL UPDATE: %+v-------------------", nodePoolObject)
 					log.Printf("----------------------SUCCESSFUL UPDATE OBJECT CREATION, MAKING A REQUEST NOW FOR UPDATE-------------------")
 					response, err := apiClient.UpdateNodePoolDetails(&nodePoolObject, oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+					log.Printf("----------------------NODE POOL DETAILS UPDATION RESPONSE: %+v-------------------", response)
 					if err != nil {
 						return diag.FromErr(err)
 					}
@@ -623,6 +650,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			}
 			//If not found meaning this is a new NodePool
 			if !found {
+				var nodePoolList []interface{}
 				nodePoolList = append(nodePoolList, newNodePools[i])
 				nodePoolsDetail, err := ExpandNodePools(nodePoolList, apiClient, d.Get("project_id").(int), d.Get("location").(string))
 				if err != nil {
@@ -638,7 +666,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 				if _, codeOK := response["code"]; !codeOK {
 					return diag.Errorf(response["message"].(string))
 				}
-				break
+				continue
 				// return nil
 			}
 		}
@@ -710,4 +738,19 @@ func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m in
 	// }
 	// d.Set("node_pools", currNodePoolsList)
 	// return nil
+}
+
+func IsNodePoolRunning(oldServiceID float64, nodePools []interface{}) bool {
+	var status string
+	for _, nodepool := range nodePools {
+		npdetail := nodepool.(map[string]interface{})
+		serviceID := npdetail["service_id"].(float64)
+		if serviceID == oldServiceID {
+			status = npdetail["state"].(string)
+			if status == "Running" {
+				return true
+			}
+		}
+	}
+	return false
 }

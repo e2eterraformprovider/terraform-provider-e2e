@@ -299,10 +299,15 @@ func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, locati
 	return jsonRes, nil
 }
 
-func (c *Client) UpdateNodePoolCardinality(nodePoolServiceID float64, project_id int, location string) (map[string]interface{}, error) {
+func (c *Client) UpdateNodePoolCardinality(item *models.NodePoolResize, nodePoolServiceID float64, project_id int, location string) (map[string]interface{}, error) {
+	buf := bytes.Buffer{}
+	err := json.NewEncoder(&buf).Encode(item)
+	if err != nil {
+		return nil, err
+	}
 	serviceIDInString := strconv.FormatFloat(nodePoolServiceID, 'f', -1, 64)
 	urlNode := c.Api_endpoint + "kubernetes/cluster-update/" + serviceIDInString
-	req, err := http.NewRequest("PUT", urlNode, nil)
+	req, err := http.NewRequest("PUT", urlNode, &buf)
 	if err != nil {
 		return nil, err
 	}
@@ -411,12 +416,13 @@ func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServ
 		return nil, err
 	}
 	serviceIDInString := strconv.FormatFloat(nodePoolServiceID, 'f', -1, 64)
-	urlNode := c.Api_endpoint + "kubernetes/update-node-pool/" + serviceIDInString
+	urlNode := c.Api_endpoint + "kubernetes/update-node-pool/" + serviceIDInString + "/"
 	req, err := http.NewRequest("PUT", urlNode, &buf)
 	if err != nil {
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+	log.Printf("----------------------REQUEST FOR NODE POOL UPDATE: %+v-------------------", req)
 	response, err := c.HttpClient.Do(req)
 	log.Printf("-------------UPDATE NODE POOL REPONSE: %+v-----------------", response)
 	if err != nil {
@@ -430,12 +436,49 @@ func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServ
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
+	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
-
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		log.Printf("[ERROR] CLIENT UPDATE KUBERNETES NODE POOL | error when unmarshalling")
+		return nil, err
+	}
+
+	return jsonRes, nil
+}
+
+func (c *Client) CheckNodePoolStatus(kubernetes_id string, project_id int, location string) (map[string]interface{}, error) {
+	urlNode := c.Api_endpoint + "kubernetes/node-pool-services/" + kubernetes_id
+	req, err := http.NewRequest("GET", urlNode, nil)
 	if err != nil {
 		return nil, err
 	}
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
+	log.Printf("----------------------GATHERING DETAILS OF EACH NODE POOL IN A CLUSTER: %+v-------------------", req)
+	response, err := c.HttpClient.Do(req)
+	log.Printf("-------------GET NODE POOLS DETAILS REPONSE: %+v-----------------", response)
+	if err != nil {
+		return nil, err
+	}
+	err = CheckResponseStatus(response)
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	// log.Printf("%s", stringresponse)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		log.Printf("[ERROR] CLIENT READ KUBERNETES NODE POOLS | error when unmarshalling")
+		return nil, err
+	}
+
 	return jsonRes, nil
 }
