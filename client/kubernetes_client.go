@@ -20,14 +20,7 @@ func (c *Client) GetKubernetesMasterPlans(project_id int, location string) (map[
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", strconv.Itoa(project_id))
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -58,14 +51,7 @@ func (c *Client) GetKubernetesWorkerPlans(project_id int, location string) (map[
 	if err != nil {
 		return nil, err
 	}
-	params := req.URL.Query()
-	params.Add("apikey", c.Api_key)
-	params.Add("project_id", strconv.Itoa(project_id))
-	params.Add("location", location)
-	req.URL.RawQuery = params.Encode()
-	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", "terraform-e2e")
+	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
