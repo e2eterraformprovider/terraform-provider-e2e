@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -102,19 +101,6 @@ func ResourceKubernetesService() *schema.Resource {
 								"Autoscale",
 							}, false),
 						},
-						// "parameter": {
-						// 	Type:        schema.TypeString,
-						// 	Optional:    true,
-						// 	Default:     "CPU",
-						// 	Description: "Parameter (e.g., CPU, Memory)",
-						// 	ValidateFunc: validation.Any(
-						// 		validation.StringInSlice([]string{"Memory", "CPU"}, false),
-						// 		validation.StringMatch(
-						// 			regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
-						// 			"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
-						// 		),
-						// 	),
-						// },
 						"worker_node": {
 							Type:         schema.TypeInt,
 							Optional:     true, //If the type is autoscale then this field is not needed. Otherwise the default value will be 3
@@ -199,10 +185,6 @@ func ResourceKubernetesService() *schema.Resource {
 																Type:        schema.TypeString,
 																Computed:    true,
 																Description: "Adjust Value. Its value can be 1 or -1",
-																// ValidateFunc: validation.StringInSlice([]string{
-																// 	"1",
-																// 	"-1",
-																// }, false),
 															},
 															"operator": {
 																Type:        schema.TypeString,
@@ -333,7 +315,6 @@ func GetSlugName(ctx context.Context, d *schema.ResourceData, m interface{}) (st
 	version := d.Get("version").(string)
 	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
 	kubernetesPlan, err := apiClient.GetKubernetesMasterPlans(d.Get("project_id").(int), d.Get("location").(string))
-	// log.Printf("--------------GOT RESPONSE FOR SLUGNAME-------------: %+v", kubernetesPlan)
 	if err != nil {
 		return "", fmt.Errorf("error getting Kubernetes plans: %s", err.Error())
 	}
@@ -354,7 +335,6 @@ func GetSlugName(ctx context.Context, d *schema.ResourceData, m interface{}) (st
 		if k8sVersion == version {
 			slugName, ok := planData["plan"].(string)
 			if ok {
-				// log.Printf("--------------GOT THE SLUGNAME SUCCESSFULLY------------- : %+v", slugName)
 				return slugName, nil
 			}
 		}
@@ -369,7 +349,6 @@ func CreateKubernetesObject(m interface{}, d *schema.ResourceData, slugName stri
 	}
 	log.Printf("[INFO] KUBERNETES OBJECT CREATION STARTS")
 	d.Set("sku_id", "1178")
-	log.Printf("---------------IDHAR TOH PAHUCHA(2)-----------------")
 	kubernetesObj := models.KubernetesCreate{
 		Name:     d.Get("name").(string),
 		Version:  d.Get("version").(string),
@@ -387,7 +366,6 @@ func CreateKubernetesObject(m interface{}, d *schema.ResourceData, slugName stri
 	} else {
 		kubernetesObj.NodePools = make([]models.NodePool, 0)
 	}
-	// log.Printf("--------------EXPANDED THE KUBERNETES PAYLOAD SUCCESSFULLY------------ : %+v", kubernetesObj)
 	return &kubernetesObj, nil
 }
 
@@ -412,7 +390,6 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	// log.Printf("[INFO] Kubernetes Cluster CREATE | RESPONSE BODY | %+v", resKubernetes)
 	if _, codeOK := resKubernetes["code"]; !codeOK {
 		return diag.Errorf(resKubernetes["message"].(string))
 	}
@@ -428,10 +405,6 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 	if !ok {
 		return diag.Errorf("Failed to parse 'ID' field in the 'DOCUMENT'")
 	}
-	// clusterID, err := strconv.Atoi(clusterIDStr)
-	// if err != nil {
-	// 	return diag.Errorf("Failed to convert cluster ID to integer: %v", err)
-	// }
 	d.SetId(clusterIDStr)
 	log.Printf("[INFO] Kubernetes Cluster creation | before setting fields")
 	return diags
@@ -464,10 +437,6 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	d.Set("status", data["state"].(string))
 	d.Set("version", data["version"].(string))
 	d.Set("created_at", data["created_at"].(string))
-	// error := GetNodePoolServiceMapping(ctx, d, m)
-	// if error != nil {
-	// 	return diag.FromErr(error)
-	// }
 	return diags
 }
 
@@ -516,7 +485,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 	if d.HasChange("node_pools") {
-		log.Printf("----------------------CAUGHT A CHANGE IN NODE POOLS ATLEAST-------------------")
 		oldData, newData := d.GetChange("node_pools")
 
 		oldNodePools := oldData.([]interface{})
@@ -534,12 +502,9 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			if len(newNodePools) <= 0 {
 				return diag.Errorf("Atleast one node pool must be present in a kubernetes cluster!")
 			}
-			log.Printf("----------------------SEARCHING IF ANY NODE POOL IS MISSING OR NOT-------------------")
 			// Check if the old service_id exists in the new node pools
 			for _, newNodePool := range newNodePools {
 				newNodePoolMap := newNodePool.(map[string]interface{})
-				//MADE CHANGES HERE
-				// newServiceID := newNodePoolMap["service_id"].(string)
 				newNPName := newNodePoolMap["name"].(string)
 				if oldNPName == newNPName {
 					found = true
@@ -547,7 +512,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 				}
 			}
 			if !found {
-				log.Printf("----------------------THIS NODE POOL IS MISSING: %+v-------------------", oldServiceID)
 				kubernetes, err := apiClient.CheckNodePoolStatus(kubernetesId, d.Get("project_id").(int), d.Get("location").(string))
 				if err != nil {
 					return diag.Errorf("error finding Item with ID %s", kubernetesId)
@@ -557,7 +521,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					return diag.Errorf("You can delete a Node Pool once it comes to the running state")
 				}
 				response, err := apiClient.DeleteNodePool(oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
-				log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Resource.go)----------------: %+v", response)
 				if err != nil {
 					if response == nil {
 						return nil
@@ -571,13 +534,10 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			}
 		}
 
-		// var nodePoolList []interface{}
 		for i := range newNodePools {
 			newNodePoolMap := newNodePools[i].(map[string]interface{})
 			newNPName := newNodePoolMap["name"].(string)
-			// newServiceID := newNodePoolMap["service_id"].(string)
 			found := false
-			// Checking if the old service_id exists in the new node pools
 			log.Printf("----------------------CHECKING IF THERE IS ANY ADDITION OF NODE POOLS-------------------")
 			for _, oldNodePool := range oldNodePools {
 				oldNodePoolMap := oldNodePool.(map[string]interface{})
@@ -586,7 +546,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 				// If exists then check if there is any change in cardinality
 				if newNPName == oldNPName {
 					found = true
-					log.Printf("----------------------IT CAME HERE MEANING ATLEAST THIS NODE POOL IS NOT NEWLY ADDED. NOW CHECKING IF THERE IS ANY CHANGE IN ITS FIELDS -------------------")
 					oldCardinality := oldNodePoolMap["cardinality"].(int)
 					if oldNodePoolMap["node_pool_type"].(string) == "Static" {
 						oldCardinality = oldNodePoolMap["worker_node"].(int)
@@ -599,10 +558,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					if node_pool_size < 2 {
 						return diag.Errorf("Cardinality of worker nodes cannot be less than 2")
 					}
-					// If the cardinality has changed, call the API passing the corresponding service_id
 					if oldCardinality != node_pool_size {
-						// nodePoolServiceID := newNodePools[i].(map[string]interface{})["service_id"].(string)
-						log.Printf("----------------------THERE IS A CHANGE IN CARDINALITY-------------------")
 						nodePoolResize := models.NodePoolResize{
 							NodePoolSize: newNodePoolMap["node_pool_size"].(int),
 						}
@@ -619,7 +575,6 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 							return diag.FromErr(err)
 						}
 						break
-						// return nil
 					}
 					old_node_pool_type := oldNodePoolMap["node_pool_type"].(string)
 					new_node_pool_type := newNodePoolMap["node_pool_type"].(string)
@@ -630,15 +585,11 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					if new_node_pool_type == "Static" {
 						break
 					}
-					log.Printf("----------------------GOING INTO Helper's ExpandNPUpdate Function-------------------")
 					nodePoolObject, err := ExpandNPUpdate(newNodePoolMap, apiClient, d.Get("project_id").(int), d.Get("location").(string))
 					if err != nil {
 						return diag.FromErr(err)
 					}
-					log.Printf("----------------------PAYLOAD FOR NODE POOL UPDATE: %+v-------------------", nodePoolObject)
-					log.Printf("----------------------SUCCESSFUL UPDATE OBJECT CREATION, MAKING A REQUEST NOW FOR UPDATE-------------------")
 					response, err := apiClient.UpdateNodePoolDetails(&nodePoolObject, oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
-					log.Printf("----------------------NODE POOL DETAILS UPDATION RESPONSE: %+v-------------------", response)
 					if err != nil {
 						return diag.FromErr(err)
 					}
@@ -679,8 +630,8 @@ func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m in
 	apiClient := m.(*client.Client)
 	log.Printf("[INFO] KUBERNETES CLUSTER NODE POOLS MAPPING STARTS")
 	clusterID := d.Id()
+	// Initialize the map to store service_name and service_id mappings
 	serviceMapping := make(map[string]interface{})
-	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
 	nodePoolList, err := apiClient.GetKubernetesNodePools(clusterID, d.Get("project_id").(int), d.Get("location").(string))
 	if err != nil {
 		return serviceMapping, fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
@@ -688,9 +639,6 @@ func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m in
 	if err != nil {
 		return serviceMapping, fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
 	}
-
-	// Initialize the map to store service_name and service_id mappings
-
 	// Extract service_name and service_id from each item in the data array
 	for _, nodePool := range nodePoolList["data"].([]interface{}) {
 		nodePoolData := nodePool.(map[string]interface{})
@@ -700,44 +648,6 @@ func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	return serviceMapping, nil
-
-	// prevNodepool, currNodePool := d.GetChange("node_pools")
-	// currNodePool = currNodePool.([]interface{})
-
-	// for i, np := range prevNodepool.([]interface{}) {
-	// 	nodePool := np.(map[string]interface{})
-	// 	serviceName := nodePool["name"].(string)
-	// 	if serviceID, ok := serviceMapping[serviceName]; ok {
-	// 		d.Get("node_pools").([]interface{})[i].(map[string]interface{})["service_id"] = serviceID
-	// 	} else {
-	// 		return fmt.Errorf("service_name '%s' not found in the mapping", serviceName)
-	// 	}
-	// }
-
-	// return nil
-	// prevNodePools, currNodePools := d.GetChange("node_pools")
-	// prevNodePoolsList := prevNodePools.([]interface{})
-	// currNodePoolsList := currNodePools.([]interface{})
-	// for _, prevNodePool := range prevNodePoolsList {
-	// 	prevNodePoolMap := prevNodePool.(map[string]interface{})
-	// 	serviceName := prevNodePoolMap["name"].(string)
-	// 	serviceID, found := serviceMapping[serviceName]
-	// 	if found {
-	// 		for i, currNodePool := range currNodePoolsList {
-	// 			currNodePoolMap := currNodePool.(map[string]interface{})
-	// 			currServiceName := currNodePoolMap["name"].(string)
-	// 			if currServiceName == serviceName {
-	// 				currNodePoolMap["service_id"] = serviceID
-	// 				currNodePoolsList[i] = currNodePool
-	// 				break
-	// 			}
-	// 		}
-	// 	} else {
-	// 		return fmt.Errorf("service_name '%s' not found in the mapping", serviceName)
-	// 	}
-	// }
-	// d.Set("node_pools", currNodePoolsList)
-	// return nil
 }
 
 func IsNodePoolRunning(oldServiceID float64, nodePools []interface{}) bool {

@@ -78,7 +78,6 @@ func dataSourceReadKubernetes(ctx context.Context, d *schema.ResourceData, m int
 	kubernetesId := d.Get("service_id").(string)
 	location := d.Get("location").(string)
 	kubernetes, err := apiClient.GetKubernetesServiceInfo(kubernetesId, location, d.Get("project_id").(int))
-	log.Println("===========GET_KUBERNETES_DATASOURCE_RESPONSE==========", kubernetes)
 	if err != nil {
 		return diag.Errorf("error finding Item with ID %s", kubernetesId)
 	}

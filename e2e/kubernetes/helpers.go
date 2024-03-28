@@ -1,13 +1,11 @@
 package kubernetes
 
 import (
-	// "container/list"
 	"fmt"
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-	// "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id int, location string) ([]models.NodePool, error) {
@@ -22,10 +20,8 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("---------------IDHAR TOH PAHUCHA(3)-----------------")
 		plans := workerPlans["data"].([]interface{})
 		var matchingPlan map[string]interface{}
-		log.Printf("---------------IDHAR TOH PAHUCHA(4)-----------------")
 		//Below code is to fetch the corresponding slug name
 		for _, plan := range plans {
 			planData := plan.(map[string]interface{})
@@ -40,15 +36,9 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 		if matchingPlan == nil {
 			return nil, fmt.Errorf("no matching plan found for specs_name: %s", nodePoolDetail["specs_name"])
 		}
-		// elasticityDict, err := ExpandElasticityDict(nodePoolDetail["elasticity_dict"].(map[string]interface{}))
-		// if err != nil {
-		// 	return nil, err
-		// }
-
 		if _, ok := nodePoolDetail["node_pool_type"]; !ok {
 			return nil, fmt.Errorf("node_pool_type is required")
 		}
-		log.Printf("---------------IDHAR TOH PAHUCHA(5)-----------------")
 		var policyType, customParamName, customParamValue string
 		elasticityDict := models.ElasticityDict{}
 		scheduledDict := models.ScheduledDict{}
@@ -59,13 +49,9 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 			customParamName = ""
 			customParamValue = ""
 		} else {
-			log.Printf("---------------IDHAR TOH PAHUCHA(5a)-----------------")
 			policyType = getPolicyType(nodePoolDetail)
-			log.Printf("---------------IDHAR TOH PAHUCHA(5b)-----------------")
 			customParamName = getCustomParamName(nodePoolDetail)
-			log.Printf("---------------IDHAR TOH PAHUCHA(5c)-----------------")
 			customParamValue = getCustomParamValue(nodePoolDetail)
-			log.Printf("HEMLOOOOOO--------%+v--------%+v-----------%+v-----------", policyType, customParamName, customParamValue)
 
 			if _, ok := nodePoolDetail["min_vms"]; !ok {
 				return nil, fmt.Errorf("in case of Autoscale node type, the 'min_vms' field is required")
@@ -111,12 +97,10 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 
 // ExpandElasticityDict is a helper function to process the elasticity_dict attribute.
 func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms int) (models.ElasticityDict, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(7)-----------------")
 	elasticityDict := models.ElasticityDict{}
 	for _, worker := range config["worker"].([]interface{}) {
 		worker := worker.(map[string]interface{})
 		elasticityWorker, err := ExpandElasticityWorker(worker, min_vms, max_vms)
-		// elasticityWorker, err := ExpandElasticityWorker(config["worker"].(map[string]interface{}), parameter)
 		if err != nil {
 			return models.ElasticityDict{}, err
 		}
@@ -125,19 +109,15 @@ func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms in
 			Worker: elasticityWorker,
 		}
 		return elasticityDict, nil
-		// elasticityDict, _ := ExpandElasticityDict(ed, nodePoolDetail["parameter"].(string))
-		// return elasticityDict, fmt.Errorf("elastic Dictionary could not be expanded successfully")
 	}
 	return elasticityDict, nil
 }
 
 func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int) (models.ScheduledDict, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(11)-----------------")
 	scheduledDict := models.ScheduledDict{}
 	for _, worker := range config["worker"].([]interface{}) {
 		worker := worker.(map[string]interface{})
 		scheduledWorker, err := ExpandScheduledWorker(worker, min_vms, max_vms)
-		// elasticityWorker, err := ExpandElasticityWorker(config["worker"].(map[string]interface{}), parameter)
 		if err != nil {
 			return models.ScheduledDict{}, err
 		}
@@ -146,15 +126,12 @@ func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int
 			Worker: scheduledWorker,
 		}
 		return scheduledDict, nil
-		// elasticityDict, _ := ExpandElasticityDict(ed, nodePoolDetail["parameter"].(string))
-		// return elasticityDict, fmt.Errorf("elastic Dictionary could not be expanded successfully")
 	}
 	return scheduledDict, nil
 }
 
 // ExpandElasticityWorker is a helper function to process the worker attribute in elasticity_dict.
 func ExpandElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) (models.ElasticityWorker, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(8)-----------------")
 	elasticityPolicies, err := ExpandElasticityPolicies(config["elasticity_policies"].([]interface{}), config["parameter"].(string))
 	if err != nil {
 		return models.ElasticityWorker{}, err
@@ -169,7 +146,6 @@ func ExpandElasticityWorker(config map[string]interface{}, min_vms int, max_vms 
 }
 
 func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) (models.ScheduleWorker, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(12)-----------------")
 	scheduledPolicies, err := ExpandScheduledPolicies(config["scheduled_policies"].([]interface{}), min_vms, max_vms)
 	if err != nil {
 		return models.ScheduleWorker{}, err
@@ -185,7 +161,6 @@ func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms i
 
 // ExpandElasticityPolicies is a helper function to process the elasticity_policies attribute.
 func ExpandElasticityPolicies(config []interface{}, parameter string) ([]models.ElasticityPolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(9)-----------------")
 	elasticityPolicies := make([]models.ElasticityPolicy, 0, len(config))
 	var adjust_value int = -1
 	type_value := "CHANGE"
@@ -240,7 +215,6 @@ func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]
 }
 
 func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (models.ElasticityDict, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(6)-----------------")
 	var elasticityDict models.ElasticityDict
 
 	// Handle ElasticityDict based on node_pool_type
@@ -253,22 +227,13 @@ func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_v
 			elasticityDict, _ := ExpandElasticityDict(ed, min_vms, max_vms)
 			return elasticityDict, nil
 		}
-		// elasticityPolicies, err := ExpandElasticityPolicies(nodePoolDetail, nodePoolDetail["parameter"].(string))
-		// if err != nil {
-		// 	return elasticityDict, err
-		// }
-		// elasticityDict = models.ElasticityDict{Worker: models.ElasticityWorker{ElasticityPolicies: elasticityPolicies}}
 	default:
 		return elasticityDict, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
 	}
-	// if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == "Static" {
-	// 	return models.ElasticityDict{} // Return empty ElasticityDict for "Static"
-	// }
 	return elasticityDict, nil
 }
 
 func getScheduledDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (models.ScheduledDict, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(10)-----------------")
 	var scheduledDict models.ScheduledDict
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
@@ -288,7 +253,6 @@ func getScheduledDict(nodePoolDetail map[string]interface{}, min_vms int, max_vm
 }
 
 func getCustomParamName(nodePoolDetail map[string]interface{}) string {
-	//Can emit this for efficient code
 	if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == "Static" {
 		return "" // Return empty string for "Static"
 	}
@@ -402,10 +366,8 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 	if err != nil {
 		return nodeUpdate, err
 	}
-	log.Printf("---------------IDHAR TOH PAHUCHA(3)-----------------")
 	plans := workerPlans["data"].([]interface{})
 	var matchingPlan map[string]interface{}
-	log.Printf("---------------IDHAR TOH PAHUCHA(4)-----------------")
 	//Below code is to fetch the corresponding slug name
 	for _, plan := range plans {
 		planData := plan.(map[string]interface{})
@@ -426,13 +388,9 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 		customParamName = ""
 		customParamValue = ""
 	} else {
-		log.Printf("---------------IDHAR TOH PAHUCHA(5a)-----------------")
 		policyType = getPolicyType(nodePoolDetail)
-		log.Printf("---------------IDHAR TOH PAHUCHA(5b)-----------------")
 		customParamName = getCustomParamName(nodePoolDetail)
-		log.Printf("---------------IDHAR TOH PAHUCHA(5c)-----------------")
 		customParamValue = getCustomParamValue(nodePoolDetail)
-		log.Printf("HEMLOOOOOO--------%+v--------%+v-----------%+v-----------", policyType, customParamName, customParamValue)
 		if _, ok := nodePoolDetail["min_vms"]; !ok {
 			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'min_vms' field is required")
 		}
@@ -454,7 +412,7 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 		cardinterface := nodePoolDetail["cardinality"]
 		card := cardinterface.(int)
 		if card == 0 || cardinterface == nil {
-			nodePoolDetail["cardinality"] = nodePoolDetail["min_vms"].(int) //NEW CHANGE
+			nodePoolDetail["cardinality"] = nodePoolDetail["min_vms"].(int)
 		}
 	}
 	nodeUpdate = models.NodePoolUpdate{
@@ -472,7 +430,6 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 }
 
 func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(6)-----------------")
 	var elasticityPolicyList []models.ElasticityPolicy
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
 	case "Static":
@@ -483,39 +440,26 @@ func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, m
 			elasticityDict, _ := UpdateElasticityDict(ed, min_vms, max_vms)
 			return elasticityDict, nil
 		}
-		// elasticityPolicies, err := ExpandElasticityPolicies(nodePoolDetail, nodePoolDetail["parameter"].(string))
-		// if err != nil {
-		// 	return elasticityDict, err
-		// }
-		// elasticityDict = models.ElasticityDict{Worker: models.ElasticityWorker{ElasticityPolicies: elasticityPolicies}}
 	default:
 		return elasticityPolicyList, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
 	}
-	// if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == "Static" {
-	// 	return models.ElasticityDict{} // Return empty ElasticityDict for "Static"
-	// }
 	return elasticityPolicyList, nil
 }
 
 func UpdateElasticityDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(7)-----------------")
 	elasticityPolicy := []models.ElasticityPolicy{}
 	for _, worker := range config["worker"].([]interface{}) {
 		worker := worker.(map[string]interface{})
 		elasticityPolicy, err := UpdateElasticityWorker(worker, min_vms, max_vms)
-		// elasticityWorker, err := ExpandElasticityWorker(config["worker"].(map[string]interface{}), parameter)
 		if err != nil {
 			return []models.ElasticityPolicy{}, err
 		}
 		return elasticityPolicy, nil
-		// elasticityDict, _ := ExpandElasticityDict(ed, nodePoolDetail["parameter"].(string))
-		// return elasticityDict, fmt.Errorf("elastic Dictionary could not be expanded successfully")
 	}
 	return elasticityPolicy, nil
 }
 
 func UpdateElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(8)-----------------")
 	elasticityPolicies, err := ExpandElasticityPolicies(config["elasticity_policies"].([]interface{}), config["parameter"].(string))
 	if err != nil {
 		ep := make([]models.ElasticityPolicy, 0, len(config))
@@ -526,7 +470,6 @@ func UpdateElasticityWorker(config map[string]interface{}, min_vms int, max_vms 
 }
 
 func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(10)-----------------")
 	var scheduledPolicyList []models.SchedulePolicy
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
@@ -546,24 +489,19 @@ func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int,
 }
 
 func UpdateScheduledDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(11)-----------------")
 	scheduledDict := []models.SchedulePolicy{}
 	for _, worker := range config["worker"].([]interface{}) {
 		worker := worker.(map[string]interface{})
 		scheduledWorker, err := UpdateScheduledWorker(worker, min_vms, max_vms)
-		// elasticityWorker, err := ExpandElasticityWorker(config["worker"].(map[string]interface{}), parameter)
 		if err != nil {
 			return []models.SchedulePolicy{}, err
 		}
 		return scheduledWorker, nil
-		// elasticityDict, _ := ExpandElasticityDict(ed, nodePoolDetail["parameter"].(string))
-		// return elasticityDict, fmt.Errorf("elastic Dictionary could not be expanded successfully")
 	}
 	return scheduledDict, nil
 }
 
 func UpdateScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	log.Printf("---------------IDHAR TOH PAHUCHA(12)-----------------")
 	scheduledPolicies, err := ExpandScheduledPolicies(config["scheduled_policies"].([]interface{}), min_vms, max_vms)
 	if err != nil {
 		return []models.SchedulePolicy{}, err

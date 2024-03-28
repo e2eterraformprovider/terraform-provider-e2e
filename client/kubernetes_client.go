@@ -28,7 +28,6 @@ func (c *Client) GetKubernetesMasterPlans(project_id int, location string) (map[
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "terraform-e2e")
-	// log.Printf("----------------REQUEST FOR MASTER PLANS-------------: %+v", req)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -41,7 +40,6 @@ func (c *Client) GetKubernetesMasterPlans(project_id int, location string) (map[
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
-	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
@@ -81,7 +79,6 @@ func (c *Client) GetKubernetesWorkerPlans(project_id int, location string) (map[
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
-	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
@@ -110,7 +107,6 @@ func (c *Client) NewKubernetesService(item *models.KubernetesCreate, project_id 
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("-----------AFTER REMOVING FIELDS FROM PAYLOAD------------: %+v", &buf)
 	req, err := http.NewRequest("POST", UrlEndPoint, &buf)
 	if err != nil {
 		return nil, err
@@ -183,9 +179,9 @@ func (c *Client) DeleteKubernetesService(kubernetesID string, location string, p
 	if err != nil {
 		return err
 	}
-	err = CheckResponseStatus(response)
-	if err != nil {
-		return err
+
+	if response.StatusCode == http.StatusNoContent {
+		return nil
 	}
 
 	return nil
@@ -195,7 +191,6 @@ func RemoveExtraFieldsFromKubernetes(buf *bytes.Buffer) (bytes.Buffer, error) {
 
 	jsonData := buf.Bytes()
 
-	// jsonData := buf.Bytes()
 	var data map[string]interface{}
 	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
@@ -273,7 +268,6 @@ func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, locati
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	// log.Printf("----------------REQUEST FOR MASTER PLANS-------------: %+v", req)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -286,7 +280,6 @@ func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, locati
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
-	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
@@ -342,13 +335,11 @@ func (c *Client) DeleteNodePool(nodePoolServiceID float64, project_id int, locat
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	log.Printf("--------PRINTING DELETE NODE POOL REQUEST %T---------: %+v", serviceIDInString, req)
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
-	log.Printf("----------------RESPONSE FOR DELETE 204 NO CONTENT(Client.go)----------------: %+v", response)
 	if response.StatusCode == http.StatusNoContent {
 		return nil, nil
 	}
@@ -422,9 +413,7 @@ func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServ
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	log.Printf("----------------------REQUEST FOR NODE POOL UPDATE: %+v-------------------", req)
 	response, err := c.HttpClient.Do(req)
-	log.Printf("-------------UPDATE NODE POOL REPONSE: %+v-----------------", response)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +425,6 @@ func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServ
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
-	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
@@ -456,9 +444,7 @@ func (c *Client) CheckNodePoolStatus(kubernetes_id string, project_id int, locat
 		return nil, err
 	}
 	addParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-	log.Printf("----------------------GATHERING DETAILS OF EACH NODE POOL IN A CLUSTER: %+v-------------------", req)
 	response, err := c.HttpClient.Do(req)
-	log.Printf("-------------GET NODE POOLS DETAILS REPONSE: %+v-----------------", response)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +456,6 @@ func (c *Client) CheckNodePoolStatus(kubernetes_id string, project_id int, locat
 	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
-	// log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
 	err = json.Unmarshal(resBytes, &jsonRes)
