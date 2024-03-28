@@ -38,15 +38,15 @@ func DataSourceKubernetesService() *schema.Resource {
 				Description: "Status of the block storage",
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeInt,
+				Required: true,
+				// ForceNew:    true,
 				Description: "ID of the project. It should be unique",
 			},
 			"location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Optional: true,
+				// ForceNew:    true,
 				Description: "Location of the block storage",
 				ValidateFunc: validation.StringInSlice([]string{
 					"Delhi",

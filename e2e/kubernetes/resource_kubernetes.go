@@ -30,15 +30,15 @@ func ResourceKubernetesService() *schema.Resource {
 				ForceNew:    true,
 			},
 			"project_id": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
+				Type:     schema.TypeInt,
+				Required: true,
+				// ForceNew:    true,
 				Description: "ID of the project. It should be unique",
 			},
 			"location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Optional: true,
+				// ForceNew:    true,
 				Description: "Location of the block storage",
 				ValidateFunc: validation.StringInSlice([]string{
 					"Delhi",
