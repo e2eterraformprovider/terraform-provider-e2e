@@ -205,6 +205,12 @@ func ResourceNode() *schema.Resource {
 				Default:     false,
 				Description: "for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.",
 			},
+			// "snapshot_name": {
+			// 	Type:        schema.TypeString,
+			// 	Optional:    true,
+			// 	Default:     false,
+			// 	Description: "for taking snapshot of  the node. Node should be in running state to perform this action.",
+			// },
 			"project_id": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -275,7 +281,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	copy_ssh_keys := d.Get("ssh_keys")
-	new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), d.Get("project_id").(string))
+	location := d.Get("location").(string)
+	new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), d.Get("project_id").(string), location)
 
 	if Err != nil {
 		return Err
@@ -472,6 +479,13 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	// if d.HasChange("snapshot_name") {
+	// 	if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
+	// 		return diag.Errorf("Cannot take snapshot as the node is in %s state", d.Get("status").(string))
+	// 	}
+
+	// }
+
 	if d.HasChange("power_status") {
 		nodestatus := d.Get("status").(string)
 		if nodestatus == constants.NODE_STATUS["CREATING"] || nodestatus == constants.NODE_STATUS["REINSTALLING"] {
@@ -636,7 +650,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		log.Printf("[INFO] nodeId = %v changed ssh_keys = %s ", d.Id(), d.Get("ssh_keys"))
 		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
 
-		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id)
+		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
 		if Err != nil {
 			d.Set("ssh_keys", prevSshKeys)
 			return Err

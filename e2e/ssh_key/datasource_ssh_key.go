@@ -52,7 +52,7 @@ func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	log.Printf("[INFO] INSIDE SSH KEY DATA SOURCE | read")
 	label := d.Get("label").(string)
 	project_id := d.Get("project_id").(string)
-	res, err := apiClient.GetSshKey(label, project_id)
+	res, err := apiClient.GetSshKey(label, project_id, d.Get("location").(string))
 	if err != nil {
 		return diag.Errorf("error finding ssh key with label %s", label)
 	}

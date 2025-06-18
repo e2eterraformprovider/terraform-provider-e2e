@@ -2,13 +2,13 @@ package client
 
 import (
 	"bytes"
-	"strings"
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -61,7 +61,7 @@ func (c *Client) AddSshKey(item models.AddSshKey, project_id string) (map[string
 	return jsonRes, nil
 }
 
-func (c *Client) GetSshKey(label string, project_id string) (map[string]interface{}, error) {
+func (c *Client) GetSshKey(label string, project_id string, location string) (map[string]interface{}, error) {
 	UrlSshKey := c.Api_endpoint + "ssh_keys/"
 	req, err := http.NewRequest("GET", UrlSshKey, nil)
 	if err != nil {
@@ -71,6 +71,7 @@ func (c *Client) GetSshKey(label string, project_id string) (map[string]interfac
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)
 	params.Add("label", label)
+	params.Add("location", location)
 	req.URL.RawQuery = params.Encode()
 	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
 	req.Header.Add("Content-Type", "application/json")
@@ -219,4 +220,3 @@ func (c *Client) GetSshKeyByPk(pk string, project_id string, location string) (*
 
 	return &data.Data[0], nil
 }
-

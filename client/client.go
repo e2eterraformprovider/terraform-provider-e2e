@@ -167,6 +167,10 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 	return &res, nil
 }
 
+// func (c *Client) TakeSnapshot(snapshot_name string, project_id string, location string) (interface{}, error) {
+
+// }
+
 func (c *Client) UpdateNode(nodeId string, action string, Name string, project_id string, location string) (interface{}, error) {
 
 	node_action := models.NodeAction{
@@ -860,4 +864,43 @@ func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location st
 		return nil, err
 	}
 	return res, nil
+}
+
+func (c *Client) CreateDbaasPostgress(project_id string, location string) (map[string]interface{}, error) {
+
+	UrlPostgress := c.Api_endpoint + "rds/cluster/"
+	log.Printf("[INFO] Url ---------- > %s", UrlPostgress)
+	req, err := http.NewRequest("POST", UrlPostgress, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	params := req.URL.Query()
+
+	params.Add("apikey", c.Api_key)
+	params.Add("location", location)
+	params.Add("project_id", project_id)
+	req.URL.RawQuery = params.Encode()
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	response, err := c.HttpClient.Do(req)
+	log.Printf("\n\n[INFO] NEW POSTGRESS DBAAS | STATUS_CODE: %+v ==================***************\n\n", response)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("unauthorized | status %v | The provided api_token or api_key or project_id seem to be incorrect. Please revise them accordingly", response.StatusCode)
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	stringresponse := string(resBody)
+	resBytes := []byte(stringresponse)
+	var jsonRes map[string]interface{}
+	err = json.Unmarshal(resBytes, &jsonRes)
+
+	if err != nil {
+		return nil, err
+	}
+	return jsonRes, nil
 }
