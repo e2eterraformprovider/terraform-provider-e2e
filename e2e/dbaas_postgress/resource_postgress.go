@@ -61,7 +61,7 @@ func ResourcePostgresDBaaS() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				ValidateFunc: validation.StringInSlice([]string{
-					"start", "stop", "restart",
+					"start", "stop", "restart", "",
 				}, false),
 			},
 
@@ -326,30 +326,36 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		status := d.Get("status").(string)
 		dbaas_id := d.Get("id").(string)
 		// Block operation if DBaaS is still in "Creating" state
-		if status == "CREATING" {
-			return diag.Errorf("Cannot perform power operations while DBaaS is in CREATING state")
+		if d.Get("power_status") == "" {
+			// nothing to be done
+		} else {
+			if status == "CREATING" {
+				return diag.Errorf("Cannot perform power operations while DBaaS is in CREATING state")
+			}
+
+			powerAction := d.Get("power_status").(string)
+			switch powerAction {
+			case "start":
+				err := apiClient.StartPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+			case "stop":
+				err := apiClient.StopPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+			case "restart":
+				err := apiClient.RestartPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
+				if err != nil {
+					return diag.FromErr(err)
+				}
+
+			default:
+				return diag.Errorf("invalid power_status value: %s", powerAction)
+			}
 		}
 
-		powerAction := d.Get("power_status").(string)
-		switch powerAction {
-		case "start":
-			err := apiClient.StartPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		case "stop":
-			err := apiClient.StopPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		case "restart":
-			err := apiClient.RestartPostgressDB(dbaas_id, d.Get("project_id").(string), d.Get("location").(string))
-			if err != nil {
-				return diag.FromErr(err)
-			}
-		default:
-			return diag.Errorf("invalid power_status value: %s", powerAction)
-		}
 	}
 
 	if d.HasChange("detach_public_ip") {

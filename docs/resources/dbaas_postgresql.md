@@ -23,7 +23,7 @@ resource "e2e_dbaas_postgresql" "db1" {
     dbaas_number = 1
   }
 
-  vpcs = [e2e_vpc.VPC-TS-01.id]
+  vpc_list = [e2e_vpc.VPC-TS-01.id]
 }
 
 resource "e2e_vpc" "VPC-TS-01" {
@@ -50,8 +50,7 @@ resource "e2e_vpc" "VPC-TS-01" {
 
 - **`group`** (String): Group name for organizing resources. Defaults to `"Default"`.
 - **`parameter_group_id`** (Number): ID of the parameter group.
-- **`public_ip_required`** (Boolean): Whether a public IP is required. Defaults to `true`.
-- **`detach_public_ip`** (Boolean): Set to `true` or `false` to detach or reattach the public IP.
+- **`detach_public_ip`** (Boolean): Set to `true` or `false` to detach or reattach the public IP. Defaults to `false`.
 - **`power_status`** (String): Power control operation. Accepts: `"start"`, `"stop"`, or `"restart"`.
 - **`size`** (Number): Disk size (in GB) for upgrades. Note: Instance must be stopped for upgrade.
 - **`vpc_list`** (Set of Number): List of VPC IDs to attach. Remove an ID to detach a VPC.
@@ -78,7 +77,3 @@ resource "e2e_vpc" "VPC-TS-01" {
 - **`user`** (String): Username for the database.
 - **`password`** (String): Password for the DB user.
 - **`name`** (String): Name of the database.
-
-### Optional Fields
-
-- **`dbaas_number`** (Number): Number of instances to provision. Defaults to `1`.
