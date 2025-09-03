@@ -31,9 +31,8 @@ func DataSourceSshKeys() *schema.Resource {
 			},
 			"location": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				Description: "The location of the project associated with the ssh key",
-				Default:     "Delhi",
 			},
 			"ssh_key_list": {
 				Type:        schema.TypeList,

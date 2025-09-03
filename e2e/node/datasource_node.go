@@ -36,6 +36,11 @@ func DataSourceNode() *schema.Resource {
 				Computed:    true,
 				Description: "The name of the group",
 			},
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "location of the node",
+			},
 			"plan": {
 				Type:        schema.TypeString,
 				Computed:    true,

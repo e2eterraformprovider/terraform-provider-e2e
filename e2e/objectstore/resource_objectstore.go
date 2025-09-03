@@ -30,9 +30,8 @@ func ResourceObjectStore() *schema.Resource {
 			},
 			"region": {
 				Type:        schema.TypeString,
-				Optional:    true,
+				Required:    true,
 				Description: "The Region the bucket will be created",
-				Default:     "Delhi",
 			},
 			"status": {
 				Type:     schema.TypeString,

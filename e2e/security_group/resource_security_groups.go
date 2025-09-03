@@ -23,8 +23,7 @@ func ResourceSecurityGroup() *schema.Resource {
 			},
 			"location": {
 				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "Delhi",
+				Required: true,
 			},
 			"id": {
 				Type:     schema.TypeString,

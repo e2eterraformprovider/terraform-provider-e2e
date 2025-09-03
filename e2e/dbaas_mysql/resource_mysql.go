@@ -7,11 +7,10 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceMySql() *schema.Resource {
@@ -79,13 +78,6 @@ func ResourceMySql() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "This the name of plan which user wants to select",
-				ValidateFunc: validation.StringInSlice([]string{
-					"DBS.16GB",
-					"DBS.32GB",
-					"DBS.64GB",
-					"DBS.96GB",
-					"DBS.128GB",
-				}, false),
 			},
 			"status": {
 				Type:        schema.TypeString,

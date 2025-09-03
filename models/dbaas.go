@@ -44,7 +44,7 @@ type DBNode struct {
 	ZabbixHostID     *int           `json:"zabbix_host_id"`
 	Database         DBCreds        `json:"database"`
 	RAM              string         `json:"ram"`
-	CPU              string         `json:"cpu"`
+	CPU              int         `json:"cpu"`
 	Disk             string         `json:"disk"`
 	Status           string         `json:"status"`
 	DBStatus         string         `json:"db_status"`

@@ -20,7 +20,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceImage() *schema.Resource {
@@ -37,11 +36,6 @@ func ResourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "location of the image",
-				ValidateFunc: validation.StringInSlice([]string{
-					"Delhi",
-					"Mumbai",
-					"Delhi-NCR-2",
-				}, false),
 			},
 			"name": {
 				Type:        schema.TypeString,

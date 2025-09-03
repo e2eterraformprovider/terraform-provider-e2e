@@ -388,8 +388,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		},
 		"location": {
 			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "Delhi",
+			Required:    true,
 			Description: "This is the region of your loadbalancer",
 			ForceNew:    true,
 		},
@@ -422,7 +421,7 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 		EnableBitninja:   d.Get("enable_bitninja").(bool),
 		IsIpv6Attached:   d.Get("is_ipv6_attached").(bool),
 		DefaultBackend:   d.Get("default_backend").(string),
-		Location: 		  d.Get("location").(string),
+		Location:         d.Get("location").(string),
 	}
 	enableEosLogger, ok := d.GetOk("enable_eos_logger")
 	if ok {

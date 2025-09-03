@@ -22,15 +22,16 @@ resource "e2e_dbaas_postgresql" "db1" {
     name         = "mydb"
     dbaas_number = 1
   }
-
-  vpcs = [e2e_vpc.VPC-TS-01.id]
+  vpc_list = [e2e_vpc.vpc1.id] # Optional, add VPC ID(s) only if you want to attach vpc
 }
+resource "e2e_vpc" "vpc1" {
+    vpc_name            = "vpc_name"
+    location            = "Delhi"
+    project_id          = "12345"            # Replace with your actual project ID
+    is_e2e_vpc          = false              # Optional, set false for custom vpc
+    ipv4                = "192.168.1.0/24"   # Optional ,replace this with ipv4 cidr block you want to add
+ }
 
-resource "e2e_vpc" "VPC-TS-01" {
-  location    = "Delhi"
-  vpc_name    = "VPC-TS-01"
-  project_id  = "your_project_id"
-}
 ```
 
 ---

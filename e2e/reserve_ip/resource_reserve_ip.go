@@ -34,8 +34,7 @@ func ResourceReserveIP() *schema.Resource {
 			},
 			"location": {
 				Type:     schema.TypeString,
-				Default:  "Delhi",
-				Optional: true,
+				Required: true,
 			},
 			"ip_address": {
 				Type:        schema.TypeString,

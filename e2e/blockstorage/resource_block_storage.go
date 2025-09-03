@@ -14,7 +14,6 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceBlockStorage() *schema.Resource {
@@ -45,12 +44,7 @@ func ResourceBlockStorage() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "Location of the block storage",
-				ValidateFunc: validation.StringInSlice([]string{
-					"Delhi",
-					"Mumbai",
-					"Delhi-NCR-2",
-				}, false),
-				Default: "Delhi",
+				Default:     "Delhi",
 			},
 			"status": {
 				Type:        schema.TypeString,

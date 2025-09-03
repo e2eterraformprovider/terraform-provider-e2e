@@ -20,6 +20,11 @@ func DataSourceSshKey() *schema.Resource {
 				Description: "The label(name) of the ssh key",
 				ForceNew:    true,
 			},
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "location of the image",
+			},
 			"project_id": {
 				Type:        schema.TypeString,
 				Required:    true,
