@@ -102,7 +102,7 @@ func (c *Client) GetNode(nodeId string, project_id string, location string) (map
 	}
 	log.Printf("[INFO] CLIENT | NODE READ")
 	params := req.URL.Query()
-	log.Printf("==================NODE_READ_API_CLIENT | PARAMS PASSED | Location: %s, ProjectID: %s, NodeID: %d==============", location, project_id, nodeId)
+	log.Printf("==================NODE_READ_API_CLIENT | PARAMS PASSED | Location: %s, ProjectID: %s, NodeID: %s==============", location, project_id, nodeId)
 	params.Add("apikey", c.Api_key)
 	params.Add("contact_person_id", "null")
 	params.Add("project_id", project_id)
