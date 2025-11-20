@@ -1,0 +1,50 @@
+name: Acceptance Test Schedule
+
+on:
+  schedule:
+    # Run acceptance tests every weekday at 14:00 UTC (10a Eastern)
+    - cron: '0 14 * * MON-FRI'
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: acceptance_tests
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Acceptance Tests
+        env:
+          # Add your E2E provider credentials here
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+        run: |
+          make testacc ACCTEST_PARALLELISM=20
+
+  sweep:
+    runs-on: ubuntu-latest
+    needs: acceptance
+    if: ${{ always() }}
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Sweep
+        env:
+          # Add your E2E provider credentials here
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+        run: |
+          make sweep
