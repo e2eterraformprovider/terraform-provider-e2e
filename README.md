@@ -49,19 +49,25 @@ go build -o terraform-provider-e2e
 To use the provider locally, copy it to Terraform's plugin directory:
 
 ```bash
+# Set your desired version (use any version like 0.1.0, 1.0.0, etc.)
+VERSION="0.1.0"
+PLATFORM="linux_amd64"  # See platform options below
+
 # Create Terraform's local plugin directory structure
 # This tells Terraform where to find your locally built provider
-mkdir -p ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/1.0.0/linux_amd64
+mkdir -p ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/${VERSION}/${PLATFORM}
 
 # Copy the built provider binary to the plugin directory
-cp terraform-provider-e2e ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/1.0.0/linux_amd64/
+cp terraform-provider-e2e ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/${VERSION}/${PLATFORM}/
 ```
 
-**Note**: Adjust the path for your operating system:
+**Platform options** - Set `PLATFORM` to match your operating system:
 - Linux: `linux_amd64`
 - macOS (Intel): `darwin_amd64`
 - macOS (Apple Silicon): `darwin_arm64`
 - Windows: `windows_amd64`
+
+**Note**: The version number (e.g., `0.1.0`) can be any value you choose for local development.
 
 ## Documentation
 
