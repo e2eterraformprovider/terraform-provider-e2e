@@ -77,11 +77,6 @@ For detailed documentation on all resources and data sources, visit:
 - **[E2E Networks API Documentation](https://docs.e2enetworks.com/api/myaccount/)**
 - **[E2E Networks Cloud Console](https://cloud.e2enetworks.com/)**
 
-## Support
-
-- **Documentation**: [E2E Networks Documentation](https://docs.e2enetworks.com/)
-- **Support Portal**: [E2E Networks Support](https://cloud.e2enetworks.com/)
-
 ---
 
 <div align="center">
