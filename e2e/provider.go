@@ -2,11 +2,13 @@ package e2e
 
 import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/autoscaling"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/container_registry"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_mariadb"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_mysql"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_postgress"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/faas"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/kubernetes"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
@@ -18,8 +20,6 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/autoscaling"
-	
 )
 
 func Provider() *schema.Provider {
@@ -52,7 +52,7 @@ func Provider() *schema.Provider {
 			"e2e_loadbalancer":       loadbalancer.ResourceLoadBalancer(),
 			"e2e_vpc":                vpc.ResouceVpc(),
 			"e2e_reserved_ip":        reserve_ip.ResourceReserveIP(),
-			"e2e_security_groups":  security_group.ResourceSecurityGroup(),
+			"e2e_security_groups":    security_group.ResourceSecurityGroup(),
 			"e2e_blockstorage":       blockstorage.ResourceBlockStorage(),
 			"e2e_sfs":                sfs.ResourceSfs(),
 			"e2e_objectstore":        objectstore.ResourceObjectStore(),
@@ -63,6 +63,7 @@ func Provider() *schema.Provider {
 			"e2e_dbaas_mariadb":      dbaas_mariadb.ResourceMariaDB(),
 			"e2e_container_registry": container_registry.ResourceContainerRegistry(),
 			"e2e_scaler_group":       autoscaling.ResourceScalerGroup(),
+			"e2e_faas_function":      faas.ResourceFaasFunction(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":               node.DataSourceNode(),
@@ -82,6 +83,7 @@ func Provider() *schema.Provider {
 			"e2e_dbaas_mariadb":      dbaas_mariadb.DataSourceMariaDB(),
 			"e2e_container_registry": container_registry.DataSourceContainerRegistry(),
 			"e2e_scaler_group":       autoscaling.DataSourceScalerGroup(),
+			"e2e_faas_function":      faas.DataSourceFaasFunction(),
 		},
 		ConfigureFunc: providerConfigure,
 	}
