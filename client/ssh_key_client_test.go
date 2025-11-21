@@ -4,41 +4,21 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestAddSshKey(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "SSH key added successfully",
-		"data": map[string]interface{}{
-			"pk":    float64(123),
-			"label": "test-key",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
-
-		if r.URL.Path != "/ssh_keys/" {
-			t.Errorf("Expected path /ssh_keys/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/ssh_keys/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "project_id", "123")
+		testQueryParam(t, r, "location", "us-east")
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var addSshKey models.AddSshKey
@@ -51,12 +31,15 @@ func TestAddSshKey(t *testing.T) {
 			t.Error("Expected SshKey in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "SSH key added successfully",
+			"data": {
+				"pk": 123,
+				"label": "test-key"
+			}
+		}`)
+	})
 
 	addSshKey := models.AddSshKey{
 		Label:    "test-key",
@@ -64,7 +47,7 @@ func TestAddSshKey(t *testing.T) {
 		Location: "us-east",
 	}
 
-	result, err := client.AddSshKey(addSshKey, "123")
+	result, err := ts.client.AddSshKey(addSshKey, "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -74,19 +57,18 @@ func TestAddSshKey(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "SSH key added successfully" {
+		t.Errorf("Expected message 'SSH key added successfully', got %s", result["message"])
 	}
 }
 
 func TestAddSshKeyError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid SSH key"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid SSH key")
+	})
 
 	addSshKey := models.AddSshKey{
 		Label:    "test-key",
@@ -94,7 +76,7 @@ func TestAddSshKeyError(t *testing.T) {
 		Location: "us-east",
 	}
 
-	result, err := client.AddSshKey(addSshKey, "123")
+	result, err := ts.client.AddSshKey(addSshKey, "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -106,47 +88,30 @@ func TestAddSshKeyError(t *testing.T) {
 }
 
 func TestGetSshKey(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"pk":      float64(123),
-				"label":   "test-key",
-				"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/ssh_keys/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "project_id", "123")
+		testQueryParam(t, r, "label", "test-key")
+		testQueryParam(t, r, "location", "us-east")
 
-		if r.URL.Path != "/ssh_keys/" {
-			t.Errorf("Expected path /ssh_keys/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"pk": 123,
+					"label": "test-key",
+					"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ..."
+				}
+			]
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("label") == "" {
-			t.Error("Expected label parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKey("test-key", "123", "us-east")
+	result, err := ts.client.GetSshKey("test-key", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -163,14 +128,14 @@ func TestGetSshKey(t *testing.T) {
 }
 
 func TestGetSshKeyError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKey("nonexistent-key", "123", "us-east")
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "not found")
+	})
+
+	result, err := ts.client.GetSshKey("nonexistent-key", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -201,32 +166,20 @@ func TestDeleteSshKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "DELETE" {
-					t.Errorf("Expected DELETE request, got %s", r.Method)
-				}
+			ts := setup()
+			defer ts.teardown()
 
-				if r.URL.Path != "/delete_ssh_key/123/" {
-					t.Errorf("Expected path /delete_ssh_key/123/, got %s", r.URL.Path)
-				}
-
-				query := r.URL.Query()
-				if query.Get("apikey") == "" {
-					t.Error("Expected apikey parameter")
-				}
-				if query.Get("project_id") == "" {
-					t.Error("Expected project_id parameter")
-				}
-				if query.Get("location") == "" {
-					t.Error("Expected location parameter")
-				}
+			ts.mux.HandleFunc("/delete_ssh_key/123/", func(w http.ResponseWriter, r *http.Request) {
+				testMethod(t, r, http.MethodDelete)
+				testURLPath(t, r, "/delete_ssh_key/123/")
+				testQueryParam(t, r, "apikey", "test-api-key")
+				testQueryParam(t, r, "project_id", "456")
+				testQueryParam(t, r, "location", "us-east")
 
 				w.WriteHeader(tt.statusCode)
-			}))
-			defer server.Close()
+			})
 
-			client := NewClient("test-key", "test-token", server.URL)
-			err := client.DeleteSshKey("123", "456", "us-east")
+			err := ts.client.DeleteSshKey("123", "456", "us-east")
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
@@ -236,14 +189,14 @@ func TestDeleteSshKey(t *testing.T) {
 }
 
 func TestDeleteSshKeyError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSshKey("123", "456", "us-east")
+	ts.mux.HandleFunc("/delete_ssh_key/123/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
+
+	err := ts.client.DeleteSshKey("123", "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -251,50 +204,35 @@ func TestDeleteSshKeyError(t *testing.T) {
 }
 
 func TestGetSshKeys(t *testing.T) {
-	mockResponse := models.SshKeyResponse{
-		Code:    200,
-		Message: "Success",
-		Data: []models.SshKey{
-			{
-				Pk:      123,
-				Label:   "key-1",
-				Ssh_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ1...",
-			},
-			{
-				Pk:      124,
-				Label:   "key-2",
-				Ssh_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ2...",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/ssh_keys/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "project_id", "123")
 
-		if r.URL.Path != "/ssh_keys/" {
-			t.Errorf("Expected path /ssh_keys/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success",
+			"data": [
+				{
+					"pk": 123,
+					"label": "key-1",
+					"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ1..."
+				},
+				{
+					"pk": 124,
+					"label": "key-2",
+					"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ2..."
+				}
+			]
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeys("us-east", "123")
+	result, err := ts.client.GetSshKeys("us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -318,14 +256,19 @@ func TestGetSshKeys(t *testing.T) {
 }
 
 func TestGetSshKeysError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"code": 500, "message": "server error", "data": [], "error": []}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeys("us-east", "123")
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusInternalServerError, `{
+			"code": 500,
+			"message": "server error",
+			"data": [],
+			"error": []
+		}`)
+	})
+
+	result, err := ts.client.GetSshKeys("us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -341,52 +284,31 @@ func TestGetSshKeysError(t *testing.T) {
 }
 
 func TestGetSshKeyByPk(t *testing.T) {
-	mockResponse := struct {
-		Code  int             `json:"code"`
-		Data  []models.SshKey `json:"data"`
-		Error []interface{}   `json:"error"`
-	}{
-		Code: 200,
-		Data: []models.SshKey{
-			{
-				Pk:     123,
-				Label:  "test-key",
-				Ssh_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...",
-			},
-		},
-		Error: []interface{}{},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/ssh_keys/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "project_id", "456")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "pk", "123")
 
-		if r.URL.Path != "/ssh_keys/" {
-			t.Errorf("Expected path /ssh_keys/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"pk": 123,
+					"label": "test-key",
+					"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ..."
+				}
+			],
+			"error": []
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("pk") == "" {
-			t.Error("Expected pk parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeyByPk("123", "456", "us-east")
+	result, err := ts.client.GetSshKeyByPk("123", "456", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -406,24 +328,18 @@ func TestGetSshKeyByPk(t *testing.T) {
 }
 
 func TestGetSshKeyByPkNotFound(t *testing.T) {
-	mockResponse := struct {
-		Code  int             `json:"code"`
-		Data  []models.SshKey `json:"data"`
-		Error []interface{}   `json:"error"`
-	}{
-		Code:  200,
-		Data:  []models.SshKey{},
-		Error: []interface{}{},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [],
+			"error": []
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeyByPk("999", "456", "us-east")
+	result, err := ts.client.GetSshKeyByPk("999", "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for not found SSH key, got nil")
@@ -435,14 +351,14 @@ func TestGetSshKeyByPkNotFound(t *testing.T) {
 }
 
 func TestGetSshKeyByPk404Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeyByPk("123", "456", "us-east")
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "not found")
+	})
+
+	result, err := ts.client.GetSshKeyByPk("123", "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for 404 status, got nil")
@@ -454,14 +370,14 @@ func TestGetSshKeyByPk404Status(t *testing.T) {
 }
 
 func TestGetSshKeyByPkNon200Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeyByPk("123", "456", "us-east")
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
+
+	result, err := ts.client.GetSshKeyByPk("123", "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
@@ -473,30 +389,24 @@ func TestGetSshKeyByPkNon200Status(t *testing.T) {
 }
 
 func TestGetSshKeyByPkMismatchedPk(t *testing.T) {
-	mockResponse := struct {
-		Code  int             `json:"code"`
-		Data  []models.SshKey `json:"data"`
-		Error []interface{}   `json:"error"`
-	}{
-		Code: 200,
-		Data: []models.SshKey{
-			{
-				Pk:     456,
-				Label:  "different-key",
-				Ssh_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ...",
-			},
-		},
-		Error: []interface{}{},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"pk": 456,
+					"label": "different-key",
+					"ssh_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ..."
+				}
+			],
+			"error": []
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSshKeyByPk("123", "789", "us-east")
+	result, err := ts.client.GetSshKeyByPk("123", "789", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for mismatched pk, got nil")
@@ -508,28 +418,19 @@ func TestGetSshKeyByPkMismatchedPk(t *testing.T) {
 }
 
 func TestAddSshKeyWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Success",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success"
+		}`)
+	})
 
 	addSshKey := models.AddSshKey{
 		Label:    "test-key",
@@ -537,7 +438,7 @@ func TestAddSshKeyWithHeaders(t *testing.T) {
 		Location: "us-east",
 	}
 
-	_, err := client.AddSshKey(addSshKey, "123")
+	_, err := ts.client.AddSshKey(addSshKey, "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -545,30 +446,22 @@ func TestAddSshKeyWithHeaders(t *testing.T) {
 }
 
 func TestGetSshKeysWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/ssh_keys/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success",
+			"data": []
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(models.SshKeyResponse{
-			Code:    200,
-			Message: "Success",
-			Data:    []models.SshKey{},
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	_, err := client.GetSshKeys("us-east", "123")
+	_, err := ts.client.GetSshKeys("us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -576,25 +469,18 @@ func TestGetSshKeysWithHeaders(t *testing.T) {
 }
 
 func TestDeleteSshKeyWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
-
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
+	ts.mux.HandleFunc("/delete_ssh_key/123/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSshKey("123", "456", "us-east")
+	err := ts.client.DeleteSshKey("123", "456", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

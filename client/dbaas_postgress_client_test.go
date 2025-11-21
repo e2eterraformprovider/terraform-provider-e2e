@@ -4,44 +4,22 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestCreatePostgressDB(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    float64(200),
-		"message": "PostgreSQL database created successfully",
-		"data": map[string]interface{}{
-			"id":   float64(789),
-			"name": "test-postgres",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/rds/cluster/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/rds/cluster/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "test-location")
+		testQueryParam(t, r, "project_id", "test-project")
 
-		if r.URL.Path != "/rds/cluster/" {
-			t.Errorf("Expected path /rds/cluster/, got %s", r.URL.Path)
-		}
-
-		// Verify query parameters
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-
-		// Read and verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.DBCreateRequest
 		json.Unmarshal(body, &req)
@@ -50,12 +28,15 @@ func TestCreatePostgressDB(t *testing.T) {
 			t.Error("Expected Name in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "PostgreSQL database created successfully",
+			"data": {
+				"id": 789,
+				"name": "test-postgres"
+			}
+		}`)
+	})
 
 	dbCreate := models.DBCreateRequest{
 		Name:             "test-postgres",
@@ -70,7 +51,7 @@ func TestCreatePostgressDB(t *testing.T) {
 		},
 	}
 
-	result, err := client.CreatePostgressDB(dbCreate, "test-project", "test-location")
+	result, err := ts.client.CreatePostgressDB(dbCreate, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -80,19 +61,18 @@ func TestCreatePostgressDB(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "PostgreSQL database created successfully" {
+		t.Errorf("Expected message 'PostgreSQL database created successfully', got %s", result["message"])
 	}
 }
 
 func TestCreatePostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "Bad Request")
+	})
 
 	dbCreate := models.DBCreateRequest{
 		Name:       "test-postgres",
@@ -100,7 +80,7 @@ func TestCreatePostgressDB_Error(t *testing.T) {
 		TemplateID: 103,
 	}
 
-	result, err := client.CreatePostgressDB(dbCreate, "test-project", "test-location")
+	result, err := ts.client.CreatePostgressDB(dbCreate, "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -112,33 +92,25 @@ func TestCreatePostgressDB_Error(t *testing.T) {
 }
 
 func TestGetPostgressDB(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    float64(200),
-		"message": "success",
-		"data": map[string]interface{}{
-			"id":     float64(789),
-			"name":   "test-postgres",
-			"status": "active",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/rds/cluster/789/")
 
-		if r.URL.Path != "/rds/cluster/789/" {
-			t.Errorf("Expected path /rds/cluster/789/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"id": 789,
+				"name": "test-postgres",
+				"status": "active"
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetPostgressDB("789", "test-project", "test-location")
+	result, err := ts.client.GetPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -155,15 +127,14 @@ func TestGetPostgressDB(t *testing.T) {
 }
 
 func TestGetPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not Found"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/999/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "Not Found")
+	})
 
-	result, err := client.GetPostgressDB("999", "test-project", "test-location")
+	result, err := ts.client.GetPostgressDB("999", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -175,22 +146,17 @@ func TestGetPostgressDB_Error(t *testing.T) {
 }
 
 func TestDeletePostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/" {
-			t.Errorf("Expected path /rds/cluster/789/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/rds/cluster/789/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeletePostgressDB("789", "test-project", "test-location")
+	err := ts.client.DeletePostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -198,15 +164,14 @@ func TestDeletePostgressDB(t *testing.T) {
 }
 
 func TestDeletePostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Server Error"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "Server Error")
+	})
 
-	err := client.DeletePostgressDB("789", "test-project", "test-location")
+	err := ts.client.DeletePostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -214,22 +179,17 @@ func TestDeletePostgressDB_Error(t *testing.T) {
 }
 
 func TestStopPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/shutdown" {
-			t.Errorf("Expected path /rds/cluster/789/shutdown, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/shutdown")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.StopPostgressDB("789", "test-project", "test-location")
+	err := ts.client.StopPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -237,15 +197,14 @@ func TestStopPostgressDB(t *testing.T) {
 }
 
 func TestStopPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "Bad Request")
+	})
 
-	err := client.StopPostgressDB("789", "test-project", "test-location")
+	err := ts.client.StopPostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -253,22 +212,17 @@ func TestStopPostgressDB_Error(t *testing.T) {
 }
 
 func TestStartPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/resume" {
-			t.Errorf("Expected path /rds/cluster/789/resume, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/resume", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/resume")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.StartPostgressDB("789", "test-project", "test-location")
+	err := ts.client.StartPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -276,15 +230,14 @@ func TestStartPostgressDB(t *testing.T) {
 }
 
 func TestStartPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("Forbidden"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/resume", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusForbidden, "Forbidden")
+	})
 
-	err := client.StartPostgressDB("789", "test-project", "test-location")
+	err := ts.client.StartPostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -292,22 +245,17 @@ func TestStartPostgressDB_Error(t *testing.T) {
 }
 
 func TestRestartPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/restart" {
-			t.Errorf("Expected path /rds/cluster/789/restart, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/restart", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/restart")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.RestartPostgressDB("789", "test-project", "test-location")
+	err := ts.client.RestartPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -315,15 +263,14 @@ func TestRestartPostgressDB(t *testing.T) {
 }
 
 func TestRestartPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("Service Unavailable"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/restart", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusServiceUnavailable, "Service Unavailable")
+	})
 
-	err := client.RestartPostgressDB("789", "test-project", "test-location")
+	err := ts.client.RestartPostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -331,22 +278,17 @@ func TestRestartPostgressDB_Error(t *testing.T) {
 }
 
 func TestAttachPublicIpPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/public-ip-attach/" {
-			t.Errorf("Expected path /rds/cluster/789/public-ip-attach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/public-ip-attach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/public-ip-attach/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.AttachPublicIpPostgressDB("789", "test-project", "test-location")
+	err := ts.client.AttachPublicIpPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -354,15 +296,14 @@ func TestAttachPublicIpPostgressDB(t *testing.T) {
 }
 
 func TestAttachPublicIpPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte("Conflict"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/public-ip-attach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusConflict, "Conflict")
+	})
 
-	err := client.AttachPublicIpPostgressDB("789", "test-project", "test-location")
+	err := ts.client.AttachPublicIpPostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -370,22 +311,17 @@ func TestAttachPublicIpPostgressDB_Error(t *testing.T) {
 }
 
 func TestDetachPublicIpPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/public-ip-detach/" {
-			t.Errorf("Expected path /rds/cluster/789/public-ip-detach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/public-ip-detach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/public-ip-detach/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DetachPublicIpPostgressDB("789", "test-project", "test-location")
+	err := ts.client.DetachPublicIpPostgressDB("789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -393,15 +329,14 @@ func TestDetachPublicIpPostgressDB(t *testing.T) {
 }
 
 func TestDetachPublicIpPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/public-ip-detach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "Bad Request")
+	})
 
-	err := client.DetachPublicIpPostgressDB("789", "test-project", "test-location")
+	err := ts.client.DetachPublicIpPostgressDB("789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -409,16 +344,13 @@ func TestDetachPublicIpPostgressDB_Error(t *testing.T) {
 }
 
 func TestAttachVPCPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/vpc-attach/" {
-			t.Errorf("Expected path /rds/cluster/789/vpc-attach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/vpc-attach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/vpc-attach/")
 
-		// Verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.AttachVPCPayloadRequest
 		json.Unmarshal(body, &req)
@@ -428,10 +360,7 @@ func TestAttachVPCPostgressDB(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	})
 
 	vpcPayload := models.AttachVPCPayloadRequest{
 		Action: "attach",
@@ -444,7 +373,7 @@ func TestAttachVPCPostgressDB(t *testing.T) {
 		},
 	}
 
-	err := client.AttachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
+	err := ts.client.AttachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -452,20 +381,19 @@ func TestAttachVPCPostgressDB(t *testing.T) {
 }
 
 func TestAttachVPCPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("VPC not found"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/vpc-attach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "VPC not found")
+	})
 
 	vpcPayload := models.AttachVPCPayloadRequest{
 		Action: "attach",
 		VPCs:   []models.VPC{},
 	}
 
-	err := client.AttachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
+	err := ts.client.AttachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -473,16 +401,13 @@ func TestAttachVPCPostgressDB_Error(t *testing.T) {
 }
 
 func TestDetachVPCPostgressDB(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/vpc-detach/" {
-			t.Errorf("Expected path /rds/cluster/789/vpc-detach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/vpc-detach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/vpc-detach/")
 
-		// Verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.AttachVPCPayloadRequest
 		json.Unmarshal(body, &req)
@@ -492,10 +417,7 @@ func TestDetachVPCPostgressDB(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	})
 
 	vpcPayload := models.AttachVPCPayloadRequest{
 		Action: "detach",
@@ -508,7 +430,7 @@ func TestDetachVPCPostgressDB(t *testing.T) {
 		},
 	}
 
-	err := client.DetachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
+	err := ts.client.DetachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -516,20 +438,19 @@ func TestDetachVPCPostgressDB(t *testing.T) {
 }
 
 func TestDetachVPCPostgressDB_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/vpc-detach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "Bad Request")
+	})
 
 	vpcPayload := models.AttachVPCPayloadRequest{
 		Action: "detach",
 		VPCs:   []models.VPC{},
 	}
 
-	err := client.DetachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
+	err := ts.client.DetachVPCPostgressDB(vpcPayload, "789", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -537,16 +458,13 @@ func TestDetachVPCPostgressDB_Error(t *testing.T) {
 }
 
 func TestUpgradePostgressPlan(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/rds-upgrade/" {
-			t.Errorf("Expected path /rds/cluster/789/rds-upgrade/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/rds-upgrade/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/rds-upgrade/")
 
-		// Verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var req map[string]interface{}
 		json.Unmarshal(body, &req)
@@ -557,12 +475,9 @@ func TestUpgradePostgressPlan(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.UpgradePostgressPlan("789", 204, "test-project", "test-location")
+	result, err := ts.client.UpgradePostgressPlan("789", 204, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -574,15 +489,14 @@ func TestUpgradePostgressPlan(t *testing.T) {
 }
 
 func TestUpgradePostgressPlan_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusPaymentRequired)
-		w.Write([]byte("Insufficient credits"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/rds-upgrade/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusPaymentRequired, "Insufficient credits")
+	})
 
-	result, err := client.UpgradePostgressPlan("789", 204, "test-project", "test-location")
+	result, err := ts.client.UpgradePostgressPlan("789", 204, "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -594,22 +508,17 @@ func TestUpgradePostgressPlan_Error(t *testing.T) {
 }
 
 func TestUpdateParameterGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/parameter-group/555/add" {
-			t.Errorf("Expected path /rds/cluster/789/parameter-group/555/add, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/parameter-group/555/add", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/parameter-group/555/add")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.UpdateParameterGroup("789", "555", "test-project", "test-location")
+	err := ts.client.UpdateParameterGroup("789", "555", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -617,15 +526,14 @@ func TestUpdateParameterGroup(t *testing.T) {
 }
 
 func TestUpdateParameterGroup_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Parameter group not found"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/parameter-group/999/add", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "Parameter group not found")
+	})
 
-	err := client.UpdateParameterGroup("789", "999", "test-project", "test-location")
+	err := ts.client.UpdateParameterGroup("789", "999", "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -633,16 +541,13 @@ func TestUpdateParameterGroup_Error(t *testing.T) {
 }
 
 func TestUpgradeDiskStorage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/rds/cluster/789/disk-upgrade/" {
-			t.Errorf("Expected path /rds/cluster/789/disk-upgrade/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/rds/cluster/789/disk-upgrade/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/rds/cluster/789/disk-upgrade/")
 
-		// Verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var req map[string]interface{}
 		json.Unmarshal(body, &req)
@@ -653,12 +558,9 @@ func TestUpgradeDiskStorage(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.UpgradeDiskStorage("789", 150, "test-project", "test-location")
+	err := ts.client.UpgradeDiskStorage("789", 150, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -666,15 +568,14 @@ func TestUpgradeDiskStorage(t *testing.T) {
 }
 
 func TestUpgradeDiskStorage_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		w.Write([]byte("Cannot upgrade disk"))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/rds/cluster/789/disk-upgrade/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusUnprocessableEntity, "Cannot upgrade disk")
+	})
 
-	err := client.UpgradeDiskStorage("789", 150, "test-project", "test-location")
+	err := ts.client.UpgradeDiskStorage("789", 150, "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")

@@ -4,54 +4,32 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestGetSecurityGroupList(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"id":   "sg-1",
-				"name": "default",
-			},
-			map[string]interface{}{
-				"id":   "sg-2",
-				"name": "custom",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/security_group/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "project_id", "123")
 
-		if r.URL.Path != "/security_group/" {
-			t.Errorf("Expected path /security_group/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{"id": "sg-1", "name": "default"},
+				{"id": "sg-2", "name": "custom"}
+			]
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSecurityGroupList("123", "us-east")
+	result, err := ts.client.GetSecurityGroupList("123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -68,14 +46,14 @@ func TestGetSecurityGroupList(t *testing.T) {
 }
 
 func TestGetSecurityGroupListError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSecurityGroupList("123", "us-east")
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
+
+	result, err := ts.client.GetSecurityGroupList("123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -87,32 +65,22 @@ func TestGetSecurityGroupListError(t *testing.T) {
 }
 
 func TestGetSecurityGroup(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"id":   "sg-1",
-				"name": "test-sg",
-			},
-			map[string]interface{}{
-				"id":   "sg-2",
-				"name": "other-sg",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{"id": "sg-1", "name": "test-sg"},
+				{"id": "sg-2", "name": "other-sg"}
+			]
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSecurityGroup("test-sg", "123", "us-east")
+	result, err := ts.client.GetSecurityGroup("test-sg", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -128,24 +96,19 @@ func TestGetSecurityGroup(t *testing.T) {
 }
 
 func TestGetSecurityGroupNotFound(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"id":   "sg-1",
-				"name": "other-sg",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{"id": "sg-1", "name": "other-sg"}
+			]
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSecurityGroup("nonexistent-sg", "123", "us-east")
+	result, err := ts.client.GetSecurityGroup("nonexistent-sg", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for not found security group, got nil")
@@ -157,14 +120,12 @@ func TestGetSecurityGroupNotFound(t *testing.T) {
 }
 
 func TestCreateSecurityGroups(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/security_group/" {
-			t.Errorf("Expected path /security_group/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/security_group/")
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload models.SecurityGroupCreateRequest
@@ -174,22 +135,18 @@ func TestCreateSecurityGroups(t *testing.T) {
 			t.Error("Expected Name in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Security group created",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group created"
+		}`)
+	})
 
 	payload := models.SecurityGroupCreateRequest{
 		Name:        "test-sg",
 		Description: "Test security group",
 	}
 
-	err := client.CreateSecurityGroups(payload, "123", "us-east")
+	err := ts.client.CreateSecurityGroups(payload, "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -197,19 +154,18 @@ func TestCreateSecurityGroups(t *testing.T) {
 }
 
 func TestCreateSecurityGroupsError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	payload := models.SecurityGroupCreateRequest{
 		Name: "test-sg",
 	}
 
-	err := client.CreateSecurityGroups(payload, "123", "us-east")
+	err := ts.client.CreateSecurityGroups(payload, "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -217,14 +173,12 @@ func TestCreateSecurityGroupsError(t *testing.T) {
 }
 
 func TestUpdateSecurityGroups(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/security_group/sg-123/" {
-			t.Errorf("Expected path /security_group/sg-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/security_group/sg-123/")
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload models.SecurityGroupUpdateRequest
@@ -234,22 +188,18 @@ func TestUpdateSecurityGroups(t *testing.T) {
 			t.Error("Expected Name in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Security group updated",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group updated"
+		}`)
+	})
 
 	payload := models.SecurityGroupUpdateRequest{
 		Name:        "updated-sg",
 		Description: "Updated security group",
 	}
 
-	err := client.UpdateSecurityGroups(payload, "sg-123", "123", "us-east")
+	err := ts.client.UpdateSecurityGroups(payload, "sg-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -257,19 +207,18 @@ func TestUpdateSecurityGroups(t *testing.T) {
 }
 
 func TestUpdateSecurityGroupsError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/security_group/sg-404/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "not found")
+	})
 
 	payload := models.SecurityGroupUpdateRequest{
 		Name: "updated-sg",
 	}
 
-	err := client.UpdateSecurityGroups(payload, "sg-404", "123", "us-east")
+	err := ts.client.UpdateSecurityGroups(payload, "sg-404", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -277,25 +226,20 @@ func TestUpdateSecurityGroupsError(t *testing.T) {
 }
 
 func TestMakeDefaultSecurityGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/security_group/sg-123/mark-default/" {
-			t.Errorf("Expected path /security_group/sg-123/mark-default/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/sg-123/mark-default/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/security_group/sg-123/mark-default/")
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Security group marked as default",
-		})
-	}))
-	defer server.Close()
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group marked as default"
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.MakeDefaultSecurityGroup("sg-123", "123", "us-east")
+	err := ts.client.MakeDefaultSecurityGroup("sg-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -303,14 +247,14 @@ func TestMakeDefaultSecurityGroup(t *testing.T) {
 }
 
 func TestMakeDefaultSecurityGroupError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "cannot mark as default"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.MakeDefaultSecurityGroup("sg-123", "123", "us-east")
+	ts.mux.HandleFunc("/security_group/sg-123/mark-default/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "cannot mark as default")
+	})
+
+	err := ts.client.MakeDefaultSecurityGroup("sg-123", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -318,19 +262,12 @@ func TestMakeDefaultSecurityGroupError(t *testing.T) {
 }
 
 func TestDetachSecurityGroup(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Security group detached",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
-
-		if r.URL.Path != "/security_group/123/detach/" {
-			t.Errorf("Expected path /security_group/123/detach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/123/detach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/security_group/123/detach/")
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload models.UpdateSecurityGroups
@@ -340,18 +277,17 @@ func TestDetachSecurityGroup(t *testing.T) {
 			t.Error("Expected SecurityGroupList in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group detached"
+		}`)
+	})
 
 	payload := &models.UpdateSecurityGroups{
 		SecurityGroupList: []int{1, 2},
 	}
 
-	result, err := client.DetachSecurityGroup(payload, 123, "456", "us-east")
+	result, err := ts.client.DetachSecurityGroup(payload, 123, "456", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -363,19 +299,18 @@ func TestDetachSecurityGroup(t *testing.T) {
 }
 
 func TestDetachSecurityGroupError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/security_group/123/detach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	payload := &models.UpdateSecurityGroups{
 		SecurityGroupList: []int{1},
 	}
 
-	result, err := client.DetachSecurityGroup(payload, 123, "456", "us-east")
+	result, err := ts.client.DetachSecurityGroup(payload, 123, "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -387,19 +322,12 @@ func TestDetachSecurityGroupError(t *testing.T) {
 }
 
 func TestAttachSecurityGroup(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Security group attached",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
-
-		if r.URL.Path != "/security_group/123/attach/" {
-			t.Errorf("Expected path /security_group/123/attach/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/123/attach/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/security_group/123/attach/")
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload models.UpdateSecurityGroups
@@ -409,18 +337,17 @@ func TestAttachSecurityGroup(t *testing.T) {
 			t.Error("Expected SecurityGroupList in request body")
 		}
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group attached"
+		}`)
+	})
 
 	payload := &models.UpdateSecurityGroups{
 		SecurityGroupList: []int{1, 2},
 	}
 
-	result, err := client.AttachSecurityGroup(payload, 123, "456", "us-east")
+	result, err := ts.client.AttachSecurityGroup(payload, 123, "456", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -432,19 +359,18 @@ func TestAttachSecurityGroup(t *testing.T) {
 }
 
 func TestAttachSecurityGroupError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/security_group/123/attach/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	payload := &models.UpdateSecurityGroups{
 		SecurityGroupList: []int{1},
 	}
 
-	result, err := client.AttachSecurityGroup(payload, 123, "456", "us-east")
+	result, err := ts.client.AttachSecurityGroup(payload, 123, "456", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -456,36 +382,23 @@ func TestAttachSecurityGroupError(t *testing.T) {
 }
 
 func TestDeleteSecurityGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/security_group/sg-123/" {
-			t.Errorf("Expected path /security_group/sg-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/security_group/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/security_group/sg-123/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "project_id", "123")
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Security group deleted"
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Security group deleted",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSecurityGroup("sg-123", "123", "us-east")
+	err := ts.client.DeleteSecurityGroup("sg-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -493,14 +406,14 @@ func TestDeleteSecurityGroup(t *testing.T) {
 }
 
 func TestDeleteSecurityGroupError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(`{"error": "security group in use"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSecurityGroup("sg-123", "123", "us-east")
+	ts.mux.HandleFunc("/security_group/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusConflict, "security group in use")
+	})
+
+	err := ts.client.DeleteSecurityGroup("sg-123", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -508,19 +421,17 @@ func TestDeleteSecurityGroupError(t *testing.T) {
 }
 
 func TestGetSecurityGroupInvalidData(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": "invalid-not-an-array",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": "invalid-not-an-array"
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSecurityGroup("test-sg", "123", "us-east")
+	result, err := ts.client.GetSecurityGroup("test-sg", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for invalid data format, got nil")
@@ -532,33 +443,22 @@ func TestGetSecurityGroupInvalidData(t *testing.T) {
 }
 
 func TestCreateSecurityGroupsWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code": 200,
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{"code": 200}`)
+	})
 
 	payload := models.SecurityGroupCreateRequest{
 		Name: "test-sg",
 	}
 
-	err := client.CreateSecurityGroups(payload, "123", "us-east")
+	err := ts.client.CreateSecurityGroups(payload, "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

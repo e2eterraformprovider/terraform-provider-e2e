@@ -1,179 +1,145 @@
 package client
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestCreateScalerGroup(t *testing.T) {
-	mockResponse := models.CreateScalerGroupResponse{
-		Code:    201,
-		Message: "Scaler Group created successfully",
-		Data: models.ScalerGroupCreateDetails{
-			ID:   "sg-123",
-			Name: "test-scaler-group",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testQueryParam(t, r, "apikey", "test-api-key")
 
-		if r.URL.Path != "/scaler/scalegroups" {
-			t.Errorf("Expected path /scaler/scalegroups, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusCreated, `{
+			"code": 201,
+			"message": "Scaler Group created successfully",
+			"data": {
+				"id": "sg-123",
+				"name": "test-scaler-group"
+			}
+		}`)
+	})
 
 	req := &models.CreateScalerGroupRequest{
 		Name:    "test-scaler-group",
 		Desired: "2",
 	}
 
-	result, err := client.CreateScalerGroup(req, "test-project", "test-location")
+	result, err := ts.client.CreateScalerGroup(req, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("CreateScalerGroup returned error: %v", err)
 	}
 
 	if result == nil {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result.ID != mockResponse.Data.ID {
-		t.Errorf("Expected ID %s, got %s", mockResponse.Data.ID, result.ID)
+	if result.ID != "sg-123" {
+		t.Errorf("Expected ID sg-123, got %s", result.ID)
 	}
 
-	if result.Name != mockResponse.Data.Name {
-		t.Errorf("Expected Name %s, got %s", mockResponse.Data.Name, result.Name)
+	if result.Name != "test-scaler-group" {
+		t.Errorf("Expected Name test-scaler-group, got %s", result.Name)
 	}
 }
 
 func TestGetScalerGroup(t *testing.T) {
-	mockResponse := models.GetScalerGroupResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.ScalerGroupGetDetail{
-			Name:    "test-scaler-group",
-			Desired: 3,
-			Running: 3,
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testQueryParam(t, r, "project_id", "test-project")
+		testQueryParam(t, r, "location", "test-location")
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"name": "test-scaler-group",
+				"desired": 3,
+				"running": 3
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetScalerGroup("sg-123", "test-project", "test-location")
+	result, err := ts.client.GetScalerGroup("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetScalerGroup returned error: %v", err)
 	}
 
 	if result == nil {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result.Name != mockResponse.Data.Name {
-		t.Errorf("Expected Name %s, got %s", mockResponse.Data.Name, result.Name)
+	if result.Name != "test-scaler-group" {
+		t.Errorf("Name = %s, expected test-scaler-group", result.Name)
 	}
 
-	if result.Desired != mockResponse.Data.Desired {
-		t.Errorf("Expected Desired %d, got %d", mockResponse.Data.Desired, result.Desired)
+	if result.Desired != 3 {
+		t.Errorf("Desired = %d, expected 3", result.Desired)
 	}
 }
 
 func TestDeleteScalerGroup(t *testing.T) {
-	mockResponse := models.DeleteScalerGroupResponse{
-		Code:    200,
-		Message: "Scaler Group deleted successfully",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Scaler Group deleted successfully"
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeleteScalerGroup("sg-123", "test-project", "test-location")
+	err := ts.client.DeleteScalerGroup("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("DeleteScalerGroup returned error: %v", err)
 	}
 }
 
 func TestGetSavedImageByName(t *testing.T) {
-	mockResponse := models.ListSavedImagesResponse{
-		Code:    200,
-		Message: "success",
-		Data: []models.SavedImage{
-			{
-				ImageID:    "img-123",
-				Name:       "test-image",
-				TemplateID: 101,
-				Distro:     "ubuntu",
-			},
-			{
-				ImageID:    "img-456",
-				Name:       "another-image",
-				TemplateID: 102,
-				Distro:     "centos",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/images/saved-images/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/images/saved-images/" {
-			t.Errorf("Expected path /images/saved-images/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{
+					"image_id": "img-123",
+					"name": "test-image",
+					"template_id": 101,
+					"distro": "ubuntu"
+				},
+				{
+					"image_id": "img-456",
+					"name": "another-image",
+					"template_id": 102,
+					"distro": "centos"
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetSavedImageByName("test-image", "test-project", "test-location")
+	result, err := ts.client.GetSavedImageByName("test-image", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetSavedImageByName returned error: %v", err)
 	}
 
 	if result == nil {
@@ -181,76 +147,66 @@ func TestGetSavedImageByName(t *testing.T) {
 	}
 
 	if result.ImageID != "img-123" {
-		t.Errorf("Expected ImageID img-123, got %s", result.ImageID)
+		t.Errorf("ImageID = %s, expected img-123", result.ImageID)
 	}
 
 	if result.Name != "test-image" {
-		t.Errorf("Expected Name test-image, got %s", result.Name)
+		t.Errorf("Name = %s, expected test-image", result.Name)
 	}
 }
 
 func TestGetSavedImageByName_NotFound(t *testing.T) {
-	mockResponse := models.ListSavedImagesResponse{
-		Code:    200,
-		Message: "success",
-		Data:    []models.SavedImage{},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/images/saved-images/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": []
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetSavedImageByName("nonexistent-image", "test-project", "test-location")
+	result, err := ts.client.GetSavedImageByName("nonexistent-image", "test-project", "test-location")
 
 	if err == nil {
-		t.Fatal("Expected error, got nil")
+		t.Fatal("Expected error for non-existent image, got nil")
 	}
 
 	if result != nil {
-		t.Errorf("Expected nil result, got: %v", result)
+		t.Errorf("Expected nil result, got: %+v", result)
 	}
+
+	testErrorContains(t, err, "no saved image found")
 }
 
 func TestGetDefaultSecurityGroupID(t *testing.T) {
-	mockResponse := models.GetScalerSecurityGroupsResponse{
-		Code:    200,
-		Message: "success",
-		Data: []models.ScalerSecurityGroup{
-			{
-				ID:        1,
-				IsDefault: true,
-			},
-			{
-				ID:        2,
-				IsDefault: false,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/security_group/" {
-			t.Errorf("Expected path /security_group/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{
+					"id": 1,
+					"is_default": true
+				},
+				{
+					"id": 2,
+					"is_default": false
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetDefaultSecurityGroupID("test-project", "test-location")
+	result, err := ts.client.GetDefaultSecurityGroupID("test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetDefaultSecurityGroupID returned error: %v", err)
 	}
 
 	if result != 1 {
@@ -259,26 +215,23 @@ func TestGetDefaultSecurityGroupID(t *testing.T) {
 }
 
 func TestGetDefaultSecurityGroupID_NotFound(t *testing.T) {
-	mockResponse := models.GetScalerSecurityGroupsResponse{
-		Code:    200,
-		Message: "success",
-		Data: []models.ScalerSecurityGroup{
-			{
-				ID:        1,
-				IsDefault: false,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/security_group/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{
+					"id": 1,
+					"is_default": false
+				}
+			]
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetDefaultSecurityGroupID("test-project", "test-location")
+	result, err := ts.client.GetDefaultSecurityGroupID("test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -290,58 +243,32 @@ func TestGetDefaultSecurityGroupID_NotFound(t *testing.T) {
 }
 
 func TestGetPlanDetailsFromPlanName(t *testing.T) {
-	mockResponse := struct {
-		Code int `json:"code"`
-		Data struct {
-			Data []struct {
-				Name  string `json:"name"`
-				Plan  string `json:"plan"`
-				Specs struct {
-					ID string `json:"id"`
-				} `json:"specs"`
-			} `json:"data"`
-		} `json:"data"`
-	}{
-		Code: 200,
-	}
-	mockResponse.Data.Data = []struct {
-		Name  string `json:"name"`
-		Plan  string `json:"plan"`
-		Specs struct {
-			ID string `json:"id"`
-		} `json:"specs"`
-	}{
-		{
-			Name: "small",
-			Plan: "plan-small",
-			Specs: struct {
-				ID string `json:"id"`
-			}{
-				ID: "plan-id-123",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/images/upgradeimage/101/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/images/upgradeimage/101/" {
-			t.Errorf("Expected path /images/upgradeimage/101/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": {
+				"data": [
+					{
+						"name": "small",
+						"plan": "plan-small",
+						"specs": {
+							"id": "plan-id-123"
+						}
+					}
+				]
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	planID, slugName, err := client.GetPlanDetailsFromPlanName(101, "small", "test-project", "test-location")
+	planID, slugName, err := ts.client.GetPlanDetailsFromPlanName(101, "small", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetPlanDetailsFromPlanName returned error: %v", err)
 	}
 
 	if planID != "plan-id-123" {
@@ -354,154 +281,121 @@ func TestGetPlanDetailsFromPlanName(t *testing.T) {
 }
 
 func TestUpdateScalerGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/update/sg-123/" {
-			t.Errorf("Expected path /scaler/scalegroups/update/sg-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/update/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "updated",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "updated"
+		}`)
+	})
 
 	req := &models.UpdateScalerGroupRequest{
 		Name: "updated-name",
 	}
 
-	err := client.UpdateScalerGroup("sg-123", req, "test-project", "test-location")
+	err := ts.client.UpdateScalerGroup("sg-123", req, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("UpdateScalerGroup returned error: %v", err)
 	}
 }
 
 func TestUpdateDesiredNodeCount(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/123/" {
-			t.Errorf("Expected path /scaler/scalegroups/123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
 
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.UpdateDesiredNodeCount(123, 5, "test-project", "test-location")
+	err := ts.client.UpdateDesiredNodeCount(123, 5, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("UpdateDesiredNodeCount returned error: %v", err)
 	}
 }
 
 func TestUpdateScalerGroupStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		status         string
-		expectedPath   string
-		expectError    bool
+		name         string
+		status       string
+		expectedPath string
+		wantError    bool
 	}{
 		{
 			name:         "Stop scaler group",
 			status:       "Stopped",
 			expectedPath: "/scaler/scalegroups/123/stop/",
-			expectError:  false,
+			wantError:    false,
 		},
 		{
 			name:         "Start scaler group",
 			status:       "Running",
 			expectedPath: "/scaler/scalegroups/123/start/",
-			expectError:  false,
+			wantError:    false,
 		},
 		{
 			name:         "Invalid status",
 			status:       "Invalid",
 			expectedPath: "",
-			expectError:  true,
+			wantError:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "PUT" {
-					t.Errorf("Expected PUT request, got %s", r.Method)
-				}
+			ts := setup()
+			defer ts.teardown()
 
-				if tt.expectedPath != "" && r.URL.Path != tt.expectedPath {
-					t.Errorf("Expected path %s, got %s", tt.expectedPath, r.URL.Path)
-				}
-
-				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"code":    200,
-					"message": "status updated",
+			if !tt.wantError {
+				ts.mux.HandleFunc(tt.expectedPath, func(w http.ResponseWriter, r *http.Request) {
+					testMethod(t, r, http.MethodPut)
+					writeJSON(w, http.StatusOK, `{"code": 200, "message": "status updated"}`)
 				})
-			}))
-			defer server.Close()
+			}
 
-			client := NewClient("test-key", "test-token", server.URL)
+			err := ts.client.UpdateScalerGroupStatus(123, tt.status, "test-project", "test-location")
 
-			err := client.UpdateScalerGroupStatus(123, tt.status, "test-project", "test-location")
-
-			if (err != nil) != tt.expectError {
-				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			if (err != nil) != tt.wantError {
+				t.Errorf("UpdateScalerGroupStatus() error = %v, wantError %v", err, tt.wantError)
 			}
 		})
 	}
 }
 
 func TestGetVpcDetailsByName(t *testing.T) {
-	mockResponse := struct {
-		Data []models.VPCDetail `json:"data"`
-	}{
-		Data: []models.VPCDetail{
-			{
-				Name:      "test-vpc",
-				NetworkID: 100,
-				IPv4CIDR:  "10.0.0.0/24",
-			},
-			{
-				Name:      "another-vpc",
-				NetworkID: 101,
-				IPv4CIDR:  "10.0.1.0/24",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/vpc/list/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/vpc/list/" {
-			t.Errorf("Expected path /vpc/list/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"data": [
+				{
+					"name": "test-vpc",
+					"network_id": 100,
+					"ipv4_cidr": "10.0.0.0/24"
+				},
+				{
+					"name": "another-vpc",
+					"network_id": 101,
+					"ipv4_cidr": "10.0.1.0/24"
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetVpcDetailsByName("test-project", "test-location", "test-vpc")
+	result, err := ts.client.GetVpcDetailsByName("test-project", "test-location", "test-vpc")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetVpcDetailsByName returned error: %v", err)
 	}
 
 	if result == nil {
@@ -518,20 +412,14 @@ func TestGetVpcDetailsByName(t *testing.T) {
 }
 
 func TestAttachVPCToScalerGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/vpc/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/vpc/action/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/vpc/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	})
 
 	vpcs := []models.VPCDetail{
 		{
@@ -541,70 +429,51 @@ func TestAttachVPCToScalerGroup(t *testing.T) {
 		},
 	}
 
-	err := client.AttachVPCToScalerGroup("sg-123", vpcs, "test-project", "test-location")
+	err := ts.client.AttachVPCToScalerGroup("sg-123", vpcs, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("AttachVPCToScalerGroup returned error: %v", err)
 	}
 }
 
 func TestDetachVPCFromScalerGroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/vpc/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/vpc/action/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("vpc_id") != "vpc-456" {
-			t.Errorf("Expected vpc_id vpc-456, got %s", query.Get("vpc_id"))
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/vpc/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testQueryParam(t, r, "vpc_id", "vpc-456")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DetachVPCFromScalerGroup("sg-123", "vpc-456", "test-project", "test-location")
+	err := ts.client.DetachVPCFromScalerGroup("sg-123", "vpc-456", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("DetachVPCFromScalerGroup returned error: %v", err)
 	}
 }
 
 func TestGetPublicIPStatus(t *testing.T) {
-	mockResponse := models.PublicIPStatusResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.PublicIPStatusData{
-			IsPublicIPRequired: true,
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/public_ip/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/public_ip/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/public_ip/action/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"is_public_ip_required": true
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetPublicIPStatus("sg-123", "test-project", "test-location")
+	result, err := ts.client.GetPublicIPStatus("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetPublicIPStatus returned error: %v", err)
 	}
 
 	if result == nil {
@@ -617,32 +486,23 @@ func TestGetPublicIPStatus(t *testing.T) {
 }
 
 func TestAttachPublicIP(t *testing.T) {
-	mockResponse := models.PublicIPActionResponse{
-		Code:    200,
-		Message: "Public IP attached",
-		Data:    "192.168.1.1",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/public_ip/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/public_ip/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/public_ip/action/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Public IP attached",
+			"data": "192.168.1.1"
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.AttachPublicIP("sg-123", "test-project", "test-location")
+	result, err := ts.client.AttachPublicIP("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("AttachPublicIP returned error: %v", err)
 	}
 
 	if result == nil {
@@ -655,32 +515,23 @@ func TestAttachPublicIP(t *testing.T) {
 }
 
 func TestDetachPublicIP(t *testing.T) {
-	mockResponse := models.PublicIPActionResponse{
-		Code:    200,
-		Message: "Public IP detached",
-		Data:    "",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/public_ip/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/public_ip/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/public_ip/action/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Public IP detached",
+			"data": ""
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.DetachPublicIP("sg-123", "test-project", "test-location")
+	result, err := ts.client.DetachPublicIP("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("DetachPublicIP returned error: %v", err)
 	}
 
 	if result == nil {
@@ -689,41 +540,30 @@ func TestDetachPublicIP(t *testing.T) {
 }
 
 func TestGetAttachedVPCsForScalerGroup(t *testing.T) {
-	mockResponse := struct {
-		Data []models.VPCPartial `json:"data"`
-	}{
-		Data: []models.VPCPartial{
-			{
-				Name:      "vpc-1",
-				NetworkID: 100,
-			},
-			{
-				Name:      "vpc-2",
-				NetworkID: 101,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/sg-123/vpc/action/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		if r.URL.Path != "/scaler/scalegroups/sg-123/vpc/action/" {
-			t.Errorf("Expected path /scaler/scalegroups/sg-123/vpc/action/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"data": [
+				{
+					"name": "vpc-1",
+					"network_id": 100
+				},
+				{
+					"name": "vpc-2",
+					"network_id": 101
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetAttachedVPCsForScalerGroup("sg-123", "test-project", "test-location")
+	result, err := ts.client.GetAttachedVPCsForScalerGroup("sg-123", "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("GetAttachedVPCsForScalerGroup returned error: %v", err)
 	}
 
 	if len(result) != 2 {
@@ -736,52 +576,36 @@ func TestGetAttachedVPCsForScalerGroup(t *testing.T) {
 }
 
 func TestDetachSecurityGroupFromScalergroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/security_groups/sg-123/" {
-			t.Errorf("Expected path /scaler/scalegroups/security_groups/sg-123/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("security_group_id") != "456" {
-			t.Errorf("Expected security_group_id 456, got %s", query.Get("security_group_id"))
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/security_groups/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testQueryParam(t, r, "security_group_id", "456")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DetachSecurityGroupFromScalergroup("sg-123", 456, "test-project", "test-location")
+	err := ts.client.DetachSecurityGroupFromScalergroup("sg-123", 456, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("DetachSecurityGroupFromScalergroup returned error: %v", err)
 	}
 }
 
 func TestAddSecurityGroupToScalergroup(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/scaler/scalegroups/security_groups/sg-123/" {
-			t.Errorf("Expected path /scaler/scalegroups/security_groups/sg-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/scaler/scalegroups/security_groups/sg-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.AddSecurityGroupToScalergroup("sg-123", 456, "test-project", "test-location")
+	err := ts.client.AddSecurityGroupToScalergroup("sg-123", 456, "test-project", "test-location")
 
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("AddSecurityGroupToScalergroup returned error: %v", err)
 	}
 }

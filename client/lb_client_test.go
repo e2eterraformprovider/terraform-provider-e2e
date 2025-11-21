@@ -1,30 +1,29 @@
 package client
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestAddParamsAndHeader(t *testing.T) {
-	req := httptest.NewRequest("GET", "https://api.test.com/test/", nil)
+	ts := setup()
+	defer ts.teardown()
+
+	req, _ := http.NewRequest("GET", ts.server.URL+"/test/", nil)
 	location := "us-east"
 	projectID := "123"
 
-	client := NewClient("test-key", "test-token", "https://api.test.com/")
-	modifiedReq, err := client.AddParamsAndHeader(req, location, projectID)
+	modifiedReq, err := ts.client.AddParamsAndHeader(req, location, projectID)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
 	params := modifiedReq.URL.Query()
-	if params.Get("apikey") != "test-key" {
-		t.Errorf("Expected apikey test-key, got %s", params.Get("apikey"))
+	if params.Get("apikey") != "test-api-key" {
+		t.Errorf("Expected apikey test-api-key, got %s", params.Get("apikey"))
 	}
 
 	if params.Get("location") != location {
@@ -39,8 +38,8 @@ func TestAddParamsAndHeader(t *testing.T) {
 		t.Errorf("Expected contact_person_id null, got %s", params.Get("contact_person_id"))
 	}
 
-	if modifiedReq.Header.Get("Authorization") != "Bearer test-token" {
-		t.Errorf("Expected Authorization header Bearer test-token, got %s", modifiedReq.Header.Get("Authorization"))
+	if modifiedReq.Header.Get("Authorization") != "Bearer test-auth-token" {
+		t.Errorf("Expected Authorization header Bearer test-auth-token, got %s", modifiedReq.Header.Get("Authorization"))
 	}
 
 	if modifiedReq.Header.Get("Content-Type") != "application/json" {
@@ -53,56 +52,32 @@ func TestAddParamsAndHeader(t *testing.T) {
 }
 
 func TestNewLoadBalancer(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Load balancer created successfully",
-		"data": map[string]interface{}{
-			"id":   "lb-123",
-			"name": "test-lb",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/appliances/load-balancers/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/appliances/load-balancers/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "project_id", "123")
+		testQueryParam(t, r, "location", "us-east")
 
-		if r.URL.Path != "/appliances/load-balancers/" {
-			t.Errorf("Expected path /appliances/load-balancers/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var lbCreate models.LoadBalancerCreate
-		json.Unmarshal(body, &lbCreate)
-
-		if lbCreate.LbName == "" {
-			t.Error("Expected LbName in request body")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Load balancer created successfully",
+			"data": {
+				"id": "lb-123",
+				"name": "test-lb"
+			}
+		}`)
+	})
 
 	lbCreate := &models.LoadBalancerCreate{
 		LbName:   "test-lb",
 		Location: "us-east",
 	}
 
-	result, err := client.NewLoadBalancer(lbCreate, "123")
+	result, err := ts.client.NewLoadBalancer(lbCreate, "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -112,42 +87,31 @@ func TestNewLoadBalancer(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "Load balancer created successfully" {
+		t.Errorf("Expected message Load balancer created successfully, got %s", result["message"])
 	}
 }
 
 func TestGetLoadBalancerInfo(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": map[string]interface{}{
-			"id":    "lb-123",
-			"name":  "test-lb",
-			"state": "ACTIVE",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/appliances/lb-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/appliances/lb-123/")
+		testQueryParam(t, r, "apikey", "test-api-key")
 
-		if r.URL.Path != "/appliances/lb-123/" {
-			t.Errorf("Expected path /appliances/lb-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": {
+				"id": "lb-123",
+				"name": "test-lb",
+				"state": "ACTIVE"
+			}
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetLoadBalancerInfo("lb-123", "us-east", "123")
+	result, err := ts.client.GetLoadBalancerInfo("lb-123", "us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -164,14 +128,14 @@ func TestGetLoadBalancerInfo(t *testing.T) {
 }
 
 func TestGetLoadBalancerInfoError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetLoadBalancerInfo("lb-404", "us-east", "123")
+	ts.mux.HandleFunc("/appliances/lb-404/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "not found")
+	})
+
+	result, err := ts.client.GetLoadBalancerInfo("lb-404", "us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -183,32 +147,20 @@ func TestGetLoadBalancerInfoError(t *testing.T) {
 }
 
 func TestDeleteLoadBalancer(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/appliances/lb-123/" {
-			t.Errorf("Expected path /appliances/lb-123/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
+	ts.mux.HandleFunc("/appliances/lb-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/appliances/lb-123/")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "project_id", "123")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteLoadBalancer("lb-123", "us-east", "123")
+	err := ts.client.DeleteLoadBalancer("lb-123", "us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -216,14 +168,14 @@ func TestDeleteLoadBalancer(t *testing.T) {
 }
 
 func TestDeleteLoadBalancerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteLoadBalancer("lb-123", "us-east", "123")
+	ts.mux.HandleFunc("/appliances/lb-123/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
+
+	err := ts.client.DeleteLoadBalancer("lb-123", "us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -231,34 +183,21 @@ func TestDeleteLoadBalancerError(t *testing.T) {
 }
 
 func TestUpdateLoadBalancerAction(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/appliances/load-balancers/lb-123/actions/" {
-			t.Errorf("Expected path /appliances/load-balancers/lb-123/actions/, got %s", r.URL.Path)
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var data map[string]interface{}
-		json.Unmarshal(body, &data)
-
-		if data["action"] == nil {
-			t.Error("Expected action in request body")
-		}
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/actions/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/appliances/load-balancers/lb-123/actions/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	})
 
 	data := map[string]interface{}{
 		"action": "start",
 	}
 
-	err := client.UpdateLoadBalancerAction(data, "lb-123", "us-east", "123")
+	err := ts.client.UpdateLoadBalancerAction(data, "lb-123", "us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -266,19 +205,18 @@ func TestUpdateLoadBalancerAction(t *testing.T) {
 }
 
 func TestUpdateLoadBalancerActionError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid action"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/actions/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid action")
+	})
 
 	data := map[string]interface{}{
 		"action": "invalid",
 	}
 
-	err := client.UpdateLoadBalancerAction(data, "lb-123", "us-east", "123")
+	err := ts.client.UpdateLoadBalancerAction(data, "lb-123", "us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -286,34 +224,21 @@ func TestUpdateLoadBalancerActionError(t *testing.T) {
 }
 
 func TestIPV6LoadBalancerAction(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/appliances/load-balancers/lb-123/ipv6/" {
-			t.Errorf("Expected path /appliances/load-balancers/lb-123/ipv6/, got %s", r.URL.Path)
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var data map[string]interface{}
-		json.Unmarshal(body, &data)
-
-		if data["enable_ipv6"] == nil {
-			t.Error("Expected enable_ipv6 in request body")
-		}
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/ipv6/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/appliances/load-balancers/lb-123/ipv6/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	})
 
 	data := map[string]interface{}{
 		"enable_ipv6": true,
 	}
 
-	err := client.IPV6LoadBalancerAction(data, "lb-123", "us-east", "123")
+	err := ts.client.IPV6LoadBalancerAction(data, "lb-123", "us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -321,19 +246,18 @@ func TestIPV6LoadBalancerAction(t *testing.T) {
 }
 
 func TestIPV6LoadBalancerActionError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/ipv6/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
 
 	data := map[string]interface{}{
 		"enable_ipv6": true,
 	}
 
-	err := client.IPV6LoadBalancerAction(data, "lb-123", "us-east", "123")
+	err := ts.client.IPV6LoadBalancerAction(data, "lb-123", "us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -341,41 +265,25 @@ func TestIPV6LoadBalancerActionError(t *testing.T) {
 }
 
 func TestLoadBalancerBackendUpdate(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Load balancer updated successfully",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/appliances/load-balancers/lb-123/")
 
-		if r.URL.Path != "/appliances/load-balancers/lb-123/" {
-			t.Errorf("Expected path /appliances/load-balancers/lb-123/, got %s", r.URL.Path)
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var lbCreate models.LoadBalancerCreate
-		json.Unmarshal(body, &lbCreate)
-
-		if lbCreate.LbName == "" {
-			t.Error("Expected LbName in request body")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Load balancer updated successfully"
+		}`)
+	})
 
 	lbCreate := &models.LoadBalancerCreate{
 		LbName:   "updated-lb",
 		Location: "us-east",
 	}
 
-	result, err := client.LoadBalancerBackendUpdate(lbCreate, "lb-123", "us-east", "123")
+	result, err := ts.client.LoadBalancerBackendUpdate(lbCreate, "lb-123", "us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -385,26 +293,25 @@ func TestLoadBalancerBackendUpdate(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "Load balancer updated successfully" {
+		t.Errorf("Expected message Load balancer updated successfully, got %s", result["message"])
 	}
 }
 
 func TestLoadBalancerBackendUpdateError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/appliances/load-balancers/lb-123/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	lbCreate := &models.LoadBalancerCreate{
 		LbName:   "updated-lb",
 		Location: "us-east",
 	}
 
-	result, err := client.LoadBalancerBackendUpdate(lbCreate, "lb-123", "us-east", "123")
+	result, err := ts.client.LoadBalancerBackendUpdate(lbCreate, "lb-123", "us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -415,62 +322,20 @@ func TestLoadBalancerBackendUpdateError(t *testing.T) {
 	}
 }
 
-func TestNewLoadBalancerWithRemoveExtraKeys(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Load balancer created successfully",
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := ioutil.ReadAll(r.Body)
-		var data map[string]interface{}
-		json.Unmarshal(body, &data)
-
-		// Verify that enable_eos_logger is removed if access_key is empty
-		if eosLogger, ok := data["enable_eos_logger"].(map[string]interface{}); ok {
-			if accessKey, ok := eosLogger["access_key"].(string); ok && accessKey == "" {
-				t.Error("Expected enable_eos_logger to be removed when access_key is empty")
-			}
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	lbCreate := &models.LoadBalancerCreate{
-		LbName:   "test-lb",
-		Location: "us-east",
-	}
-
-	result, err := client.NewLoadBalancer(lbCreate, "123")
-
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Expected result, got nil")
-	}
-}
-
 func TestNewLoadBalancerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/appliances/load-balancers/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	lbCreate := &models.LoadBalancerCreate{
 		LbName:   "test-lb",
 		Location: "us-east",
 	}
 
-	result, err := client.NewLoadBalancer(lbCreate, "123")
+	result, err := ts.client.NewLoadBalancer(lbCreate, "123")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")

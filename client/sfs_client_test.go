@@ -1,17 +1,14 @@
 package client
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestAddParamsAndHeadersFunc(t *testing.T) {
-	req := httptest.NewRequest("GET", "https://api.test.com/test/", nil)
+	req, _ := http.NewRequest("GET", "https://api.test.com/test/", nil)
 	apiKey := "test-key"
 	authToken := "test-token"
 	projectID := "123"
@@ -46,55 +43,28 @@ func TestAddParamsAndHeadersFunc(t *testing.T) {
 }
 
 func TestNewSfs(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "SFS created successfully",
-		"data": map[string]interface{}{
-			"id":   "sfs-123",
-			"name": "test-sfs",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/efs/create/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/efs/create/")
 
-		if r.URL.Path != "/efs/create/" {
-			t.Errorf("Expected path /efs/create/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var sfsCreate models.SfsCreate
-		json.Unmarshal(body, &sfsCreate)
-
-		if sfsCreate.Name == "" {
-			t.Error("Expected Name in request body")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "SFS created successfully",
+			"data": {
+				"id": "sfs-123",
+				"name": "test-sfs"
+			}
+		}`)
+	})
 
 	sfsCreate := &models.SfsCreate{
 		Name: "test-sfs",
 	}
 
-	result, err := client.NewSfs(sfsCreate, "123", "us-east")
+	result, err := ts.client.NewSfs(sfsCreate, "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -104,25 +74,24 @@ func TestNewSfs(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "SFS created successfully" {
+		t.Errorf("Expected message 'SFS created successfully', got %s", result["message"])
 	}
 }
 
 func TestNewSfsError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/efs/create/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusBadRequest, `{"error": "invalid request"}`)
+	})
 
 	sfsCreate := &models.SfsCreate{
 		Name: "test-sfs",
 	}
 
-	result, err := client.NewSfs(sfsCreate, "123", "us-east")
+	result, err := ts.client.NewSfs(sfsCreate, "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -134,42 +103,24 @@ func TestNewSfsError(t *testing.T) {
 }
 
 func TestGetSfs(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": map[string]interface{}{
-			"id":    "sfs-123",
-			"name":  "test-sfs",
-			"state": "ACTIVE",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/efs/sfs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/efs/sfs-123/")
 
-		if r.URL.Path != "/efs/sfs-123/" {
-			t.Errorf("Expected path /efs/sfs-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": {
+				"id": "sfs-123",
+				"name": "test-sfs",
+				"state": "ACTIVE"
+			}
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSfs("sfs-123", "123", "us-east")
+	result, err := ts.client.GetSfs("sfs-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -186,14 +137,14 @@ func TestGetSfs(t *testing.T) {
 }
 
 func TestGetSfsNon200Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSfs("sfs-404", "123", "us-east")
+	ts.mux.HandleFunc("/efs/sfs-404/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusNotFound, `{"error": "not found"}`)
+	})
+
+	result, err := ts.client.GetSfs("sfs-404", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
@@ -205,32 +156,17 @@ func TestGetSfsNon200Status(t *testing.T) {
 }
 
 func TestDeleteSFs(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/efs/delete/sfs-123/" {
-			t.Errorf("Expected path /efs/delete/sfs-123/, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
+	ts.mux.HandleFunc("/efs/delete/sfs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/efs/delete/sfs-123/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSFs("sfs-123", "123", "us-east")
+	err := ts.client.DeleteSFs("sfs-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -238,14 +174,14 @@ func TestDeleteSFs(t *testing.T) {
 }
 
 func TestDeleteSFsNon200Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSFs("sfs-123", "123", "us-east")
+	ts.mux.HandleFunc("/efs/delete/sfs-123/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusInternalServerError, `{"error": "server error"}`)
+	})
+
+	err := ts.client.DeleteSFs("sfs-123", "123", "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
@@ -253,48 +189,30 @@ func TestDeleteSFsNon200Status(t *testing.T) {
 }
 
 func TestGetSfss(t *testing.T) {
-	mockResponse := models.ResponseSfss{
-		Code:    200,
-		Message: "Success",
-		Data: []models.SfssRead{
-			{
-				ID:   1,
-				Name: "sfs-one",
-			},
-			{
-				ID:   2,
-				Name: "sfs-two",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/efs/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/efs/")
 
-		if r.URL.Path != "/efs/" {
-			t.Errorf("Expected path /efs/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success",
+			"data": [
+				{
+					"id": 1,
+					"name": "sfs-one"
+				},
+				{
+					"id": 2,
+					"name": "sfs-two"
+				}
+			]
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSfss("us-east", "123")
+	result, err := ts.client.GetSfss("us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -314,14 +232,14 @@ func TestGetSfss(t *testing.T) {
 }
 
 func TestGetSfssNon200Status(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "unauthorized"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetSfss("us-east", "123")
+	ts.mux.HandleFunc("/efs/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusUnauthorized, `{"error": "unauthorized"}`)
+	})
+
+	result, err := ts.client.GetSfss("us-east", "123")
 
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
@@ -333,34 +251,25 @@ func TestGetSfssNon200Status(t *testing.T) {
 }
 
 func TestNewSfsWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/efs/create/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "Success",
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success"
+		}`)
+	})
 
 	sfsCreate := &models.SfsCreate{
 		Name: "test-sfs",
 	}
 
-	_, err := client.NewSfs(sfsCreate, "123", "us-east")
+	_, err := ts.client.NewSfs(sfsCreate, "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -368,29 +277,21 @@ func TestNewSfsWithHeaders(t *testing.T) {
 }
 
 func TestGetSfsWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/efs/sfs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, http.StatusOK, `{
 			"code": 200,
-			"data": map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
+			"data": {}
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	_, err := client.GetSfs("sfs-123", "123", "us-east")
+	_, err := ts.client.GetSfs("sfs-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -398,25 +299,18 @@ func TestGetSfsWithHeaders(t *testing.T) {
 }
 
 func TestDeleteSFsWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
-
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
+	ts.mux.HandleFunc("/efs/delete/sfs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteSFs("sfs-123", "123", "us-east")
+	err := ts.client.DeleteSFs("sfs-123", "123", "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -424,30 +318,22 @@ func TestDeleteSFsWithHeaders(t *testing.T) {
 }
 
 func TestGetSfssWithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.Header.Get("Content-Type") != "application/json" {
-			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
-		}
+	ts.mux.HandleFunc("/efs/", func(w http.ResponseWriter, r *http.Request) {
+		testHeader(t, r, "Authorization", "Bearer test-auth-token")
+		testHeader(t, r, "Content-Type", "application/json")
+		testHeader(t, r, "User-Agent", "terraform-e2e")
 
-		if r.Header.Get("User-Agent") != "terraform-e2e" {
-			t.Errorf("Expected User-Agent terraform-e2e, got %s", r.Header.Get("User-Agent"))
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Success",
+			"data": []
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(models.ResponseSfss{
-			Code:    200,
-			Message: "Success",
-			Data:    []models.SfssRead{},
-		})
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	_, err := client.GetSfss("us-east", "123")
+	_, err := ts.client.GetSfss("us-east", "123")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

@@ -1,40 +1,30 @@
 package client
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestCreateFaasNamespace(t *testing.T) {
-	mockResponse := models.FaasNamespaceResponse{
-		Code:    201,
-		Message: "Namespace created successfully",
-		Data: models.FaasNamespaceData{
-			Name: "test-namespace",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/faas/namespace", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/faas/namespace")
 
-		if r.URL.Path != "/faas/namespace" {
-			t.Errorf("Expected path /faas/namespace, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusCreated, `{
+			"code": 201,
+			"message": "Namespace created successfully",
+			"data": {
+				"name": "test-namespace"
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.CreateFaasNamespace("test-namespace", "test-project", "test-location")
+	result, err := ts.client.CreateFaasNamespace("test-namespace", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -50,27 +40,18 @@ func TestCreateFaasNamespace(t *testing.T) {
 }
 
 func TestDeleteFaasNamespace(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/faas/namespace" {
-			t.Errorf("Expected path /faas/namespace, got %s", r.URL.Path)
-		}
-
-		query := r.URL.Query()
-		if query.Get("namespace") != "test-namespace" {
-			t.Errorf("Expected namespace test-namespace, got %s", query.Get("namespace"))
-		}
+	ts.mux.HandleFunc("/faas/namespace", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/faas/namespace")
+		testQueryParam(t, r, "namespace", "test-namespace")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeleteFaasNamespace("test-namespace", "test-project", "test-location")
+	err := ts.client.DeleteFaasNamespace("test-namespace", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -78,31 +59,23 @@ func TestDeleteFaasNamespace(t *testing.T) {
 }
 
 func TestCreateFaasFunction(t *testing.T) {
-	mockResponse := models.FaasFunctionResponse{
-		Code:    201,
-		Message: "Function created successfully",
-		Data: models.FaasFunction{
-			ID:     "func-123",
-			Name:   "test-function",
-			Status: "active",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/faas/functions", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/faas/functions")
 
-		if r.URL.Path != "/faas/functions" {
-			t.Errorf("Expected path /faas/functions, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusCreated, `{
+			"code": 201,
+			"message": "Function created successfully",
+			"data": {
+				"id": "func-123",
+				"name": "test-function",
+				"status": "active"
+			}
+		}`)
+	})
 
 	fn := &models.FaasFunctionCreate{
 		Name:      "test-function",
@@ -110,7 +83,7 @@ func TestCreateFaasFunction(t *testing.T) {
 		Runtime:   "python3.9",
 	}
 
-	result, err := client.CreateFaasFunction(fn, "test-project", "test-location")
+	result, err := ts.client.CreateFaasFunction(fn, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -126,33 +99,25 @@ func TestCreateFaasFunction(t *testing.T) {
 }
 
 func TestGetFaasFunction(t *testing.T) {
-	mockResponse := models.FaasFunctionResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.FaasFunction{
-			ID:     "func-123",
-			Name:   "test-function",
-			Status: "active",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/faas/function/func-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/faas/function/func-123/")
 
-		if r.URL.Path != "/faas/function/func-123/" {
-			t.Errorf("Expected path /faas/function/func-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"id": "func-123",
+				"name": "test-function",
+				"status": "active"
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetFaasFunction("func-123", "test-project", "test-location")
+	result, err := ts.client.GetFaasFunction("func-123", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -168,14 +133,14 @@ func TestGetFaasFunction(t *testing.T) {
 }
 
 func TestGetFaasFunction_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := setup()
+	defer ts.teardown()
+
+	ts.mux.HandleFunc("/faas/function/nonexistent/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetFaasFunction("nonexistent", "test-project", "test-location")
+	result, err := ts.client.GetFaasFunction("nonexistent", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error for 404, got: %v", err)
@@ -187,35 +152,27 @@ func TestGetFaasFunction_NotFound(t *testing.T) {
 }
 
 func TestUpdateFaasFunction(t *testing.T) {
-	mockResponse := models.FaasFunctionResponse{
-		Code:    200,
-		Message: "Function updated successfully",
-		Data: models.FaasFunction{
-			ID:     "func-123",
-			Name:   "updated-function",
-			Status: "active",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/faas/function/func-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/faas/function/func-123/")
 
-		if r.URL.Path != "/faas/function/func-123/" {
-			t.Errorf("Expected path /faas/function/func-123/, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Function updated successfully",
+			"data": {
+				"id": "func-123",
+				"name": "updated-function",
+				"status": "active"
+			}
+		}`)
+	})
 
 	fn := &models.FaasFunctionUpdate{}
 
-	result, err := client.UpdateFaasFunction("func-123", fn, "test-project", "test-location")
+	result, err := ts.client.UpdateFaasFunction("func-123", fn, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -231,22 +188,17 @@ func TestUpdateFaasFunction(t *testing.T) {
 }
 
 func TestDeleteFaasFunction(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/faas/function/func-123/" {
-			t.Errorf("Expected path /faas/function/func-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/faas/function/func-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/faas/function/func-123/")
 
 		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeleteFaasFunction("func-123", "test-project", "test-location")
+	err := ts.client.DeleteFaasFunction("func-123", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -254,32 +206,24 @@ func TestDeleteFaasFunction(t *testing.T) {
 }
 
 func TestGetFaasLogs(t *testing.T) {
-	mockResponse := models.FaasLogsResponse{
-		Code:    200,
-		Message: "success",
-		Data: []models.FaasLog{
-			{Message: "Log line 1"},
-			{Message: "Log line 2"},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/faas/logs/func-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/faas/logs/func-123/")
 
-		if r.URL.Path != "/faas/logs/func-123/" {
-			t.Errorf("Expected path /faas/logs/func-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{"message": "Log line 1"},
+				{"message": "Log line 2"}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetFaasLogs("func-123", "test-project", "test-location")
+	result, err := ts.client.GetFaasLogs("func-123", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

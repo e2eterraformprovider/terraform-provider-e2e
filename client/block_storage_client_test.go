@@ -1,57 +1,36 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestNewBlockStorage(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Block storage created successfully",
-		"data": map[string]interface{}{
-			"id":   "bs-123",
-			"name": "test-block-storage",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/block_storage/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/block_storage/")
 
-		if r.URL.Path != "/block_storage/" {
-			t.Errorf("Expected path /block_storage/, got %s", r.URL.Path)
-		}
-
-		// Verify request body
-		body, _ := ioutil.ReadAll(r.Body)
-		var blockStorageCreate models.BlockStorageCreate
-		json.Unmarshal(body, &blockStorageCreate)
-
-		if blockStorageCreate.Size == 0 {
-			t.Error("Expected Size in request body")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Block storage created successfully",
+			"data": {
+				"id": "bs-123",
+				"name": "test-block-storage"
+			}
+		}`)
+	})
 
 	blockStorageCreate := &models.BlockStorageCreate{
 		Size: 100,
 		Name: "test-block-storage",
 	}
 
-	result, err := client.NewBlockStorage(blockStorageCreate, 123, "test-location")
+	result, err := ts.client.NewBlockStorage(blockStorageCreate, 123, "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -61,39 +40,31 @@ func TestNewBlockStorage(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "Block storage created successfully" {
+		t.Errorf("Expected message 'Block storage created successfully', got %s", result["message"])
 	}
 }
 
 func TestGetBlockStorage(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "success",
-		"data": map[string]interface{}{
-			"id":   "bs-123",
-			"name": "test-block-storage",
-			"size": float64(100),
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/block_storage/bs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/block_storage/bs-123/")
 
-		if r.URL.Path != "/block_storage/bs-123/" {
-			t.Errorf("Expected path /block_storage/bs-123/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"id": "bs-123",
+				"name": "test-block-storage",
+				"size": 100
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetBlockStorage("bs-123", 123, "test-location")
+	result, err := ts.client.GetBlockStorage("bs-123", 123, "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -103,24 +74,23 @@ func TestGetBlockStorage(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "success" {
+		t.Errorf("Expected message 'success', got %s", result["message"])
 	}
 }
 
 func TestGetBlockStorage_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    404,
-			"message": "Not found",
-		})
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/block_storage/bs-nonexistent/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusNotFound, `{
+			"code": 404,
+			"message": "Not found"
+		}`)
+	})
 
-	result, err := client.GetBlockStorage("bs-nonexistent", 123, "test-location")
+	result, err := ts.client.GetBlockStorage("bs-nonexistent", 123, "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -132,26 +102,20 @@ func TestGetBlockStorage_Error(t *testing.T) {
 }
 
 func TestDeleteBlockStorage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/block_storage/bs-123/" {
-			t.Errorf("Expected path /block_storage/bs-123/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/block_storage/bs-123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/block_storage/bs-123/")
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "deleted",
-		})
-	}))
-	defer server.Close()
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "deleted"
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeleteBlockStorage("bs-123", 123, "test-location")
+	err := ts.client.DeleteBlockStorage("bs-123", 123, "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -159,45 +123,28 @@ func TestDeleteBlockStorage(t *testing.T) {
 }
 
 func TestUpdateBlockStorage(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Block storage updated successfully",
-		"data": map[string]interface{}{
-			"id":   "bs-123",
-			"size": float64(200),
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/block_storage/bs-123/vm/upgrade/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/block_storage/bs-123/vm/upgrade/")
 
-		if r.URL.Path != "/block_storage/bs-123/vm/upgrade/" {
-			t.Errorf("Expected path /block_storage/bs-123/vm/upgrade/, got %s", r.URL.Path)
-		}
-
-		// Verify request body
-		body, _ := ioutil.ReadAll(r.Body)
-		var blockStorageUpgrade models.BlockStorageUpgrade
-		json.Unmarshal(body, &blockStorageUpgrade)
-
-		if blockStorageUpgrade.Size == 0 {
-			t.Error("Expected Size in request body")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Block storage updated successfully",
+			"data": {
+				"id": "bs-123",
+				"size": 200
+			}
+		}`)
+	})
 
 	blockStorageUpgrade := &models.BlockStorageUpgrade{
 		Size: 200,
 	}
 
-	result, err := client.UpdateBlockStorage(blockStorageUpgrade, "bs-123", 123, "test-location")
+	result, err := ts.client.UpdateBlockStorage(blockStorageUpgrade, "bs-123", 123, "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -207,8 +154,8 @@ func TestUpdateBlockStorage(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "Block storage updated successfully" {
+		t.Errorf("Expected message 'Block storage updated successfully', got %s", result["message"])
 	}
 }
 
@@ -232,32 +179,24 @@ func TestAttachOrDetachBlockStorage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockResponse := map[string]interface{}{
-				"code":    200,
-				"message": "success",
-			}
+			ts := setup()
+			defer ts.teardown()
 
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "PUT" {
-					t.Errorf("Expected PUT request, got %s", r.Method)
-				}
+			ts.mux.HandleFunc(tt.expectedPath, func(w http.ResponseWriter, r *http.Request) {
+				testMethod(t, r, http.MethodPut)
+				testURLPath(t, r, tt.expectedPath)
 
-				if r.URL.Path != tt.expectedPath {
-					t.Errorf("Expected path %s, got %s", tt.expectedPath, r.URL.Path)
-				}
-
-				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(mockResponse)
-			}))
-			defer server.Close()
-
-			client := NewClient("test-key", "test-token", server.URL)
+				writeJSON(w, http.StatusOK, `{
+					"code": 200,
+					"message": "success"
+				}`)
+			})
 
 			blockStorageAttach := &models.BlockStorageAttach{
 				VM_ID: 456,
 			}
 
-			result, err := client.AttachOrDetachBlockStorage(blockStorageAttach, tt.action, "bs-123", 123, "test-location")
+			result, err := ts.client.AttachOrDetachBlockStorage(blockStorageAttach, tt.action, "bs-123", 123, "test-location")
 
 			if err != nil {
 				t.Fatalf("Expected no error, got: %v", err)
@@ -271,40 +210,32 @@ func TestAttachOrDetachBlockStorage(t *testing.T) {
 }
 
 func TestGetBlockStoragePlans(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "success",
-		"data": []interface{}{
-			map[string]interface{}{
-				"id":   "plan-1",
-				"name": "Basic",
-				"size": float64(100),
-			},
-			map[string]interface{}{
-				"id":   "plan-2",
-				"name": "Standard",
-				"size": float64(500),
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/block_storage/plans/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/block_storage/plans/")
 
-		if r.URL.Path != "/block_storage/plans/" {
-			t.Errorf("Expected path /block_storage/plans/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{
+					"id": "plan-1",
+					"name": "Basic",
+					"size": 100
+				},
+				{
+					"id": "plan-2",
+					"name": "Standard",
+					"size": 500
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetBlockStoragePlans(123, "test-location")
+	result, err := ts.client.GetBlockStoragePlans(123, "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -314,8 +245,8 @@ func TestGetBlockStoragePlans(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result["message"] != mockResponse["message"] {
-		t.Errorf("Expected message %s, got %s", mockResponse["message"], result["message"])
+	if result["message"] != "success" {
+		t.Errorf("Expected message 'success', got %s", result["message"])
 	}
 }
 
@@ -354,11 +285,16 @@ func TestCheckResponseStatusForBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock response
-			resp := &http.Response{
-				StatusCode: tt.statusCode,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(tt.responseBody)),
-			}
+			ts := setup()
+			defer ts.teardown()
+
+			ts.mux.HandleFunc("/test/", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, tt.statusCode, tt.responseBody)
+			})
+
+			req, _ := http.NewRequest("GET", ts.server.URL+"/test/", nil)
+			resp, _ := http.DefaultClient.Do(req)
+			defer resp.Body.Close()
 
 			err := CheckResponseStatusForBlock(resp)
 

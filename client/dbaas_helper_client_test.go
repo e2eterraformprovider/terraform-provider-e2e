@@ -1,51 +1,39 @@
 package client
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestGetSoftwareId(t *testing.T) {
-	mockResponse := models.PlanResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.PlanData{
-			DatabaseEngines: []models.EngineDefinition{
-				{
-					EngineID:      1,
-					EngineName:    "mysql",
-					EngineVersion: "8.0",
-				},
-				{
-					EngineID:      2,
-					EngineName:    "postgres",
-					EngineVersion: "14.0",
-				},
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/rds/plans/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/rds/plans/")
 
-		if r.URL.Path != "/rds/plans/" {
-			t.Errorf("Expected path /rds/plans/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"database_engines": [
+					{
+						"id": 1,
+						"name": "mysql",
+						"version": "8.0"
+					},
+					{
+						"id": 2,
+						"name": "postgres",
+						"version": "14.0"
+					}
+				]
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetSoftwareId("test-project", "test-location", "mysql", "8.0")
+	result, err := ts.client.GetSoftwareId("test-project", "test-location", "mysql", "8.0")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -57,29 +45,26 @@ func TestGetSoftwareId(t *testing.T) {
 }
 
 func TestGetSoftwareId_NotFound(t *testing.T) {
-	mockResponse := models.PlanResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.PlanData{
-			DatabaseEngines: []models.EngineDefinition{
-				{
-					EngineID:      1,
-					EngineName:    "mysql",
-					EngineVersion: "8.0",
-				},
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/rds/plans/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"database_engines": [
+					{
+						"id": 1,
+						"name": "mysql",
+						"version": "8.0"
+					}
+				]
+			}
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetSoftwareId("test-project", "test-location", "postgres", "15.0")
+	result, err := ts.client.GetSoftwareId("test-project", "test-location", "postgres", "15.0")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -91,45 +76,33 @@ func TestGetSoftwareId_NotFound(t *testing.T) {
 }
 
 func TestGetTemplateId(t *testing.T) {
-	mockResponse := models.PlanResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.PlanData{
-			TemplatePlans: []models.PlanTemplate{
-				{
-					PlanTemplateID: 100,
-					PlanName:       "small",
-				},
-				{
-					PlanTemplateID: 101,
-					PlanName:       "medium",
-				},
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/rds/plans/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/rds/plans/")
+		testQueryParam(t, r, "software_id", "1")
 
-		if r.URL.Path != "/rds/plans/" {
-			t.Errorf("Expected path /rds/plans/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"template_plans": [
+					{
+						"template_id": 100,
+						"name": "small"
+					},
+					{
+						"template_id": 101,
+						"name": "medium"
+					}
+				]
+			}
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("software_id") != "1" {
-			t.Errorf("Expected software_id 1, got %s", query.Get("software_id"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetTemplateId("test-project", "test-location", "small", "1")
+	result, err := ts.client.GetTemplateId("test-project", "test-location", "small", "1")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -141,28 +114,25 @@ func TestGetTemplateId(t *testing.T) {
 }
 
 func TestGetTemplateId_NotFound(t *testing.T) {
-	mockResponse := models.PlanResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.PlanData{
-			TemplatePlans: []models.PlanTemplate{
-				{
-					PlanTemplateID: 100,
-					PlanName:       "small",
-				},
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
+	ts.mux.HandleFunc("/rds/plans/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"template_plans": [
+					{
+						"template_id": 100,
+						"name": "small"
+					}
+				]
+			}
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetTemplateId("test-project", "test-location", "large", "1")
+	result, err := ts.client.GetTemplateId("test-project", "test-location", "large", "1")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -174,31 +144,26 @@ func TestGetTemplateId_NotFound(t *testing.T) {
 }
 
 func TestExpandMariaDBVpcList(t *testing.T) {
-	mockVpcResponse := models.VpcResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.Vpc{
-			Name:       "test-vpc",
-			Network_id: 100,
-			Ipv4_cidr:  "10.0.0.0/24",
-			State:      "Active",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/vpc/100/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockVpcResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"name": "test-vpc",
+				"network_id": 100,
+				"ipv4_cidr": "10.0.0.0/24",
+				"state": "Active"
+			}
+		}`)
+	})
 
 	vpcIDs := []string{"100"}
-	result, err := client.ExpandMariaDBVpcList(vpcIDs, "test-project", "test-location")
+	result, err := ts.client.ExpandMariaDBVpcList(vpcIDs, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -214,27 +179,24 @@ func TestExpandMariaDBVpcList(t *testing.T) {
 }
 
 func TestExpandMariaDBVpcList_InactiveVPC(t *testing.T) {
-	mockVpcResponse := models.VpcResponse{
-		Code:    200,
-		Message: "success",
-		Data: models.Vpc{
-			Name:       "test-vpc",
-			Network_id: 100,
-			Ipv4_cidr:  "10.0.0.0/24",
-			State:      "Inactive",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockVpcResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/vpc/100/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"name": "test-vpc",
+				"network_id": 100,
+				"ipv4_cidr": "10.0.0.0/24",
+				"state": "Inactive"
+			}
+		}`)
+	})
 
 	vpcIDs := []string{"100"}
-	result, err := client.ExpandMariaDBVpcList(vpcIDs, "test-project", "test-location")
+	result, err := ts.client.ExpandMariaDBVpcList(vpcIDs, "test-project", "test-location")
 
 	if err == nil {
 		t.Fatal("Expected error for inactive VPC, got nil")

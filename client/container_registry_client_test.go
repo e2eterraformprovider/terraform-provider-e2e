@@ -1,44 +1,34 @@
 package client
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestCreateContainerRegistry(t *testing.T) {
-	mockResponse := models.CreateContainerRegistryResponse{
-		Code:    200,
-		Message: "Container registry created successfully",
-		Data: models.CreateContainerRegistryData{
-			SetupStatus: "success",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/container_registry/setup-container-registry/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/container_registry/setup-container-registry/")
 
-		if r.URL.Path != "/container_registry/setup-container-registry/" {
-			t.Errorf("Expected path /container_registry/setup-container-registry/, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Container registry created successfully",
+			"data": {
+				"setup_status": "success"
+			}
+		}`)
+	})
 
 	req := &models.CreateContainerRegistryRequest{
 		ProjectName: "test-registry",
 	}
 
-	result, err := client.CreateContainerRegistry(req, "test-project", "test-location")
+	result, err := ts.client.CreateContainerRegistry(req, "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -48,44 +38,36 @@ func TestCreateContainerRegistry(t *testing.T) {
 		t.Fatal("Expected result, got nil")
 	}
 
-	if result.SetupStatus != mockResponse.Data.SetupStatus {
-		t.Errorf("Expected SetupStatus %s, got %s", mockResponse.Data.SetupStatus, result.SetupStatus)
+	if result.SetupStatus != "success" {
+		t.Errorf("Expected SetupStatus success, got %s", result.SetupStatus)
 	}
 }
 
 func TestGetContainerRegistryProjects(t *testing.T) {
-	mockResponse := models.GetContainerRegistryProjectsResponse{
-		Code:    200,
-		Message: "success",
-		Data: []models.ContainerRegistryProject{
-			{
-				ProjectID:   123,
-				ProjectName: "registry-1",
-			},
-			{
-				ProjectID:   456,
-				ProjectName: "registry-2",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/container_registry/projects-details/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/container_registry/projects-details/")
 
-		if r.URL.Path != "/container_registry/projects-details/" {
-			t.Errorf("Expected path /container_registry/projects-details/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "success",
+			"data": [
+				{
+					"project_id": 123,
+					"project_name": "registry-1"
+				},
+				{
+					"project_id": 456,
+					"project_name": "registry-2"
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	result, err := client.GetContainerRegistryProjects("test-project", "test-location")
+	result, err := ts.client.GetContainerRegistryProjects("test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -101,44 +83,26 @@ func TestGetContainerRegistryProjects(t *testing.T) {
 }
 
 func TestDeleteContainerRegistry(t *testing.T) {
-	mockResponse := models.DeleteContainerRegistryResponse{
-		Code:    200,
-		Message: "Deleted successfully",
-		Data: models.DeleteContainerRegistryData{
-			Status: "deleted",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/container_registry/setup-container-registry/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/container_registry/setup-container-registry/")
+		testQueryParam(t, r, "cr_project_id", "123")
+		testQueryParam(t, r, "user_id", "user-456")
+		testQueryParam(t, r, "project_name", "test-registry")
 
-		if r.URL.Path != "/container_registry/setup-container-registry/" {
-			t.Errorf("Expected path /container_registry/setup-container-registry/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Deleted successfully",
+			"data": {
+				"status": "deleted"
+			}
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("cr_project_id") != "123" {
-			t.Errorf("Expected cr_project_id 123, got %s", query.Get("cr_project_id"))
-		}
-
-		if query.Get("user_id") != "user-456" {
-			t.Errorf("Expected user_id user-456, got %s", query.Get("user_id"))
-		}
-
-		if query.Get("project_name") != "test-registry" {
-			t.Errorf("Expected project_name test-registry, got %s", query.Get("project_name"))
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.DeleteContainerRegistry("123", "test-registry", "user-456", "test-project", "test-location")
+	err := ts.client.DeleteContainerRegistry("123", "test-registry", "user-456", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -146,26 +110,20 @@ func TestDeleteContainerRegistry(t *testing.T) {
 }
 
 func TestUpdateContainerRegistry(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/container_registry/setup-container-registry/" {
-			t.Errorf("Expected path /container_registry/setup-container-registry/, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/container_registry/setup-container-registry/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/container_registry/setup-container-registry/")
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    200,
-			"message": "updated",
-		})
-	}))
-	defer server.Close()
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "updated"
+		}`)
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-
-	err := client.UpdateContainerRegistry("test-registry", "true", "high", "test-project", "test-location")
+	err := ts.client.UpdateContainerRegistry("test-registry", "true", "high", "test-project", "test-location")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

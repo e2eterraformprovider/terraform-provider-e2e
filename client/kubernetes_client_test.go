@@ -3,53 +3,36 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
 func TestGetKubernetesMasterPlans(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"name":   "master-plan-1",
-				"cpu":    4,
-				"memory": 8192,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/plans", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/kubernetes/plans")
+		testQueryParam(t, r, "apikey", "test-api-key")
+		testQueryParam(t, r, "location", "us-east")
+		testQueryParam(t, r, "project_id", "123")
 
-		if r.URL.Path != "/kubernetes/plans" {
-			t.Errorf("Expected path /kubernetes/plans, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"name": "master-plan-1",
+					"cpu": 4,
+					"memory": 8192
+				}
+			]
+		}`)
+	})
 
-		query := r.URL.Query()
-		if query.Get("apikey") == "" {
-			t.Error("Expected apikey parameter")
-		}
-		if query.Get("location") == "" {
-			t.Error("Expected location parameter")
-		}
-		if query.Get("project_id") == "" {
-			t.Error("Expected project_id parameter")
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetKubernetesMasterPlans(123, "us-east")
+	result, err := ts.client.GetKubernetesMasterPlans(123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -66,33 +49,26 @@ func TestGetKubernetesMasterPlans(t *testing.T) {
 }
 
 func TestGetKubernetesWorkerPlans(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"name":   "worker-plan-1",
-				"cpu":    2,
-				"memory": 4096,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/worker-plans/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/kubernetes/worker-plans/")
 
-		if r.URL.Path != "/kubernetes/worker-plans/" {
-			t.Errorf("Expected path /kubernetes/worker-plans/, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"name": "worker-plan-1",
+					"cpu": 2,
+					"memory": 4096
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetKubernetesWorkerPlans(123, "us-east")
+	result, err := ts.client.GetKubernetesWorkerPlans(123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -104,37 +80,21 @@ func TestGetKubernetesWorkerPlans(t *testing.T) {
 }
 
 func TestNewKubernetesService(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    201,
-		"message": "Kubernetes cluster created successfully",
-		"data": map[string]interface{}{
-			"cluster_id": "k8s-123",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/kubernetes/")
 
-		if r.URL.Path != "/kubernetes/" {
-			t.Errorf("Expected path /kubernetes/, got %s", r.URL.Path)
-		}
-
-		body, _ := ioutil.ReadAll(r.Body)
-		var kubernetesCreate models.KubernetesCreate
-		json.Unmarshal(body, &kubernetesCreate)
-
-		if kubernetesCreate.Name == "" {
-			t.Error("Expected Name in request body")
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusCreated, `{
+			"code": 201,
+			"message": "Kubernetes cluster created successfully",
+			"data": {
+				"cluster_id": "k8s-123"
+			}
+		}`)
+	})
 
 	kubernetesCreate := &models.KubernetesCreate{
 		Name: "test-cluster",
@@ -146,7 +106,7 @@ func TestNewKubernetesService(t *testing.T) {
 		},
 	}
 
-	result, err := client.NewKubernetesService(kubernetesCreate, 123, "us-east")
+	result, err := ts.client.NewKubernetesService(kubernetesCreate, 123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -158,31 +118,24 @@ func TestNewKubernetesService(t *testing.T) {
 }
 
 func TestGetKubernetesServiceInfo(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": map[string]interface{}{
-			"cluster_id":   "k8s-123",
-			"cluster_name": "test-cluster",
-			"state":        "ACTIVE",
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/k8s-123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/kubernetes/k8s-123")
 
-		if r.URL.Path != "/kubernetes/k8s-123" {
-			t.Errorf("Expected path /kubernetes/k8s-123, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": {
+				"cluster_id": "k8s-123",
+				"cluster_name": "test-cluster",
+				"state": "ACTIVE"
+			}
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetKubernetesServiceInfo("k8s-123", "us-east", 123)
+	result, err := ts.client.GetKubernetesServiceInfo("k8s-123", "us-east", 123)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -194,21 +147,17 @@ func TestGetKubernetesServiceInfo(t *testing.T) {
 }
 
 func TestDeleteKubernetesService(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/kubernetes/k8s-123" {
-			t.Errorf("Expected path /kubernetes/k8s-123, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/kubernetes/k8s-123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/kubernetes/k8s-123")
 
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	err := client.DeleteKubernetesService("k8s-123", "us-east", 123)
+	err := ts.client.DeleteKubernetesService("k8s-123", "us-east", 123)
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -238,10 +187,10 @@ func TestRemoveExtraFieldsFromKubernetes(t *testing.T) {
 			input: map[string]interface{}{
 				"node_pools": []interface{}{
 					map[string]interface{}{
-						"name":             "pool-1",
-						"worker_node":      float64(2),
-						"elasticity_dict":  []interface{}{},
-						"policy_type":      "Manual",
+						"name":            "pool-1",
+						"worker_node":     float64(2),
+						"elasticity_dict": []interface{}{},
+						"policy_type":     "Manual",
 					},
 				},
 			},
@@ -285,32 +234,25 @@ func TestRemoveExtraFieldsFromKubernetes(t *testing.T) {
 }
 
 func TestGetKubernetesNodePools(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"name":        "pool-1",
-				"worker_node": 2,
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/node-pool-services/k8s-123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/kubernetes/node-pool-services/k8s-123")
 
-		if r.URL.Path != "/kubernetes/node-pool-services/k8s-123" {
-			t.Errorf("Expected path /kubernetes/node-pool-services/k8s-123, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"name": "pool-1",
+					"worker_node": 2
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetKubernetesNodePools("k8s-123", 123, "us-east")
+	result, err := ts.client.GetKubernetesNodePools("k8s-123", 123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -322,32 +264,24 @@ func TestGetKubernetesNodePools(t *testing.T) {
 }
 
 func TestUpdateNodePoolCardinality(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Node pool updated",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/cluster-update/123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/kubernetes/cluster-update/123")
 
-		if r.URL.Path != "/kubernetes/cluster-update/123" {
-			t.Errorf("Expected path /kubernetes/cluster-update/123, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Node pool updated"
+		}`)
+	})
 
 	resize := &models.NodePoolResize{
 		NodePoolSize: 3,
 	}
 
-	result, err := client.UpdateNodePoolCardinality(resize, 123, 456, "us-east")
+	result, err := ts.client.UpdateNodePoolCardinality(resize, 123, 456, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -359,18 +293,18 @@ func TestUpdateNodePoolCardinality(t *testing.T) {
 }
 
 func TestUpdateNodePoolCardinalityNoContent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/kubernetes/cluster-update/123", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	resize := &models.NodePoolResize{
 		NodePoolSize: 3,
 	}
 
-	result, err := client.UpdateNodePoolCardinality(resize, 123, 456, "us-east")
+	result, err := ts.client.UpdateNodePoolCardinality(resize, 123, 456, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -382,21 +316,17 @@ func TestUpdateNodePoolCardinalityNoContent(t *testing.T) {
 }
 
 func TestDeleteNodePool(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			t.Errorf("Expected DELETE request, got %s", r.Method)
-		}
+	ts := setup()
+	defer ts.teardown()
 
-		if r.URL.Path != "/kubernetes/delete-node-pool-service/123" {
-			t.Errorf("Expected path /kubernetes/delete-node-pool-service/123, got %s", r.URL.Path)
-		}
+	ts.mux.HandleFunc("/kubernetes/delete-node-pool-service/123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		testURLPath(t, r, "/kubernetes/delete-node-pool-service/123")
 
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	})
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.DeleteNodePool(123, 456, "us-east")
+	result, err := ts.client.DeleteNodePool(123, 456, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -408,26 +338,18 @@ func TestDeleteNodePool(t *testing.T) {
 }
 
 func TestAddNodePool(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    201,
-		"message": "Node pool added",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/add-node-pools/k8s-123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		testURLPath(t, r, "/kubernetes/add-node-pools/k8s-123")
 
-		if r.URL.Path != "/kubernetes/add-node-pools/k8s-123" {
-			t.Errorf("Expected path /kubernetes/add-node-pools/k8s-123, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusCreated, `{
+			"code": 201,
+			"message": "Node pool added"
+		}`)
+	})
 
 	nodePoolAdd := &models.NodePoolAdd{
 		NodePools: []models.NodePool{
@@ -438,7 +360,7 @@ func TestAddNodePool(t *testing.T) {
 		},
 	}
 
-	result, err := client.AddNodePool(nodePoolAdd, "k8s-123", 123, "us-east")
+	result, err := ts.client.AddNodePool(nodePoolAdd, "k8s-123", 123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -450,32 +372,24 @@ func TestAddNodePool(t *testing.T) {
 }
 
 func TestUpdateNodePoolDetails(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code":    200,
-		"message": "Node pool details updated",
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("Expected PUT request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/update-node-pool/123/", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		testURLPath(t, r, "/kubernetes/update-node-pool/123/")
 
-		if r.URL.Path != "/kubernetes/update-node-pool/123/" {
-			t.Errorf("Expected path /kubernetes/update-node-pool/123/, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"message": "Node pool details updated"
+		}`)
+	})
 
 	nodePoolUpdate := &models.NodePoolUpdate{
 		PlanID: "updated-plan",
 	}
 
-	result, err := client.UpdateNodePoolDetails(nodePoolUpdate, 123, 456, "us-east")
+	result, err := ts.client.UpdateNodePoolDetails(nodePoolUpdate, 123, 456, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -487,32 +401,25 @@ func TestUpdateNodePoolDetails(t *testing.T) {
 }
 
 func TestCheckNodePoolStatus(t *testing.T) {
-	mockResponse := map[string]interface{}{
-		"code": 200,
-		"data": []interface{}{
-			map[string]interface{}{
-				"name":   "pool-1",
-				"status": "ACTIVE",
-			},
-		},
-	}
+	ts := setup()
+	defer ts.teardown()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
+	ts.mux.HandleFunc("/kubernetes/node-pool-services/k8s-123", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURLPath(t, r, "/kubernetes/node-pool-services/k8s-123")
 
-		if r.URL.Path != "/kubernetes/node-pool-services/k8s-123" {
-			t.Errorf("Expected path /kubernetes/node-pool-services/k8s-123, got %s", r.URL.Path)
-		}
+		writeJSON(w, http.StatusOK, `{
+			"code": 200,
+			"data": [
+				{
+					"name": "pool-1",
+					"status": "ACTIVE"
+				}
+			]
+		}`)
+	})
 
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
-	}))
-	defer server.Close()
-
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.CheckNodePoolStatus("k8s-123", 123, "us-east")
+	result, err := ts.client.CheckNodePoolStatus("k8s-123", 123, "us-east")
 
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
@@ -524,14 +431,14 @@ func TestCheckNodePoolStatus(t *testing.T) {
 }
 
 func TestGetKubernetesMasterPlansError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "server error"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
-	result, err := client.GetKubernetesMasterPlans(123, "us-east")
+	ts.mux.HandleFunc("/kubernetes/plans", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusInternalServerError, "server error")
+	})
+
+	result, err := ts.client.GetKubernetesMasterPlans(123, "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -543,19 +450,18 @@ func TestGetKubernetesMasterPlansError(t *testing.T) {
 }
 
 func TestNewKubernetesServiceError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "invalid request"}`))
-	}))
-	defer server.Close()
+	ts := setup()
+	defer ts.teardown()
 
-	client := NewClient("test-key", "test-token", server.URL)
+	ts.mux.HandleFunc("/kubernetes/", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusBadRequest, "invalid request")
+	})
 
 	kubernetesCreate := &models.KubernetesCreate{
 		Name: "test-cluster",
 	}
 
-	result, err := client.NewKubernetesService(kubernetesCreate, 123, "us-east")
+	result, err := ts.client.NewKubernetesService(kubernetesCreate, 123, "us-east")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
