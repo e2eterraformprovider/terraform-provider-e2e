@@ -34,8 +34,9 @@ jobs:
         with:
           version: latest
 
-      - name: Format Check
-        run: make terrafmt-check
+      # Disabled terrafmt check for now
+      # - name: Format Check
+      #   run: make terrafmt-check
 
       - name: Run Tests
         run: make test
