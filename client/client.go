@@ -170,15 +170,13 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	fmt.Println(response.Body)
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
-	}
+
 	res := models.ResponseNodes{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -194,9 +192,9 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 		Type: action,
 		Name: Name,
 	}
-	nodeAction, marshalErr := json.Marshal(node_action)
-	if marshalErr != nil {
-		return nil, marshalErr
+	nodeAction, err := json.Marshal(node_action)
+	if err != nil {
+		return nil, err
 	}
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
