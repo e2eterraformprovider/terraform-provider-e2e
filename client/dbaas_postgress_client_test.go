@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -20,7 +20,7 @@ func TestCreatePostgressDB(t *testing.T) {
 		testQueryParam(t, r, "location", "test-location")
 		testQueryParam(t, r, "project_id", "test-project")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.DBCreateRequest
 		json.Unmarshal(body, &req)
 
@@ -351,7 +351,7 @@ func TestAttachVPCPostgressDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/789/vpc-attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachVPCPayloadRequest
 		json.Unmarshal(body, &req)
 
@@ -408,7 +408,7 @@ func TestDetachVPCPostgressDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/789/vpc-detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachVPCPayloadRequest
 		json.Unmarshal(body, &req)
 
@@ -465,7 +465,7 @@ func TestUpgradePostgressPlan(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/789/rds-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req map[string]interface{}
 		json.Unmarshal(body, &req)
 
@@ -548,7 +548,7 @@ func TestUpgradeDiskStorage(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/789/disk-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req map[string]interface{}
 		json.Unmarshal(body, &req)
 

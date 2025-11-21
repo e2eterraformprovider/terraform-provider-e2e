@@ -3,7 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"fmt"
@@ -35,7 +35,7 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location strin
 		return nil, err
 	}
 	defer func() { _ = response.Body.Close() }()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -70,7 +70,7 @@ func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	defer func() { _ = response.Body.Close() }()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
@@ -140,7 +140,10 @@ func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSf
 		return nil, err
 	}
 	defer func() { _ = response.Body.Close() }()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := models.ResponseSfss{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {

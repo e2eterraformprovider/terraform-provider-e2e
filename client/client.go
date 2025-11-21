@@ -677,6 +677,9 @@ func (c *Client) DeleteImage(imageId string, project_id string) error {
 		Action_type: "delete_image",
 	}
 	deleteBodyMarshalled, err := json.Marshal(deleteBody)
+	if err != nil {
+		return err
+	}
 
 	req, err := http.NewRequest("DELETE", urlNode, bytes.NewBuffer(deleteBodyMarshalled))
 	if err != nil {
@@ -752,6 +755,9 @@ func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location st
 	}
 	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := map[string]interface{}{}
 	err = json.Unmarshal(body, &res)
 	log.Printf("[info] CLIENT | CheckNodeLCMState | res = %+v", res)

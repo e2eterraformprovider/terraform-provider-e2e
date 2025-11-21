@@ -3,7 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -140,7 +140,7 @@ func TestCheckResponseStatus(t *testing.T) {
 			// Create a mock response
 			resp := &http.Response{
 				StatusCode: tt.statusCode,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(tt.responseBody)),
+				Body:       io.NopCloser(bytes.NewBufferString(tt.responseBody)),
 			}
 
 			err := CheckResponseStatus(resp)
@@ -193,7 +193,7 @@ func TestCheckResponseCreatedStatus(t *testing.T) {
 			// Create a mock response
 			resp := &http.Response{
 				StatusCode: tt.statusCode,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(tt.responseBody)),
+				Body:       io.NopCloser(bytes.NewBufferString(tt.responseBody)),
 			}
 
 			err := CheckResponseCreatedStatus(resp)
@@ -316,7 +316,7 @@ func TestCreateVpc(t *testing.T) {
 		}
 
 		// Read and verify request body
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var vpcCreate models.VpcCreate
 		_ = json.Unmarshal(body, &vpcCreate)
 

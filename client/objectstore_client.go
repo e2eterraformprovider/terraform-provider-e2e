@@ -88,6 +88,9 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 	}
 	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := models.ResponseBuckets{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {

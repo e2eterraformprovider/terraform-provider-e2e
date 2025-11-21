@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -20,7 +20,7 @@ func TestCreateMariaDB(t *testing.T) {
 		testQueryParam(t, r, "location", "test-location")
 		testQueryParam(t, r, "project_id", "test-project")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.MariaDBCreateRequest
 		_ = json.Unmarshal(body, &req)
 
@@ -371,7 +371,7 @@ func TestAttachVPCToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/vpc-attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
 		_ = json.Unmarshal(body, &req)
 
@@ -429,7 +429,7 @@ func TestDetachVPCFromMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/vpc-detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
 		_ = json.Unmarshal(body, &req)
 
@@ -470,7 +470,7 @@ func TestAttachPublicIPToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/public-ip-attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
 		_ = json.Unmarshal(body, &payload)
 
@@ -511,7 +511,7 @@ func TestDetachPublicIPFromMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/public-ip-detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
 		_ = json.Unmarshal(body, &payload)
 
@@ -552,7 +552,7 @@ func TestAttachParameterGroupToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/parameter-group/456/add")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.ParameterGroupRequest
 		_ = json.Unmarshal(body, &req)
 
@@ -626,7 +626,7 @@ func TestUpgradeMariaDBPlan(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/rds-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]interface{}
 		_ = json.Unmarshal(body, &payload)
 
@@ -668,7 +668,7 @@ func TestExpandMariaDBDisk(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/disk-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.DiskUpgradeRequest
 		_ = json.Unmarshal(body, &req)
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
 	"io"
 	"log"
@@ -49,7 +48,7 @@ func (c *Client) AddSshKey(item models.AddSshKey, project_id string) (map[string
 		return nil, err
 	}
 	defer func() { _ = response.Body.Close() }()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -86,7 +85,7 @@ func (c *Client) GetSshKey(label string, project_id string, location string) (ma
 	}
 
 	defer func() { _ = response.Body.Close() }()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", resBody)
 	stringresponse := string(resBody)
 	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", stringresponse)
@@ -157,7 +156,10 @@ func (c *Client) GetSshKeys(location string, project_id string) (*models.SshKeyR
 	}
 
 	defer func() { _ = response.Body.Close() }()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := models.SshKeyResponse{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {

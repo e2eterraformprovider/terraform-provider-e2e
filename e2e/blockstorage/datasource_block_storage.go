@@ -48,7 +48,6 @@ func DataSourceBlockStorage() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Description: "Location of the block storage",
-				
 			},
 			// "created_on": {
 			// 	Type:        schema.TypeString,

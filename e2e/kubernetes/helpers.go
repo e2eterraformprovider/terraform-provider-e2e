@@ -98,8 +98,9 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 // ExpandElasticityDict is a helper function to process the elasticity_dict attribute.
 func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms int) (models.ElasticityDict, error) {
 	elasticityDict := models.ElasticityDict{}
-	for _, worker := range config["worker"].([]interface{}) {
-		worker := worker.(map[string]interface{})
+	workers := config["worker"].([]interface{})
+	if len(workers) > 0 {
+		worker := workers[0].(map[string]interface{})
 		elasticityWorker, err := ExpandElasticityWorker(worker, min_vms, max_vms)
 		if err != nil {
 			return models.ElasticityDict{}, err
@@ -115,8 +116,9 @@ func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms in
 
 func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int) (models.ScheduledDict, error) {
 	scheduledDict := models.ScheduledDict{}
-	for _, worker := range config["worker"].([]interface{}) {
-		worker := worker.(map[string]interface{})
+	workers := config["worker"].([]interface{})
+	if len(workers) > 0 {
+		worker := workers[0].(map[string]interface{})
 		scheduledWorker, err := ExpandScheduledWorker(worker, min_vms, max_vms)
 		if err != nil {
 			return models.ScheduledDict{}, err
@@ -448,8 +450,9 @@ func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, m
 
 func UpdateElasticityDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
 	elasticityPolicy := []models.ElasticityPolicy{}
-	for _, worker := range config["worker"].([]interface{}) {
-		worker := worker.(map[string]interface{})
+	workers := config["worker"].([]interface{})
+	if len(workers) > 0 {
+		worker := workers[0].(map[string]interface{})
 		elasticityPolicy, err := UpdateElasticityWorker(worker, min_vms, max_vms)
 		if err != nil {
 			return []models.ElasticityPolicy{}, err
@@ -490,8 +493,9 @@ func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int,
 
 func UpdateScheduledDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
 	scheduledDict := []models.SchedulePolicy{}
-	for _, worker := range config["worker"].([]interface{}) {
-		worker := worker.(map[string]interface{})
+	workers := config["worker"].([]interface{})
+	if len(workers) > 0 {
+		worker := workers[0].(map[string]interface{})
 		scheduledWorker, err := UpdateScheduledWorker(worker, min_vms, max_vms)
 		if err != nil {
 			return []models.SchedulePolicy{}, err

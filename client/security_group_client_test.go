@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -127,7 +127,7 @@ func TestCreateSecurityGroups(t *testing.T) {
 		testMethod(t, r, http.MethodPost)
 		testURLPath(t, r, "/security_group/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload models.SecurityGroupCreateRequest
 		json.Unmarshal(body, &payload)
 
@@ -180,7 +180,7 @@ func TestUpdateSecurityGroups(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/security_group/sg-123/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload models.SecurityGroupUpdateRequest
 		json.Unmarshal(body, &payload)
 
@@ -269,7 +269,7 @@ func TestDetachSecurityGroup(t *testing.T) {
 		testMethod(t, r, http.MethodPost)
 		testURLPath(t, r, "/security_group/123/detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload models.UpdateSecurityGroups
 		json.Unmarshal(body, &payload)
 
@@ -329,7 +329,7 @@ func TestAttachSecurityGroup(t *testing.T) {
 		testMethod(t, r, http.MethodPost)
 		testURLPath(t, r, "/security_group/123/attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload models.UpdateSecurityGroups
 		json.Unmarshal(body, &payload)
 
