@@ -57,7 +57,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate, project_id str
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -99,7 +99,7 @@ func (c *Client) GetLoadBalancerInfo(lbId string, location string, project_id st
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	log.Printf("======================NOW DEFER CLOSE RESPONSE BODY ===========================")
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("================STRING RESPONSE=========================%s", stringresponse)
@@ -257,7 +257,7 @@ func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)

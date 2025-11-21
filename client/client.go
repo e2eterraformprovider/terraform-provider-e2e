@@ -83,7 +83,7 @@ func (c *Client) NewNode(item *models.NodeCreate, project_id string, location st
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -127,7 +127,7 @@ func (c *Client) GetNode(nodeId string, project_id string, location string) (map
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
@@ -170,7 +170,7 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -225,7 +225,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 		log.Printf("[INFO] INSIDE NODE UPDATE WRONG_STATUS %s %+v", action, respBody.String())
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -279,7 +279,7 @@ func (c *Client) UpdateNodeSSH(nodeId string, action string, ssh_keys []interfac
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -376,7 +376,7 @@ func (c *Client) GetSavedImages(location string, project_id string) (*models.Ima
 		log.Printf("[INFO] error inside get image")
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -412,7 +412,7 @@ func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsRespon
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -448,7 +448,7 @@ func (c *Client) GetVpc(vpc_id string, project_id string, location string) (*mod
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -497,7 +497,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -529,7 +529,7 @@ func (c *Client) DeleteVpc(vpcId string, project_id string, location string) (ma
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -566,7 +566,7 @@ func (c *Client) NewReservedIp(project_id string, location string) (map[string]i
 	if response.StatusCode != 200 {
 		return nil, fmt.Errorf("unauthorized | status %v | The provided api_token or api_key or project_id seem to be incorrect. Please revise them accordingly", response.StatusCode)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -622,7 +622,7 @@ func (c *Client) GetReservedIps(project_id string, location string) (*models.Res
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -655,7 +655,7 @@ func (c *Client) GetImage(imageId string, project_id string) (*models.ImageRespo
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -750,7 +750,7 @@ func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location st
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := io.ReadAll(response.Body)
 	res := map[string]interface{}{}
 	err = json.Unmarshal(body, &res)

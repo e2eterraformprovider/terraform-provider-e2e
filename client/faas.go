@@ -36,7 +36,7 @@ func (c *Client) CreateFaasNamespace(namespace string, projectID string, locatio
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated {
 		respBody := new(bytes.Buffer)
@@ -79,7 +79,7 @@ func (c *Client) DeleteFaasNamespace(namespace string, projectID string, locatio
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
@@ -114,7 +114,7 @@ func (c *Client) CreateFaasFunction(fn *models.FaasFunctionCreate, projectID str
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated {
 		respBody := new(bytes.Buffer)
@@ -152,7 +152,7 @@ func (c *Client) GetFaasFunction(functionID string, projectID string, location s
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode == http.StatusNotFound {
 		return nil, nil
@@ -198,7 +198,7 @@ func (c *Client) UpdateFaasFunction(functionID string, fn *models.FaasFunctionUp
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
@@ -234,7 +234,7 @@ func (c *Client) DeleteFaasFunction(functionID string, projectID string, locatio
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusNoContent {
 		respBody := new(bytes.Buffer)
@@ -263,7 +263,7 @@ func (c *Client) GetFaasLogs(functionID string, projectID string, location strin
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)

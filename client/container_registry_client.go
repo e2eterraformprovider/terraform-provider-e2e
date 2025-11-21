@@ -33,7 +33,7 @@ func (c *Client) CreateContainerRegistry(req *models.CreateContainerRegistryRequ
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *Client) GetContainerRegistryProjects(projectID, location string) ([]mod
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -105,7 +105,7 @@ func (c *Client) DeleteContainerRegistry(crProjectID, projectName, userID, proje
 	if err != nil {
 		return fmt.Errorf("delete request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -146,7 +146,7 @@ func (c *Client) UpdateContainerRegistry(projectName, preventVul, severity, proj
 	if err != nil {
 		return fmt.Errorf("failed to perform update request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)

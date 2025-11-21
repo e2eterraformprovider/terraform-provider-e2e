@@ -34,7 +34,7 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location strin
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -69,7 +69,7 @@ func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
@@ -139,7 +139,7 @@ func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSf
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := ioutil.ReadAll(response.Body)
 	res := models.ResponseSfss{}
 	err = json.Unmarshal(body, &res)

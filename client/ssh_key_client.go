@@ -48,7 +48,7 @@ func (c *Client) AddSshKey(item models.AddSshKey, project_id string) (map[string
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -85,7 +85,7 @@ func (c *Client) GetSshKey(label string, project_id string, location string) (ma
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", resBody)
 	stringresponse := string(resBody)
@@ -121,7 +121,7 @@ func (c *Client) DeleteSshKey(pk string, project_id string, location string) err
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	// Check if delete was successful
 	if response.StatusCode != 200 && response.StatusCode != 204 {
@@ -156,7 +156,7 @@ func (c *Client) GetSshKeys(location string, project_id string) (*models.SshKeyR
 		return nil, err
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	body, err := ioutil.ReadAll(response.Body)
 	res := models.SshKeyResponse{}
 	err = json.Unmarshal(body, &res)
@@ -188,7 +188,7 @@ func (c *Client) GetSshKeyByPk(pk string, project_id string, location string) (*
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 404 {
 		return nil, fmt.Errorf("SSH key with ID %s not found", pk)

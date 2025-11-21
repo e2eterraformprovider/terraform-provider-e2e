@@ -1,5 +1,6 @@
 run:
   timeout: 10m
+  tests: true
 
 issues:
   max-issues-per-linter: 0
@@ -9,6 +10,12 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019: .* is deprecated"
+    # Exclude errcheck from test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - dupl
 
 linters:
   enable:
@@ -26,16 +33,15 @@ linters:
 linters-settings:
   errcheck:
     exclude-functions:
-      # Ignore error checking for schema.Set operations
+      # Ignore error checking for schema.Set operations (both value and pointer receivers)
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
+      - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
+      - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
       # Ignore error checking for fmt.Fprint and similar
       - fmt.Fprint
       - fmt.Fprintf
       - fmt.Fprintln
-      # Ignore Close on response bodies (already logged with defer)
-      - (io.Closer).Close
-      - (io.ReadCloser).Close
   govet:
     settings:
       printf:

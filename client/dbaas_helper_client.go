@@ -28,7 +28,7 @@ func (c *Client) GetSoftwareId(projectID string, location string, name string, v
 		log.Printf("[ERROR] error inside GetSoftwareId: %v", err)
 		return -1, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -73,7 +73,7 @@ func (c *Client) GetTemplateId(projectID string, location string, plan string, s
 		log.Printf("[ERROR] error inside GetTemplateId: %v", err)
 		return -1, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

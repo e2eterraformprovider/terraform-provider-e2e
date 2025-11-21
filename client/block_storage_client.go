@@ -40,11 +40,7 @@ func (c *Client) NewBlockStorage(item *models.BlockStorageCreate, project_id int
 		return nil, err
 	}
 
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.Printf("[WARN] failed to close response body: %v", err)
-		}
-	}()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -79,11 +75,7 @@ func (c *Client) GetBlockStorage(blockStorageID string, project_id int, location
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.Printf("[WARN] failed to close response body: %v", err)
-		}
-	}()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
@@ -140,11 +132,7 @@ func (c *Client) UpdateBlockStorage(item *models.BlockStorageUpgrade, blockStora
 		return nil, err
 	}
 
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.Printf("[WARN] failed to close response body: %v", err)
-		}
-	}()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -178,11 +166,7 @@ func (c *Client) AttachOrDetachBlockStorage(item *models.BlockStorageAttach, Act
 		return nil, err
 	}
 
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.Printf("[WARN] failed to close response body: %v", err)
-		}
-	}()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -213,11 +197,7 @@ func (c *Client) GetBlockStoragePlans(project_id int, location string) (map[stri
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			log.Printf("[WARN] failed to close response body: %v", err)
-		}
-	}()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
