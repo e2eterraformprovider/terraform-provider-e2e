@@ -102,7 +102,7 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	log.Printf("[INFO] %v", Response)
 	if Response.Data != nil {
-		d.Set("vpc_list", flattenVpcs(&Response.Data))
+		_ = d.Set("vpc_list", flattenVpcs(&Response.Data))
 		d.SetId("vpc_list")
 	} else {
 		log.Printf("[ERROR] VPC list is nil in the response")

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -58,7 +58,7 @@ func (c *Client) NewLoadBalancer(item *models.LoadBalancerCreate, project_id str
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -100,7 +100,7 @@ func (c *Client) GetLoadBalancerInfo(lbId string, location string, project_id st
 	}
 	log.Printf("======================NOW DEFER CLOSE RESPONSE BODY ===========================")
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("================STRING RESPONSE=========================%s", stringresponse)
 	resBytes := []byte(stringresponse)
@@ -258,7 +258,7 @@ func (c *Client) LoadBalancerBackendUpdate(item *models.LoadBalancerCreate, lbId
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}

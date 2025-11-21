@@ -104,8 +104,8 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 	}
 
 	data := Response.Data
-	d.Set("created_at", data.Created_at)
-	d.Set("state", data.State)
+	_ = d.Set("created_at", data.Created_at)
+	_ = d.Set("state", data.State)
 	d.Set("ipv4_cidr", data.Ipv4_cidr)
 	d.Set("gateway_ip", data.Gateway_ip)
 	d.Set("is_active", data.Is_active)

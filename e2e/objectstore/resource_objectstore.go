@@ -148,7 +148,7 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	if resourceData.HasChange("name") {
 		oldName, _ := resourceData.GetChange("name")
-		resourceData.Set("name", oldName)
+		_ = resourceData.Set("name", oldName)
 		return diag.Errorf("cannot change the bucket name of an object storage after creation")
 	}
 	bucketName := resourceData.Get("name").(string)
@@ -169,8 +169,8 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 		if err != nil {
 			return diag.FromErr(err)
 		}
-		resourceData.Set("versioning_status", data["bucket_versioning_status"].(string))
-		resourceData.Set("enabling_versioning", resourceData.Get("enabling_versioning").(bool))
+		_ = resourceData.Set("versioning_status", data["bucket_versioning_status"].(string))
+		_ = resourceData.Set("enabling_versioning", resourceData.Get("enabling_versioning").(bool))
 	}
 	return resourceReadBucket(ctx, resourceData, clientInterface)
 

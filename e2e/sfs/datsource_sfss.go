@@ -81,7 +81,7 @@ func DataSourceSfs() *schema.Resource {
      },
      ReadContext: dataSourceReadSfs,
      Importer: &schema.ResourceImporter{
-         State: schema.ImportStatePassthrough,
+         StateContext: schema.ImportStatePassthroughContext,
      },
  }
 }

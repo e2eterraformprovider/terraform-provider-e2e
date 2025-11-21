@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -48,7 +48,7 @@ func (client *Client) CreateBucket(buckets *models.ObjectStorePayload) (map[stri
 		return nil, error
 	}
 	defer response.Body.Close()
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(responseBody)
 	responseBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -87,7 +87,7 @@ func (client *Client) GetBuckets(location string, project_id string) (*models.Re
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.ResponseBuckets{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -127,7 +127,7 @@ func (client *Client) GetBucket(bucket_name string, location string, project_id 
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	log.Printf("%s", resBody)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -173,7 +173,7 @@ func (client *Client) SetBucketVersioning(bucket_name string, location string, p
 			log.Printf("[WARN] failed to close versioning response body: %v", err)
 		}
 	}()
-	resBody, _ := ioutil.ReadAll(versioning_response.Body)
+	resBody, _ := io.ReadAll(versioning_response.Body)
 	log.Printf("[INFO] VERSIOING RESPONSE ---> %s", resBody)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)

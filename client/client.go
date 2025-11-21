@@ -450,7 +450,10 @@ func (c *Client) GetVpc(vpc_id string, project_id string, location string) (*mod
 
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.VpcResponse{}
 
 	err = json.Unmarshal(body, &res)
@@ -620,7 +623,10 @@ func (c *Client) GetReservedIps(project_id string, location string) (*models.Res
 	}
 
 	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.ResponseReserveIps{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -650,7 +656,10 @@ func (c *Client) GetImage(imageId string, project_id string) (*models.ImageRespo
 	}
 
 	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.ImageResponse{}
 	err = json.Unmarshal(body, &res)
 	log.Printf("[info] CLIENT | GET IMAGE |  %+v", res)

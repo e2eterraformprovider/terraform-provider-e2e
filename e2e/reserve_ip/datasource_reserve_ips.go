@@ -88,7 +88,7 @@ func DataSourceReserveIps() *schema.Resource {
 		ReadContext: dataSourceReadReserveIps,
 
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
