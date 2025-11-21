@@ -144,12 +144,12 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 
 	log.Printf("[INFO] NODE CREATE | RESPONSE BODY | %+v", res_Sfs)
 	if _, codeok := res_Sfs["code"]; !codeok {
-		return diag.Errorf(res_Sfs["message"].(string))
+		return diag.Errorf("%s", res_Sfs["message"].(string))
 	}
 
 	data := res_Sfs["data"].(map[string]interface{})
 	if data["is_credit_sufficient"] == false {
-		return diag.Errorf(res_Sfs["message"].(string))
+		return diag.Errorf("%s", res_Sfs["message"].(string))
 	}
 	log.Printf("[INFO] sfs creation | before setting fields")
 	sfsId, ok := data["efs_id"].(float64)

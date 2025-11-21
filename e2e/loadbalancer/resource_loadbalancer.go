@@ -509,7 +509,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	log.Printf("[INFO] LOAD BALANCER CREATE | RESPONSE BODY | %+v", response)
 
 	if _, codeok := response["code"]; !codeok {
-		return diag.Errorf(response["message"].(string))
+		return diag.Errorf("%s", response["message"].(string))
 	}
 
 	data := response["data"].(map[string]interface{})

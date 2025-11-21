@@ -130,7 +130,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
-	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", *d)
+	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", d)
 
 	return diags
 

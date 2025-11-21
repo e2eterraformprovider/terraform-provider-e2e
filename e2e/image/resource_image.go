@@ -121,7 +121,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	if _, codeok := resImage.(map[string]interface{})["code"]; !codeok {
-		return diag.Errorf(resImage.(map[string]interface{})["message"].(string))
+		return diag.Errorf("%s", resImage.(map[string]interface{})["message"].(string))
 	}
 
 	data := resImage.(map[string]interface{})["data"].(map[string]interface{})

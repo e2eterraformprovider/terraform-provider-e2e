@@ -88,12 +88,12 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	log.Printf("[INFO] BUCKET CREATE | RESPONSE BODY | %+v", resbucket)
 	if _, codeok := resbucket["code"]; !codeok {
-		return diag.Errorf(resbucket["message"].(string))
+		return diag.Errorf("%s", resbucket["message"].(string))
 	}
 
 	data := resbucket["data"].(map[string]interface{})
 	if data["is_credit_sufficient"] == false {
-		return diag.Errorf(resbucket["message"].(string))
+		return diag.Errorf("%s", resbucket["message"].(string))
 	}
 	log.Printf("[INFO] Bucket creation | before setting fields")
 	bucketId := data["id"].(float64)

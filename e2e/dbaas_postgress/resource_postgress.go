@@ -246,7 +246,7 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 	if _, ok := res["code"]; !ok || res["is_limit_available"] == false {
 		msg, _ := res["message"].(string)
-		return diag.Errorf(msg)
+		return diag.Errorf("%s", msg)
 	}
 
 	data, ok := res["data"].(map[string]interface{})
@@ -291,7 +291,7 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 
 	if _, ok := res["code"]; !ok || res["is_limit_available"] == false {
 		msg, _ := res["message"].(string)
-		return diag.Errorf(msg)
+		return diag.Errorf("%s", msg)
 	}
 
 	data, ok := res["data"].(map[string]interface{})
