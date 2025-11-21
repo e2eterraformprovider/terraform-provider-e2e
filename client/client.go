@@ -24,6 +24,10 @@ type Client struct {
 }
 
 func NewClient(api_key string, auth_token string, api_endpoint string) *Client {
+	// Ensure Api_endpoint ends with a slash for proper URL construction
+	if api_endpoint != "" && api_endpoint[len(api_endpoint)-1] != '/' {
+		api_endpoint += "/"
+	}
 	return &Client{
 		Api_key:      api_key,
 		Auth_token:   auth_token,

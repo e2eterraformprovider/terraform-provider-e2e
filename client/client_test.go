@@ -267,7 +267,7 @@ func TestGetVpcs(t *testing.T) {
 	defer server.Close()
 
 	// Create client with mock server URL
-	client := NewClient("test-key", "test-token", server.URL+"/")
+	client := NewClient("test-key", "test-token", server.URL)
 
 	// Call GetVpcs
 	result, err := client.GetVpcs("test-location", "test-project")
@@ -329,7 +329,7 @@ func TestCreateVpc(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient("test-key", "test-token", server.URL+"/")
+	client := NewClient("test-key", "test-token", server.URL)
 
 	vpcCreate := &models.VpcCreate{
 		VpcName:  "test-vpc",
