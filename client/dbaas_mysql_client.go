@@ -17,7 +17,7 @@ func (c *Client) NewMySqlDb(item *models.MySqlCreate, project_id string, locatio
 		return nil, fmt.Errorf(" client | error unmarshalling JSON: %s ", err)
 	}
 
-	UrlEndPoint := c.Api_endpoint + "/rds/cluster/"
+	UrlEndPoint := c.Api_endpoint + "rds/cluster/"
 
 	req, err := http.NewRequest("POST", UrlEndPoint, &buf)
 	if err != nil {

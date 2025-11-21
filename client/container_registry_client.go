@@ -12,7 +12,7 @@ import (
 )
 
 func (c *Client) CreateContainerRegistry(req *models.CreateContainerRegistryRequest, projectID, location string) (*models.CreateContainerRegistryData, error) {
-	url := c.Api_endpoint + "/container_registry/setup-container-registry/"
+	url := c.Api_endpoint + "container_registry/setup-container-registry/"
 
 	payloadBuf := new(bytes.Buffer)
 	if err := json.NewEncoder(payloadBuf).Encode(req); err != nil {
@@ -53,7 +53,7 @@ func (c *Client) CreateContainerRegistry(req *models.CreateContainerRegistryRequ
 }
 
 func (c *Client) GetContainerRegistryProjects(projectID, location string) ([]models.ContainerRegistryProject, error) {
-	url := c.Api_endpoint + "/container_registry/projects-details/?page=1&page_size=100"
+	url := c.Api_endpoint + "container_registry/projects-details/?page=1&page_size=100"
 
 	httpReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -84,7 +84,7 @@ func (c *Client) GetContainerRegistryProjects(projectID, location string) ([]mod
 }
 
 func (c *Client) DeleteContainerRegistry(crProjectID, projectName, userID, projectID, location string) error {
-	url := c.Api_endpoint + "/container_registry/setup-container-registry/"
+	url := c.Api_endpoint + "container_registry/setup-container-registry/"
 
 	httpReq, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -122,7 +122,7 @@ func (c *Client) DeleteContainerRegistry(crProjectID, projectName, userID, proje
 }
 
 func (c *Client) UpdateContainerRegistry(projectName, preventVul, severity, projectID, location string) error {
-	url := c.Api_endpoint + "/container_registry/setup-container-registry/"
+	url := c.Api_endpoint + "container_registry/setup-container-registry/"
 
 	payload := map[string]string{
 		"project_name": projectName,

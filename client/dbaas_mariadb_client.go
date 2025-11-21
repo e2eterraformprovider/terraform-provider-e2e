@@ -13,7 +13,7 @@ import (
 )
 
 func (c *Client) CreateMariaDB(req *models.MariaDBCreateRequest, projectID, location string) (*models.DB, error) {
-	url := c.Api_endpoint + "/rds/cluster/"
+	url := c.Api_endpoint + "rds/cluster/"
 
 	payloadBuf := new(bytes.Buffer)
 	if err := json.NewEncoder(payloadBuf).Encode(req); err != nil {
@@ -49,7 +49,7 @@ func (c *Client) CreateMariaDB(req *models.MariaDBCreateRequest, projectID, loca
 }
 
 func (c *Client) ReadMariaDB(id string, projectID string, location string) (*models.DB, error) {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -81,7 +81,7 @@ func (c *Client) ReadMariaDB(id string, projectID string, location string) (*mod
 }
 
 func (c *Client) MariaDBExists(id string, projectID string, location string) (bool, error) {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -109,7 +109,7 @@ func (c *Client) MariaDBExists(id string, projectID string, location string) (bo
 }
 
 func (c *Client) DeleteMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/"
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -132,7 +132,7 @@ func (c *Client) DeleteMariaDB(id string, projectID string, location string) err
 }
 
 func (c *Client) ShutdownMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/shutdown"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/shutdown"
 
 	req, err := http.NewRequest("PUT", url, nil)
 	if err != nil {
@@ -156,7 +156,7 @@ func (c *Client) ShutdownMariaDB(id string, projectID string, location string) e
 }
 
 func (c *Client) ResumeMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/resume"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/resume"
 
 	req, err := http.NewRequest("PUT", url, nil)
 	if err != nil {
@@ -180,7 +180,7 @@ func (c *Client) ResumeMariaDB(id string, projectID string, location string) err
 }
 
 func (c *Client) RestartMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/restart"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/restart"
 
 	req, err := http.NewRequest("PUT", url, nil)
 	if err != nil {
@@ -216,7 +216,7 @@ func (c *Client) AttachVPCToMariaDB(id string, projectID string, location string
 		VPCs:   vpcMetaList,
 	}
 
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/vpc-attach/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/vpc-attach/"
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -257,7 +257,7 @@ func (c *Client) DetachVPCFromMariaDB(id string, projectID string, location stri
 		VPCs:   vpcMetaList,
 	}
 
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/vpc-detach/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/vpc-detach/"
 
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -286,7 +286,7 @@ func (c *Client) DetachVPCFromMariaDB(id string, projectID string, location stri
 }
 
 func (c *Client) AttachPublicIPToMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/public-ip-attach/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/public-ip-attach/"
 
 	// Prepare JSON payload for the attach action
 	payload := map[string]string{"action": "attach"}
@@ -317,7 +317,7 @@ func (c *Client) AttachPublicIPToMariaDB(id string, projectID string, location s
 }
 
 func (c *Client) DetachPublicIPFromMariaDB(id string, projectID string, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + id + "/public-ip-detach/"
+	url := c.Api_endpoint + "rds/cluster/" + id + "/public-ip-detach/"
 
 	// Prepare JSON payload for the detach action
 	payload := map[string]string{"action": "detach"}
@@ -348,7 +348,7 @@ func (c *Client) DetachPublicIPFromMariaDB(id string, projectID string, location
 }
 
 func (c *Client) AttachParameterGroupToMariaDB(clusterID string, parameterGroupID int, projectID, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + clusterID + "/parameter-group/" + strconv.Itoa(parameterGroupID) + "/add"
+	url := c.Api_endpoint + "rds/cluster/" + clusterID + "/parameter-group/" + strconv.Itoa(parameterGroupID) + "/add"
 
 	payload := models.ParameterGroupRequest{Action: "add"}
 	body, err := json.Marshal(payload)
@@ -378,7 +378,7 @@ func (c *Client) AttachParameterGroupToMariaDB(clusterID string, parameterGroupI
 }
 
 func (c *Client) DetachParameterGroupFromMariaDB(clusterID string, parameterGroupID int, projectID, location string) error {
-	url := c.Api_endpoint + "/rds/cluster/" + clusterID + "/parameter-group/" + strconv.Itoa(parameterGroupID) + "/detach"
+	url := c.Api_endpoint + "rds/cluster/" + clusterID + "/parameter-group/" + strconv.Itoa(parameterGroupID) + "/detach"
 
 	body := bytes.NewBuffer([]byte("{}"))
 
@@ -404,7 +404,7 @@ func (c *Client) DetachParameterGroupFromMariaDB(clusterID string, parameterGrou
 }
 
 func (c *Client) UpgradeMariaDBPlan(clusterID, projectID, location string, templateID int) error {
-	url := c.Api_endpoint + "/rds/cluster/" + clusterID + "/rds-upgrade/"
+	url := c.Api_endpoint + "rds/cluster/" + clusterID + "/rds-upgrade/"
 
 	payload := map[string]interface{}{
 		"template_id": templateID,
@@ -443,7 +443,7 @@ func (c *Client) ExpandMariaDBDisk(clusterID, projectID, location string, additi
 
 	log.Printf("[INFO] Initiating disk expansion: cluster=%s, additional_size=%d GB", clusterID, additionalSize)
 
-	url := c.Api_endpoint + "/rds/cluster/" + clusterID + "/disk-upgrade/"
+	url := c.Api_endpoint + "rds/cluster/" + clusterID + "/disk-upgrade/"
 
 	payload := models.DiskUpgradeRequest{Size: additionalSize}
 	body, err := json.Marshal(payload)

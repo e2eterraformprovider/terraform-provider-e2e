@@ -14,7 +14,7 @@ import (
 )
 
 func (c *Client) CreateScalerGroup(req *models.CreateScalerGroupRequest, projectID, location string) (*models.ScalerGroupCreateDetails, error) {
-	url := c.Api_endpoint + "/scaler/scalegroups"
+	url := c.Api_endpoint + "scaler/scalegroups"
 	log.Printf("[INFO] Sending request to create Scaler Group at: %s", url)
 
 	payloadBuf := new(bytes.Buffer)
@@ -56,7 +56,7 @@ func (c *Client) CreateScalerGroup(req *models.CreateScalerGroupRequest, project
 }
 
 func (c *Client) GetScalerGroup(scaleGroupID, projectID, location string) (*models.ScalerGroupGetDetail, error) {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scaleGroupID + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scaleGroupID + "/"
 	log.Printf("[INFO] Fetching Scaler Group details for ID: %s", scaleGroupID)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -93,7 +93,7 @@ func (c *Client) GetScalerGroup(scaleGroupID, projectID, location string) (*mode
 }
 
 func (c *Client) DeleteScalerGroup(scaleGroupID, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scaleGroupID + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scaleGroupID + "/"
 	log.Printf("[INFO] Sending delete request for Scaler Group ID: %s", scaleGroupID)
 
 	httpReq, err := http.NewRequest("DELETE", url, nil)
@@ -129,7 +129,7 @@ func (c *Client) DeleteScalerGroup(scaleGroupID, projectID, location string) err
 }
 
 func (c *Client) GetSavedImageByName(imageName, projectID, location string) (*models.SavedImage, error) {
-	url := c.Api_endpoint + "/images/saved-images/"
+	url := c.Api_endpoint + "images/saved-images/"
 	log.Printf("[INFO] Sending request to fetch saved image: %s", imageName)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -212,7 +212,7 @@ func (c *Client) GetDefaultSecurityGroupID(projectID, location string) (int, err
 }
 
 func (c *Client) GetPlanDetailsFromPlanName(templateID int, planName, projectID, location string) (string, string, error) {
-	url := c.Api_endpoint + fmt.Sprintf("/images/upgradeimage/%d/", templateID)
+	url := c.Api_endpoint + fmt.Sprintf("images/upgradeimage/%d/", templateID)
 	log.Printf("[INFO] Sending request to fetch plan details for planName=%s, templateID=%d at: %s", planName, templateID, url)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -267,7 +267,7 @@ func (c *Client) GetPlanDetailsFromPlanName(templateID int, planName, projectID,
 
 
 func (c *Client) UpdateScalerGroup(id string, req *models.UpdateScalerGroupRequest, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/update/" + id + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/update/" + id + "/"
 	log.Printf("[INFO] Sending request to update Scaler Group at: %s", url)
 
 	payloadBuf := new(bytes.Buffer)
@@ -303,7 +303,7 @@ func (c *Client) UpdateScalerGroup(id string, req *models.UpdateScalerGroupReque
 }
 
 func (c *Client) UpdateDesiredNodeCount(scalerGroupID int, desired int, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + strconv.Itoa(scalerGroupID) + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + strconv.Itoa(scalerGroupID) + "/"
 	log.Printf("[INFO] Sending request to update desired node count to %d for Scaler Group ID=%d", desired, scalerGroupID)
 
 	payload := &models.UpdateDesiredNodeCountRequest{Cardinality: desired}
@@ -346,9 +346,9 @@ func (c *Client) UpdateScalerGroupStatus(id int, status, projectID, location str
 
 	switch status {
 	case "Stopped":
-		url = c.Api_endpoint + "/scaler/scalegroups/" + idStr + "/stop/"
+		url = c.Api_endpoint + "scaler/scalegroups/" + idStr + "/stop/"
 	case "Running":
-		url = c.Api_endpoint + "/scaler/scalegroups/" + idStr + "/start/"
+		url = c.Api_endpoint + "scaler/scalegroups/" + idStr + "/start/"
 	default:
 		return fmt.Errorf("unsupported status value: %s", status)
 	}
@@ -388,7 +388,7 @@ func (c *Client) UpdateScalerGroupStatus(id int, status, projectID, location str
 }
 
 func (c *Client) GetVpcDetailsByName(projectID, location, name string) (*models.VPCDetail, error) {
-	url := c.Api_endpoint + "/vpc/list/?page_no=1&per_page=100"
+	url := c.Api_endpoint + "vpc/list/?page_no=1&per_page=100"
 
 	log.Printf("[INFO] Getting VPC details for name %q, projectID: %s, location: %s", name, projectID, location)
 	log.Printf("[DEBUG] VPC request URL: %s", url)
@@ -432,7 +432,7 @@ func (c *Client) GetVpcDetailsByName(projectID, location, name string) (*models.
 }
 
 func (c *Client) AttachVPCToScalerGroup(scalerGroupID string, vpcs []models.VPCDetail, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
 	log.Printf("[INFO] Attaching %d VPC(s) to Scaler Group %s", len(vpcs), scalerGroupID)
 
 	payload := map[string][]models.VPCDetail{
@@ -467,7 +467,7 @@ func (c *Client) AttachVPCToScalerGroup(scalerGroupID string, vpcs []models.VPCD
 }
 
 func (c *Client) DetachVPCFromScalerGroup(scalerGroupID, vpcID, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
 	log.Printf("[INFO] Detaching VPC %s from Scaler Group %s", vpcID, scalerGroupID)
 
 	req, err := http.NewRequest("DELETE", url, nil)
@@ -497,7 +497,7 @@ func (c *Client) DetachVPCFromScalerGroup(scalerGroupID, vpcID, projectID, locat
 }
 
 func (c *Client) GetPublicIPStatus(scaleGroupID, projectID, location string) (*models.PublicIPStatusData, error) {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
 	log.Printf("[INFO] Fetching public IP status for Scaler Group ID: %s", scaleGroupID)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -533,7 +533,7 @@ func (c *Client) GetPublicIPStatus(scaleGroupID, projectID, location string) (*m
 }
 
 func (c *Client) AttachPublicIP(scaleGroupID, projectID, location string) (*models.PublicIPActionResponse, error) {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
 	log.Printf("[INFO] Attaching Public IP to Scaler Group ID: %s", scaleGroupID)
 
 	httpReq, err := http.NewRequest("PUT", url, nil)
@@ -567,7 +567,7 @@ func (c *Client) AttachPublicIP(scaleGroupID, projectID, location string) (*mode
 }
 
 func (c *Client) DetachPublicIP(scaleGroupID, projectID, location string) (*models.PublicIPActionResponse, error) {
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scaleGroupID + "/public_ip/action/"
 	log.Printf("[INFO] Detaching Public IP from Scaler Group ID: %s", scaleGroupID)
 
 	httpReq, err := http.NewRequest("DELETE", url, nil)
@@ -603,7 +603,7 @@ func (c *Client) DetachPublicIP(scaleGroupID, projectID, location string) (*mode
 func (c *Client) GetAttachedVPCsForScalerGroup(scalerGroupID, projectID, location string) ([]models.VPCPartial, error) {
 	log.Printf("[INFO] Fetching attached VPCs for Scaler Group ID: %s", scalerGroupID)
 
-	url := c.Api_endpoint + "/scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
+	url := c.Api_endpoint + "scaler/scalegroups/" + scalerGroupID + "/vpc/action/"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -644,7 +644,7 @@ func (c *Client) GetAttachedVPCsForScalerGroup(scalerGroupID, projectID, locatio
 }
 
 func (c *Client) DetachSecurityGroupFromScalergroup(scalerGroupID string, sgID int, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/security_groups/" + scalerGroupID + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/security_groups/" + scalerGroupID + "/"
 	log.Printf("[INFO] Detaching Security Group %d from Scaler Group %s", sgID, scalerGroupID)
 
 	httpReq, err := http.NewRequest("DELETE", url, nil)
@@ -683,7 +683,7 @@ func (c *Client) DetachSecurityGroupFromScalergroup(scalerGroupID string, sgID i
 }
 
 func (c *Client) AddSecurityGroupToScalergroup(scalerGroupID string, sgID int, projectID, location string) error {
-	url := c.Api_endpoint + "/scaler/scalegroups/security_groups/" + scalerGroupID + "/"
+	url := c.Api_endpoint + "scaler/scalegroups/security_groups/" + scalerGroupID + "/"
 	log.Printf("[INFO] Attaching Security Group %d to Scaler Group %s", sgID, scalerGroupID)
 
 	payload := map[string]int{"security_group_id": sgID}
