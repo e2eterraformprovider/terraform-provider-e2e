@@ -65,7 +65,6 @@ func testQueryParam(t *testing.T, r *http.Request, param, expected string) {
 	}
 }
 
-
 // testErrorContains checks if an error contains a specific substring
 func testErrorContains(t *testing.T, err error, want string) {
 	t.Helper()

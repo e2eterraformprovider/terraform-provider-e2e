@@ -9,7 +9,6 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	
 )
 
 func DataSourceKubernetesService() *schema.Resource {
@@ -44,8 +43,8 @@ func DataSourceKubernetesService() *schema.Resource {
 				Description: "ID of the project. It should be unique",
 			},
 			"location": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
 				Description: "Location of the block storage",
 			},
 			"created_at": {

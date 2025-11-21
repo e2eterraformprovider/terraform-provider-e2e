@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
 	"net/http"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -19,7 +19,7 @@ func (c *Client) CreateMariaDB(req *models.MariaDBCreateRequest, projectID, loca
 	if err := json.NewEncoder(payloadBuf).Encode(req); err != nil {
 		return nil, fmt.Errorf("failed to encode create payload: %v", err)
 	}
-	
+
 	httpReq, err := http.NewRequest("POST", url, payloadBuf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
@@ -472,14 +472,3 @@ func (c *Client) ExpandMariaDBDisk(clusterID, projectID, location string, additi
 	log.Printf("[INFO] Disk expansion completed: +%d GB added to MariaDB cluster %s", additionalSize, clusterID)
 	return nil
 }
-
-
-
-
-
-
-
-
-
-
-

@@ -93,17 +93,17 @@ func TestSetBasicHeaders(t *testing.T) {
 
 func TestCheckResponseStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   string
-		expectError    bool
-		errorContains  string
+		name          string
+		statusCode    int
+		responseBody  string
+		expectError   bool
+		errorContains string
 	}{
 		{
-			name:        "Success - 200 OK",
-			statusCode:  http.StatusOK,
+			name:         "Success - 200 OK",
+			statusCode:   http.StatusOK,
 			responseBody: `{"status": "success"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name:          "Error - 400 Bad Request",
@@ -160,17 +160,17 @@ func TestCheckResponseStatus(t *testing.T) {
 
 func TestCheckResponseCreatedStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   string
-		expectError    bool
-		errorContains  string
+		name          string
+		statusCode    int
+		responseBody  string
+		expectError   bool
+		errorContains string
 	}{
 		{
-			name:        "Success - 201 Created",
-			statusCode:  http.StatusCreated,
+			name:         "Success - 201 Created",
+			statusCode:   http.StatusCreated,
 			responseBody: `{"status": "created"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name:          "Error - 200 OK (not created)",

@@ -2,12 +2,12 @@ package client
 
 import (
 	"bytes"
-	"strings"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -230,4 +230,3 @@ func (c *Client) GetSshKeyByPk(pk string, project_id string, location string) (*
 	log.Printf("[DEBUG] GetSshKeyByPk: SSH key with pk=%s not found among returned keys", pk)
 	return nil, fmt.Errorf("SSH key with ID %s not found", pk)
 }
-

@@ -1,10 +1,9 @@
 package models
 
-
 type CreateContainerRegistryRequest struct {
-	ProjectName string `json:"project_name"` 
-	PreventVul  string `json:"prevent_vul"`  // "true" or "false"
-	Severity    string `json:"severity"`     // "low" | "medium" | "high" | "critical"
+	ProjectName string `json:"project_name"`
+	PreventVul  string `json:"prevent_vul"` // "true" or "false"
+	Severity    string `json:"severity"`    // "low" | "medium" | "high" | "critical"
 }
 
 type CreateContainerRegistryResponse struct {

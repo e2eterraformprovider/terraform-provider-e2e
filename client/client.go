@@ -685,7 +685,7 @@ func (c *Client) DeleteImage(imageId string, project_id string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	params := req.URL.Query()
 	params.Add("apikey", c.Api_key)
 	params.Add("project_id", project_id)

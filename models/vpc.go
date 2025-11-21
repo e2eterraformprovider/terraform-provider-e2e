@@ -25,7 +25,7 @@ type VpcResponse struct {
 }
 
 type VpcCreate struct {
-	IPv4        string `json:"ipv4"`
-	IsE2EVpc    bool   `json:"is_e2e_vpc"`
-	VpcName     string `json:"vpc_name"`
+	IPv4     string `json:"ipv4"`
+	IsE2EVpc bool   `json:"is_e2e_vpc"`
+	VpcName  string `json:"vpc_name"`
 }

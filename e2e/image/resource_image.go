@@ -18,9 +18,9 @@ import (
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceImage() *schema.Resource {
@@ -37,7 +37,6 @@ func ResourceImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "location of the image",
-				
 			},
 			"name": {
 				Type:        schema.TypeString,

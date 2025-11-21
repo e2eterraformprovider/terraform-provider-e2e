@@ -63,7 +63,6 @@ func (c *Client) GetTemplateId(projectID string, location string, plan string, s
 
 	req = addParamsAndHeaders(req, c.Api_key, c.Auth_token, projectID, location)
 
-	
 	q := req.URL.Query()
 	q.Add("software_id", softwareID)
 	req.URL.RawQuery = q.Encode()

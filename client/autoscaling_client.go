@@ -265,7 +265,6 @@ func (c *Client) GetPlanDetailsFromPlanName(templateID int, planName, projectID,
 	return "", "", fmt.Errorf("plan name %s not found in template %d", planName, templateID)
 }
 
-
 func (c *Client) UpdateScalerGroup(id string, req *models.UpdateScalerGroupRequest, projectID, location string) error {
 	url := c.Api_endpoint + "scaler/scalegroups/update/" + id + "/"
 	log.Printf("[INFO] Sending request to update Scaler Group at: %s", url)

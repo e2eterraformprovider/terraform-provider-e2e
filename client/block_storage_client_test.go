@@ -252,10 +252,10 @@ func TestGetBlockStoragePlans(t *testing.T) {
 
 func TestCheckResponseStatusForBlock(t *testing.T) {
 	tests := []struct {
-		name        string
-		statusCode  int
+		name         string
+		statusCode   int
 		responseBody string
-		expectError bool
+		expectError  bool
 	}{
 		{
 			name:         "Success - 200 OK",

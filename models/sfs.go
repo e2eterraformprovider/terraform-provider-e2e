@@ -10,20 +10,20 @@ type SfsCreate struct {
 	EncryptionPassphrase string `json:"encryption_passphrase,omitempty"`
 }
 
-type SfssRead struct{
-	ID               int      `json:"id"`
-	Name             string  `json:"name"`
-	DiskSize         string   `json:"efs_disk_size"`
-	Status           string  `json:"status"`
-	PrivateIPAddress string  `json:"private_endpoint"`
-	Iops             int     `json:"iops"`
-	IsBackup         bool    `json:"is_backup_enabled"`
-	PlanName         string   `json:"plan_name"`
+type SfssRead struct {
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	DiskSize         string `json:"efs_disk_size"`
+	Status           string `json:"status"`
+	PrivateIPAddress string `json:"private_endpoint"`
+	Iops             int    `json:"iops"`
+	IsBackup         bool   `json:"is_backup_enabled"`
+	PlanName         string `json:"plan_name"`
 }
 
 type ResponseSfss struct {
-	Code    int    `json:"code"`
+	Code    int        `json:"code"`
 	Data    []SfssRead `json:"data"`
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	Error   string     `json:"error"`
+	Message string     `json:"message"`
 }

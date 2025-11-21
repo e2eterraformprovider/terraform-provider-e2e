@@ -184,11 +184,11 @@ type GetScalerSecurityGroupsResponse struct {
 }
 
 type UpdateScalerGroupRequest struct {
-	Name            string            `json:"name"`
-	PlanID          string            `json:"plan_id"`
-	MinNodes        int               `json:"min_nodes"`
-	MaxNodes        int               `json:"max_nodes"`
-	PolicyType      string            `json:"policy_type,omitempty"`
+	Name       string `json:"name"`
+	PlanID     string `json:"plan_id"`
+	MinNodes   int    `json:"min_nodes"`
+	MaxNodes   int    `json:"max_nodes"`
+	PolicyType string `json:"policy_type,omitempty"`
 
 	Policy          []ElasticPolicy   `json:"policy"`
 	ScheduledPolicy []ScheduledPolicy `json:"scheduled_policy"`

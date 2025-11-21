@@ -1,26 +1,26 @@
-package  dbaas_mariadb
+package dbaas_mariadb
 
 import (
 	"context"
 	"fmt"
 	"log"
-	
+
 	"strconv"
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	
-    "github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceMariaDB() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-		
+
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -32,39 +32,39 @@ func ResourceMariaDB() *schema.Resource {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
-		
+
 			"template_id": {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
-	
+
 			"software_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The software name (e.g., MariaDB).",
 			},
-	
+
 			"software_version": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The software version (e.g., 10.6).",
 			},
-	
+
 			"plan_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "The plan name specifying CPU/memory (e.g. DBS.16GB).",
 			},
-	
+
 			"public_ip_enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 				Description: "Whether a public IP should be attached during creation or update.",
 			},
-	
+
 			"public_ip_attached": {
 				Type:        schema.TypeBool,
 				Computed:    true,
@@ -77,21 +77,21 @@ func ResourceMariaDB() *schema.Resource {
 				Default:     0,
 				Description: "ID of the parameter group to attach. Use 0 to skip.",
 			},
-	
+
 			"group": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The group to which this database belongs (e.g. 'Default').",
 			},
-	
+
 			"vpcs": {
 				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "List of VPC IDs to associate (optional).",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-	
+
 			"database": {
 				Type:        schema.TypeList,
 				Required:    true,
@@ -131,14 +131,14 @@ func ResourceMariaDB() *schema.Resource {
 				ForceNew:    true,
 				Description: "Project ID under which the MariaDB cluster is provisioned.",
 			},
-			
+
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "Region where the MariaDB instance will be created.",
 			},
-			
+
 			"is_encryption_enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -164,29 +164,29 @@ func ResourceMariaDB() *schema.Resource {
 				),
 				Description: "Operational status: STOPPED, RUNNING, or RESTARTING.",
 			},
-			
+
 			"public_ip_address": {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Public IP assigned to the master node (if enabled).",
 			},
-	
+
 			"private_ip_address": {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Private IP assigned to the master node.",
 			},
-			
+
 			"disk_size": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "Additional disk size (in GB) to expand during update.",
 			},
 			"total_disk_size": {
-			Type:     schema.TypeInt,
-			Computed: true,
-			Description: "Total disk size in GB after expansion.",
-		},
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "Total disk size in GB after expansion.",
+			},
 
 			"port": {
 				Type:        schema.TypeString,
@@ -316,10 +316,10 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 		status = "STOPPED"
 	}
 	d.Set("status", status)
-	
+
 	d.Set("software_name", mariaDB.Software.Name)
 	d.Set("software_version", mariaDB.Software.Version)
-	
+
 	d.Set("plan_name", mariaDB.MasterNode.Plan.Name)
 
 	d.Set("public_ip_address", mariaDB.MasterNode.PublicIPAddress)
@@ -328,7 +328,6 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 
 	d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != "")
 	d.Set("total_disk_size", mariaDB.MasterNode.Disk)
-
 
 	d.Set("is_encryption_enabled", mariaDB.IsEncryptionEnabled)
 
@@ -347,7 +346,7 @@ func resourceDeleteMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("failed to delete MariaDB instance: %v", err))
 	}
-	
+
 	d.SetId("")
 	return diags
 }
@@ -357,7 +356,7 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	id := d.Id()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
-	
+
 	if d.HasChange("status") {
 		newStatus := d.Get("status").(string)
 		switch strings.ToUpper(newStatus) {
@@ -384,7 +383,7 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 			return diag.FromErr(fmt.Errorf("unsupported status value: %s", newStatus))
 		}
 	}
-	
+
 	if d.HasChange("vpcs") {
 		oldRaw, newRaw := d.GetChange("vpcs")
 		oldVPCSet := expandStringSet(oldRaw.([]interface{}))
@@ -446,63 +445,61 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	if d.HasChange("plan_name") {
-	oldPlan, newPlan := d.GetChange("plan_name")
-	log.Printf("[INFO] Plan change detected: %s -> %s", oldPlan.(string), newPlan.(string))
+		oldPlan, newPlan := d.GetChange("plan_name")
+		log.Printf("[INFO] Plan change detected: %s -> %s", oldPlan.(string), newPlan.(string))
 
-	status := d.Get("status").(string)
-	if strings.ToUpper(status) != "STOPPED" {
-		d.Set("plan_name", oldPlan.(string))
-		return diag.FromErr(fmt.Errorf("cannot upgrade plan: MariaDB must be STOPPED, current status is '%s'", status))
-	}
-
-	softwareName := d.Get("software_name").(string)
-	softwareVersion := d.Get("software_version").(string)
-	softwareID, err := apiClient.GetSoftwareId(projectID, location, softwareName, softwareVersion)
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to get software ID for %s %s: %v", softwareName, softwareVersion, err))
-	}
-
-	templateID, err := apiClient.GetTemplateId(projectID, location, newPlan.(string), fmt.Sprintf("%d", softwareID))
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to get template ID for plan %s: %v", newPlan.(string), err))
-	}
-
-	if err := apiClient.UpgradeMariaDBPlan(id, projectID, location, templateID); err != nil {
-		d.Set("plan_name", oldPlan.(string))
-		return diag.FromErr(fmt.Errorf("failed to upgrade MariaDB plan: %v", err))
-	}
-
-	log.Printf("[INFO] Successfully upgraded %s %s to plan %s (template_id=%d)", softwareName, softwareVersion, newPlan, templateID)
-
-	d.Set("template_id", templateID)
-}
-
-	if d.HasChange("disk_size") {
-	additionalSize := d.Get("disk_size").(int)
-
-	if additionalSize > 0 {
 		status := d.Get("status").(string)
 		if strings.ToUpper(status) != "STOPPED" {
-			d.Set("disk_size", 0)
-			return diag.FromErr(fmt.Errorf("cannot expand disk: MariaDB must be STOPPED, current status is '%s'", status))
+			d.Set("plan_name", oldPlan.(string))
+			return diag.FromErr(fmt.Errorf("cannot upgrade plan: MariaDB must be STOPPED, current status is '%s'", status))
 		}
 
-		err := apiClient.ExpandMariaDBDisk(id, projectID, location, additionalSize)
+		softwareName := d.Get("software_name").(string)
+		softwareVersion := d.Get("software_version").(string)
+		softwareID, err := apiClient.GetSoftwareId(projectID, location, softwareName, softwareVersion)
 		if err != nil {
-			d.Set("disk_size", 0)
-			return diag.FromErr(fmt.Errorf("failed to expand MariaDB disk: %v", err))
+			return diag.FromErr(fmt.Errorf("failed to get software ID for %s %s: %v", softwareName, softwareVersion, err))
 		}
 
-		log.Printf("[INFO] Disk expanded by %d GB for cluster %s", additionalSize, id)
+		templateID, err := apiClient.GetTemplateId(projectID, location, newPlan.(string), fmt.Sprintf("%d", softwareID))
+		if err != nil {
+			return diag.FromErr(fmt.Errorf("failed to get template ID for plan %s: %v", newPlan.(string), err))
+		}
 
-		d.Set("disk_size", 0)
-	} else {
-		log.Printf("[INFO] disk_size is 0, skipping expansion.")
+		if err := apiClient.UpgradeMariaDBPlan(id, projectID, location, templateID); err != nil {
+			d.Set("plan_name", oldPlan.(string))
+			return diag.FromErr(fmt.Errorf("failed to upgrade MariaDB plan: %v", err))
+		}
+
+		log.Printf("[INFO] Successfully upgraded %s %s to plan %s (template_id=%d)", softwareName, softwareVersion, newPlan, templateID)
+
+		d.Set("template_id", templateID)
 	}
-}
 
+	if d.HasChange("disk_size") {
+		additionalSize := d.Get("disk_size").(int)
 
-	
+		if additionalSize > 0 {
+			status := d.Get("status").(string)
+			if strings.ToUpper(status) != "STOPPED" {
+				d.Set("disk_size", 0)
+				return diag.FromErr(fmt.Errorf("cannot expand disk: MariaDB must be STOPPED, current status is '%s'", status))
+			}
+
+			err := apiClient.ExpandMariaDBDisk(id, projectID, location, additionalSize)
+			if err != nil {
+				d.Set("disk_size", 0)
+				return diag.FromErr(fmt.Errorf("failed to expand MariaDB disk: %v", err))
+			}
+
+			log.Printf("[INFO] Disk expanded by %d GB for cluster %s", additionalSize, id)
+
+			d.Set("disk_size", 0)
+		} else {
+			log.Printf("[INFO] disk_size is 0, skipping expansion.")
+		}
+	}
+
 	return resourceReadMariaDB(ctx, d, m)
 }
 
