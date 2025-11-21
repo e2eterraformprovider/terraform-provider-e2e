@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -39,8 +39,8 @@ func (c Client) CreatePostgressDB(payload models.DBCreateRequest, project_id str
 
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -76,8 +76,8 @@ func (c Client) GetPostgressDB(id string, project_id string, location string) (m
 
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}

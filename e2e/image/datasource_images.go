@@ -85,7 +85,7 @@ func DataSourceImages() *schema.Resource {
 		ReadContext: dataSourceReadImages,
 
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -108,7 +108,7 @@ func flattenImages(imageList *[]models.Image) []interface{} {
 
 	if imageList != nil {
 
-		ois := make([]interface{}, len(*imageList), len(*imageList))
+		ois := make([]interface{}, len(*imageList))
 
 		for i, image := range *imageList {
 

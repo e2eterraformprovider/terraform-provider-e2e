@@ -19,9 +19,9 @@ import (
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceReserveIP() *schema.Resource {
@@ -114,11 +114,11 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 
 	log.Printf("[INFO] ReservedIp CREATE | RESPONSE BODY | %+v", res)
 	if _, codeok := res["code"]; !codeok {
-		return diag.Errorf(res["message"].(string))
+		return diag.Errorf("%s", res["message"].(string))
 	}
 
 	if res["is_limit_available"] == false {
-		return diag.Errorf(res["message"].(string))
+		return diag.Errorf("%s", res["message"].(string))
 	}
 
 	data := res["data"].(map[string]interface{})
@@ -160,7 +160,7 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 
 	codeok := (res.Code == 200)
 	if !codeok {
-		return diag.Errorf(res.Message)
+		return diag.Errorf("%s", res.Message)
 	}
 
 	var data models.ReserveIp

@@ -2,13 +2,12 @@ package client
 
 import (
 	"bytes"
-	"strings"
 	"encoding/json"
-	"io/ioutil"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -48,8 +47,8 @@ func (c *Client) AddSshKey(item models.AddSshKey, project_id string) (map[string
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -85,8 +84,8 @@ func (c *Client) GetSshKey(label string, project_id string, location string) (ma
 		return nil, err
 	}
 
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", resBody)
 	stringresponse := string(resBody)
 	log.Printf("=====================RESPONSE_GET_SSH==============, %+v", stringresponse)
@@ -121,7 +120,7 @@ func (c *Client) DeleteSshKey(pk string, project_id string, location string) err
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	// Check if delete was successful
 	if response.StatusCode != 200 && response.StatusCode != 204 {
@@ -156,8 +155,11 @@ func (c *Client) GetSshKeys(location string, project_id string) (*models.SshKeyR
 		return nil, err
 	}
 
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := models.SshKeyResponse{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -188,7 +190,7 @@ func (c *Client) GetSshKeyByPk(pk string, project_id string, location string) (*
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 404 {
 		return nil, fmt.Errorf("SSH key with ID %s not found", pk)
@@ -228,4 +230,3 @@ func (c *Client) GetSshKeyByPk(pk string, project_id string, location string) (*
 	log.Printf("[DEBUG] GetSshKeyByPk: SSH key with pk=%s not found among returned keys", pk)
 	return nil, fmt.Errorf("SSH key with ID %s not found", pk)
 }
-

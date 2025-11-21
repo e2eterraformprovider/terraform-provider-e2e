@@ -72,7 +72,7 @@ func DataSourceObjectStores() *schema.Resource {
 		},
 		ReadContext: dataSourceReadBuckets,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -88,7 +88,7 @@ func dataSourceReadBuckets(context context.Context, resourceDataSource *schema.R
 	}
 	log.Printf("[INFO] BUCKETS DATA SOURCE | before setting --> %v", &Response.Data)
 	eos_bucket_list := flattenBuckets(&Response.Data)
-	resourceDataSource.Set("bucket_list", eos_bucket_list)
+	_ = resourceDataSource.Set("bucket_list", eos_bucket_list)
 	resourceDataSource.SetId("bucket_list")
 	return diags
 }
@@ -96,7 +96,7 @@ func dataSourceReadBuckets(context context.Context, resourceDataSource *schema.R
 func flattenBuckets(buckets *[]models.ObjectStore) []interface{} {
 
 	if buckets != nil {
-		buckets_list := make([]interface{}, len(*buckets), len(*buckets))
+		buckets_list := make([]interface{}, len(*buckets))
 
 		for i, bucket := range *buckets {
 			log.Printf("[INFO] Buckets----> %v", bucket)

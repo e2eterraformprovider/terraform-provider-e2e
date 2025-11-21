@@ -113,7 +113,7 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 func flattenVpcs(vpcList *[]models.Vpc) []interface{} {
 
 	if vpcList != nil {
-		ois := make([]interface{}, len(*vpcList), len(*vpcList))
+		ois := make([]interface{}, len(*vpcList))
 
 		for i, vpc := range *vpcList {
 			oi := make(map[string]interface{})

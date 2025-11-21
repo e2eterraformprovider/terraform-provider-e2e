@@ -3,21 +3,21 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"fmt"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
 
-func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location string)(map[string]interface{}, error){
+func (c *Client) NewSfs(item *models.SfsCreate, project_id string, location string) (map[string]interface{}, error) {
 	buf := bytes.Buffer{}
 	err := json.NewEncoder(&buf).Encode(item)
 	if err != nil {
 		return nil, err
 	}
-	UrlSfs := c.Api_endpoint + "efs/"+ "create/"
+	UrlSfs := c.Api_endpoint + "efs/" + "create/"
 	log.Printf("[INFO] Client NEWNODE | BEFORE REQUEST")
 	req, err := http.NewRequest("POST", UrlSfs, &buf)
 	if err != nil {
@@ -34,8 +34,8 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location strin
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -45,7 +45,7 @@ func (c *Client)NewSfs(item *models.SfsCreate, project_id string, location strin
 	}
 	return jsonRes, nil
 }
-func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[string]interface{}, error) {
+func (c *Client) GetSfs(SfsId string, project_id string, location string) (map[string]interface{}, error) {
 
 	UrlSfs := c.Api_endpoint + "efs/" + SfsId + "/"
 	req, err := http.NewRequest("GET", UrlSfs, nil)
@@ -54,7 +54,6 @@ func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[
 	}
 	log.Printf("[INFO] Client | NODE READ")
 	AddParamsAndHeaders(req, c.Api_key, c.Auth_token, project_id, location)
-
 
 	response, err := c.HttpClient.Do(req)
 	if err != nil {
@@ -69,8 +68,8 @@ func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
@@ -84,9 +83,9 @@ func (c *Client) GetSfs(SfsId string , project_id string, location string) (map[
 	return jsonRes, nil
 }
 
-func (c *Client) DeleteSFs(SfsId string, project_id string , location string) error {
+func (c *Client) DeleteSFs(SfsId string, project_id string, location string) error {
 
-	UrlSfs := c.Api_endpoint + "efs/" + "delete/"+ SfsId + "/"
+	UrlSfs := c.Api_endpoint + "efs/" + "delete/" + SfsId + "/"
 	req, err := http.NewRequest("DELETE", UrlSfs, nil)
 	if err != nil {
 		return err
@@ -109,7 +108,6 @@ func (c *Client) DeleteSFs(SfsId string, project_id string , location string) er
 
 	return nil
 }
-
 
 func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSfss, error) {
 
@@ -135,12 +133,15 @@ func (c *Client) GetSfss(location string, project_id string) (*models.ResponseSf
 
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
 	res := models.ResponseSfss{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {

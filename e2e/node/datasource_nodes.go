@@ -74,7 +74,7 @@ func DataSourceNodes() *schema.Resource {
 		},
 		ReadContext: dataSourceReadNodes,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -99,7 +99,7 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 func flattenNodes(nodes *[]models.Node) []interface{} {
 
 	if nodes != nil {
-		ois := make([]interface{}, len(*nodes), len(*nodes))
+		ois := make([]interface{}, len(*nodes))
 
 		for i, node := range *nodes {
 			oi := make(map[string]interface{})

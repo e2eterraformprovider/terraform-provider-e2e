@@ -34,7 +34,7 @@ func (c *Client) CreateScalerGroup(req *models.CreateScalerGroupRequest, project
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -71,7 +71,7 @@ func (c *Client) GetScalerGroup(scaleGroupID, projectID, location string) (*mode
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *Client) DeleteScalerGroup(scaleGroupID, projectID, location string) err
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -145,7 +145,7 @@ func (c *Client) GetSavedImageByName(imageName, projectID, location string) (*mo
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -186,7 +186,7 @@ func (c *Client) GetDefaultSecurityGroupID(projectID, location string) (int, err
 	if err != nil {
 		return 0, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -227,7 +227,7 @@ func (c *Client) GetPlanDetailsFromPlanName(templateID int, planName, projectID,
 	if err != nil {
 		return "", "", fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -265,7 +265,6 @@ func (c *Client) GetPlanDetailsFromPlanName(templateID int, planName, projectID,
 	return "", "", fmt.Errorf("plan name %s not found in template %d", planName, templateID)
 }
 
-
 func (c *Client) UpdateScalerGroup(id string, req *models.UpdateScalerGroupRequest, projectID, location string) error {
 	url := c.Api_endpoint + "scaler/scalegroups/update/" + id + "/"
 	log.Printf("[INFO] Sending request to update Scaler Group at: %s", url)
@@ -287,7 +286,7 @@ func (c *Client) UpdateScalerGroup(id string, req *models.UpdateScalerGroupReque
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -325,7 +324,7 @@ func (c *Client) UpdateDesiredNodeCount(scalerGroupID int, desired int, projectI
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -372,7 +371,7 @@ func (c *Client) UpdateScalerGroupStatus(id int, status, projectID, location str
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -403,7 +402,7 @@ func (c *Client) GetVpcDetailsByName(projectID, location, name string) (*models.
 	if err != nil {
 		return nil, fmt.Errorf("VPC request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -455,7 +454,7 @@ func (c *Client) AttachVPCToScalerGroup(scalerGroupID string, vpcs []models.VPCD
 	if err != nil {
 		return fmt.Errorf("attach VPC request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
@@ -485,7 +484,7 @@ func (c *Client) DetachVPCFromScalerGroup(scalerGroupID, vpcID, projectID, locat
 	if err != nil {
 		return fmt.Errorf("detach VPC request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
@@ -512,7 +511,7 @@ func (c *Client) GetPublicIPStatus(scaleGroupID, projectID, location string) (*m
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -546,7 +545,7 @@ func (c *Client) AttachPublicIP(scaleGroupID, projectID, location string) (*mode
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -580,7 +579,7 @@ func (c *Client) DetachPublicIP(scaleGroupID, projectID, location string) (*mode
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -618,7 +617,7 @@ func (c *Client) GetAttachedVPCsForScalerGroup(scalerGroupID, projectID, locatio
 		log.Printf("[ERROR] API call failed: %v", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -664,7 +663,7 @@ func (c *Client) DetachSecurityGroupFromScalergroup(scalerGroupID string, sgID i
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -707,7 +706,7 @@ func (c *Client) AddSecurityGroupToScalergroup(scalerGroupID string, sgID int, p
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

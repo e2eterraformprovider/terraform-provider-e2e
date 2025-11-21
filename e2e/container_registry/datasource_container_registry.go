@@ -69,10 +69,10 @@ func dataSourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData
 	for _, r := range registries {
 		if strconv.Itoa(r.ID) == id {
 			d.SetId(id)
-			_ = d.Set("project_name", r.ProjectName)
-			_ = d.Set("setup_status", r.State)
-			_ = d.Set("severity", r.Severity)
-			_ = d.Set("prevent_vul", r.PreventVul)
+			d.Set("project_name", r.ProjectName)
+			d.Set("setup_status", r.State)
+			d.Set("severity", r.Severity)
+			d.Set("prevent_vul", r.PreventVul)
 			return diags
 		}
 	}

@@ -35,7 +35,7 @@ func (c *Client) NewMySqlDb(item *models.MySqlCreate, project_id string, locatio
 	if err != nil {
 		return nil, fmt.Errorf(" error while checking response code =: %s ", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -60,7 +60,7 @@ func (c *Client) GetMySqlDbaas(mySqlDBaaSId string, project_id string, location 
 	if err != nil {
 		return nil, fmt.Errorf(" client | error making request in GetMySqlDbaas: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -92,7 +92,7 @@ func (c *Client) DeleteMySqlDBaaS(mySqlDBaaSId string, project_id string, locati
 	if err != nil {
 		return nil, fmt.Errorf(" DeleteMySqlDBaaS | error while making http request: %s ", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
@@ -120,7 +120,7 @@ func (c *Client) ResumeMySqlDBaaS(mySqlDBaaSId string, project_id string, locati
 		return nil, fmt.Errorf(" ResumeMySqlDBaaS | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -149,7 +149,7 @@ func (c *Client) StopMySqlDBaaS(mySqlDBaaSId string, project_id string, location
 		return nil, fmt.Errorf(" StopMySqlDBaaS  | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -178,7 +178,7 @@ func (c *Client) RestartMySqlDBaaS(mySqlDBaaSId string, project_id string, locat
 		return nil, fmt.Errorf(" RestartMySqlDBaaS | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -213,7 +213,7 @@ func (c *Client) AttachVpcToMySql(item *models.AttachVPCPayloadRequest, mySqlDBa
 		return nil, fmt.Errorf(" AttachVpcToMySql | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -248,7 +248,7 @@ func (c *Client) DetachVpcFromMySql(item *models.AttachVPCPayloadRequest, mySqlD
 		return nil, fmt.Errorf(" DetachVpcFromMySql | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
@@ -285,7 +285,7 @@ func (c *Client) AttachPGToMySqlDBaaS(mySqlDBaaSId string, ParameterGroupId stri
 		return nil, fmt.Errorf(" AttachPGToMySqlDBaaS | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -314,7 +314,7 @@ func (c *Client) DetachPGFromMySqlDBaaS(mySqlDBaaSId string, ParameterGroupId st
 		return nil, fmt.Errorf(" DetachPGFromMySqlDBaaS | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -343,7 +343,7 @@ func (c *Client) AttachPublicIPToMySql(mySqlDBaaSId string, project_id string, l
 		return nil, fmt.Errorf(" AttachPublicIPToMySql | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
@@ -372,7 +372,7 @@ func (c *Client) DetachPublicIPFromMySql(mySqlDBaaSId string, project_id string,
 		return nil, fmt.Errorf(" DetachPublicIPFromMySql | error while making http request: %s ", err)
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)

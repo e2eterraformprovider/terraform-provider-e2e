@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceObjectStore() *schema.Resource {
@@ -88,12 +88,12 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	log.Printf("[INFO] BUCKET CREATE | RESPONSE BODY | %+v", resbucket)
 	if _, codeok := resbucket["code"]; !codeok {
-		return diag.Errorf(resbucket["message"].(string))
+		return diag.Errorf("%s", resbucket["message"].(string))
 	}
 
 	data := resbucket["data"].(map[string]interface{})
 	if data["is_credit_sufficient"] == false {
-		return diag.Errorf(resbucket["message"].(string))
+		return diag.Errorf("%s", resbucket["message"].(string))
 	}
 	log.Printf("[INFO] Bucket creation | before setting fields")
 	bucketId := data["id"].(float64)
@@ -189,22 +189,4 @@ func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData
 	}
 	resourceData.SetId("")
 	return diags
-}
-
-func resourceExistsObjectStore(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
-
-	bucketName := d.Get("name").(string)
-	projectID := fmt.Sprint(d.Get("project_id").(int))
-	region := d.Get("region").(string)
-	_, err := apiClient.GetBucket(bucketName, projectID, region)
-
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return false, nil
-		} else {
-			return false, err
-		}
-	}
-	return true, nil
 }

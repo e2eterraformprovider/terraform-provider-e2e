@@ -117,14 +117,14 @@ func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	d.SetId(strconv.Itoa(group.ID))
-	_ = d.Set("name", group.Name)
-	_ = d.Set("desired", group.Desired)
-	_ = d.Set("min_nodes", group.MinNodes)
-	_ = d.Set("max_nodes", group.MaxNodes)
-	_ = d.Set("plan_name", group.PlanName)
-	_ = d.Set("vm_image_name", group.VMImageName)
-	_ = d.Set("provision_status", group.ProvisionStatus)
-	_ = d.Set("policy_type", group.PolicyType)
+	d.Set("name", group.Name)
+	d.Set("desired", group.Desired)
+	d.Set("min_nodes", group.MinNodes)
+	d.Set("max_nodes", group.MaxNodes)
+	d.Set("plan_name", group.PlanName)
+	d.Set("vm_image_name", group.VMImageName)
+	d.Set("provision_status", group.ProvisionStatus)
+	d.Set("policy_type", group.PolicyType)
 
 	policyList := []map[string]interface{}{
 		{
@@ -148,7 +148,7 @@ func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			"cooldown":       strconv.Itoa(group.Cooldown),
 		},
 	}
-	_ = d.Set("policy", policyList)
+	d.Set("policy", policyList)
 
 	scheduledPolicyList := []map[string]interface{}{
 		{
@@ -162,7 +162,7 @@ func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			"recurrence": group.DownscaleRecurrence,
 		},
 	}
-	_ = d.Set("scheduled_policy", scheduledPolicyList)
+	d.Set("scheduled_policy", scheduledPolicyList)
 
 	return diags
 }

@@ -9,11 +9,11 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourcePostgresDBaaS() *schema.Resource {
@@ -246,7 +246,7 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 	if _, ok := res["code"]; !ok || res["is_limit_available"] == false {
 		msg, _ := res["message"].(string)
-		return diag.Errorf(msg)
+		return diag.Errorf("%s", msg)
 	}
 
 	data, ok := res["data"].(map[string]interface{})
@@ -291,7 +291,7 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 
 	if _, ok := res["code"]; !ok || res["is_limit_available"] == false {
 		msg, _ := res["message"].(string)
-		return diag.Errorf(msg)
+		return diag.Errorf("%s", msg)
 	}
 
 	data, ok := res["data"].(map[string]interface{})
@@ -511,7 +511,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		}
 
 		if d.HasChange("power_status") {
-			waitForPoweringOffOnDBaaS(m, dbaas_id.(string), project_id, location)
+			_ = waitForPoweringOffOnDBaaS(m, dbaas_id.(string), project_id, location)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))

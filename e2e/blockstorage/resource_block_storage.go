@@ -14,7 +14,6 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	
 )
 
 func ResourceBlockStorage() *schema.Resource {
@@ -44,7 +43,7 @@ func ResourceBlockStorage() *schema.Resource {
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "Location of the block storage",				
+				Description: "Location of the block storage",
 			},
 			"status": {
 				Type:        schema.TypeString,
@@ -98,12 +97,12 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	log.Printf("[INFO] BLOCK STORAGE CREATE | RESPONSE BODY | %+v", resBlockStorage)
 	if _, codeok := resBlockStorage["code"]; !codeok {
-		return diag.Errorf(resBlockStorage["message"].(string))
+		return diag.Errorf("%s", resBlockStorage["message"].(string))
 	}
 
 	data := resBlockStorage["data"].(map[string]interface{})
 	if data["is_credit_sufficient"] == false {
-		return diag.Errorf(resBlockStorage["message"].(string))
+		return diag.Errorf("%s", resBlockStorage["message"].(string))
 	}
 	log.Printf("[INFO] Block Storage creation | before setting fields")
 	blockStorageIDFloat, ok := data["id"].(float64)
@@ -225,7 +224,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				if _, codeok := resBlockStorage["code"]; !codeok {
 					d.Set("size", prevSize)
 					d.Set("name", prevName)
-					return diag.Errorf(resBlockStorage["message"].(string))
+					return diag.Errorf("%s", resBlockStorage["message"].(string))
 				}
 				return diags
 			}

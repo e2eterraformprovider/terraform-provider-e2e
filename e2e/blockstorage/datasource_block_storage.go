@@ -48,7 +48,6 @@ func DataSourceBlockStorage() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Description: "Location of the block storage",
-				
 			},
 			// "created_on": {
 			// 	Type:        schema.TypeString,
@@ -80,7 +79,7 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("name", data["name"].(string))
 	d.Set("status", data["status"].(string))
 	d.Set("iops", template["TOTAL_IOPS_SEC"].(string))
-	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", *d)
+	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", d)
 
 	return diags
 

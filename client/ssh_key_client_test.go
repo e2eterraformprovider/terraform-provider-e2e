@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -20,7 +20,7 @@ func TestAddSshKey(t *testing.T) {
 		testQueryParam(t, r, "project_id", "123")
 		testQueryParam(t, r, "location", "us-east")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var addSshKey models.AddSshKey
 		json.Unmarshal(body, &addSshKey)
 

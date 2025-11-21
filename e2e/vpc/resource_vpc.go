@@ -78,7 +78,7 @@ func ResouceVpc() *schema.Resource {
 			"ipv4": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:    "",
+				Default:     "",
 				Description: "IPv4 CIDR block of the VPC",
 			},
 		},

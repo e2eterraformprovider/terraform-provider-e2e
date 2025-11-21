@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -20,9 +20,9 @@ func TestCreateMariaDB(t *testing.T) {
 		testQueryParam(t, r, "location", "test-location")
 		testQueryParam(t, r, "project_id", "test-project")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.MariaDBCreateRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Name == "" {
 			t.Error("Expected Name in request body")
@@ -197,7 +197,7 @@ func TestMariaDBExists(t *testing.T) {
 				if tt.statusCode == http.StatusOK {
 					writeJSON(w, tt.statusCode, `{"code": 200}`)
 				} else {
-					w.Write([]byte("Error"))
+					_, _ = w.Write([]byte("Error"))
 				}
 			})
 
@@ -371,9 +371,9 @@ func TestAttachVPCToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/vpc-attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "attach" {
 			t.Errorf("Expected action 'attach', got %s", req.Action)
@@ -429,9 +429,9 @@ func TestDetachVPCFromMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/vpc-detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "detach" {
 			t.Errorf("Expected action 'detach', got %s", req.Action)
@@ -470,9 +470,9 @@ func TestAttachPublicIPToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/public-ip-attach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		if payload["action"] != "attach" {
 			t.Errorf("Expected action 'attach', got %s", payload["action"])
@@ -511,9 +511,9 @@ func TestDetachPublicIPFromMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/public-ip-detach/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		if payload["action"] != "detach" {
 			t.Errorf("Expected action 'detach', got %s", payload["action"])
@@ -552,9 +552,9 @@ func TestAttachParameterGroupToMariaDB(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/parameter-group/456/add")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.ParameterGroupRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "add" {
 			t.Errorf("Expected action 'add', got %s", req.Action)
@@ -626,9 +626,9 @@ func TestUpgradeMariaDBPlan(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/rds-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var payload map[string]interface{}
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		templateID := int(payload["template_id"].(float64))
 		if templateID != 200 {
@@ -668,9 +668,9 @@ func TestExpandMariaDBDisk(t *testing.T) {
 		testMethod(t, r, http.MethodPut)
 		testURLPath(t, r, "/rds/cluster/123/disk-upgrade/")
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var req models.DiskUpgradeRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Size != 50 {
 			t.Errorf("Expected size 50, got %d", req.Size)

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
 	"net/http"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 )
@@ -19,7 +19,7 @@ func (c *Client) CreateMariaDB(req *models.MariaDBCreateRequest, projectID, loca
 	if err := json.NewEncoder(payloadBuf).Encode(req); err != nil {
 		return nil, fmt.Errorf("failed to encode create payload: %v", err)
 	}
-	
+
 	httpReq, err := http.NewRequest("POST", url, payloadBuf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
@@ -33,7 +33,7 @@ func (c *Client) CreateMariaDB(req *models.MariaDBCreateRequest, projectID, loca
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -65,7 +65,7 @@ func (c *Client) ReadMariaDB(id string, projectID string, location string) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -94,7 +94,7 @@ func (c *Client) MariaDBExists(id string, projectID string, location string) (bo
 	if err != nil {
 		return false, fmt.Errorf("failed to perform request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return false, nil
@@ -122,7 +122,7 @@ func (c *Client) DeleteMariaDB(id string, projectID string, location string) err
 	if err != nil {
 		return fmt.Errorf("DELETE request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("DELETE failed with status: %d", resp.StatusCode)
@@ -145,7 +145,7 @@ func (c *Client) ShutdownMariaDB(id string, projectID string, location string) e
 	if err != nil {
 		return fmt.Errorf("shutdown request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -169,7 +169,7 @@ func (c *Client) ResumeMariaDB(id string, projectID string, location string) err
 	if err != nil {
 		return fmt.Errorf("resume request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -193,7 +193,7 @@ func (c *Client) RestartMariaDB(id string, projectID string, location string) er
 	if err != nil {
 		return fmt.Errorf("restart request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -234,7 +234,7 @@ func (c *Client) AttachVPCToMariaDB(id string, projectID string, location string
 	if err != nil {
 		return fmt.Errorf("VPC attach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
@@ -275,7 +275,7 @@ func (c *Client) DetachVPCFromMariaDB(id string, projectID string, location stri
 	if err != nil {
 		return fmt.Errorf("VPC detach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -306,7 +306,7 @@ func (c *Client) AttachPublicIPToMariaDB(id string, projectID string, location s
 	if err != nil {
 		return fmt.Errorf("public IP attach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -337,7 +337,7 @@ func (c *Client) DetachPublicIPFromMariaDB(id string, projectID string, location
 	if err != nil {
 		return fmt.Errorf("public IP detach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -367,7 +367,7 @@ func (c *Client) AttachParameterGroupToMariaDB(clusterID string, parameterGroupI
 	if err != nil {
 		return fmt.Errorf("attach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -393,7 +393,7 @@ func (c *Client) DetachParameterGroupFromMariaDB(clusterID string, parameterGrou
 	if err != nil {
 		return fmt.Errorf("detach request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
@@ -425,7 +425,7 @@ func (c *Client) UpgradeMariaDBPlan(clusterID, projectID, location string, templ
 	if err != nil {
 		return fmt.Errorf("upgrade request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -462,7 +462,7 @@ func (c *Client) ExpandMariaDBDisk(clusterID, projectID, location string, additi
 	if err != nil {
 		return fmt.Errorf("disk upgrade request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -472,14 +472,3 @@ func (c *Client) ExpandMariaDBDisk(clusterID, projectID, location string, additi
 	log.Printf("[INFO] Disk expansion completed: +%d GB added to MariaDB cluster %s", additionalSize, clusterID)
 	return nil
 }
-
-
-
-
-
-
-
-
-
-
-

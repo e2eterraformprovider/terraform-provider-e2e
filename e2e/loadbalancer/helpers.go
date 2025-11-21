@@ -23,7 +23,7 @@ func ExpandBackends(config []interface{}, apiClient *client.Client, project_id s
 	for _, backend := range config {
 		detail := backend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient, project_id, location)
+		servers, err := ExpandServers(detail["servers"], apiClient, project_id, location)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func ExpandTcpBackend(config []interface{}, apiClient *client.Client, project_id
 	for _, tcpBackend := range config {
 		detail := tcpBackend.(map[string]interface{})
 
-		servers, err := ExpandServers(detail["servers"].(interface{}), apiClient, project_id, location)
+		servers, err := ExpandServers(detail["servers"], apiClient, project_id, location)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +171,7 @@ func SetLoadBalancerStatus(d *schema.ResourceData, status_detail interface{}) er
 			d.Set("status", "Backend Status Unavailable")
 			return nil
 		}
-		if dataMonitor["status"].(bool) == false {
+		if !dataMonitor["status"].(bool) {
 			d.Set("status", "Backend Connection Failure")
 		} else {
 			d.Set("status", "Running")

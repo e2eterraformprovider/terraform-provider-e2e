@@ -35,13 +35,27 @@ lint:
 	@echo "==> Checking source code with golangci-lint..."
 	@golangci-lint run ./...
 
-terrafmt-check:
-	@echo "==> Checking terraform code with terrafmt..."
-	@terraform fmt -check -recursive || (echo "Terraform files are not formatted. Run 'terraform fmt -recursive' to fix."; exit 1)
+install-terrafmt:
+	@echo "==> Installing terrafmt..."
+	@go install github.com/katbyte/terrafmt@latest
 
-terrafmt:
-	@echo "==> Formatting terraform code with terraform fmt..."
-	@terraform fmt -recursive
+terrafmt-check: install-terrafmt
+	@echo "==> Checking terraform code with terrafmt..."
+	@if [ -d "docs" ]; then \
+		terrafmt diff --check --fmtcompat docs/ || (echo "Terraform code blocks in docs/ are not formatted. Run 'make terrafmt' to fix."; exit 1); \
+	fi
+	@if [ -d "examples" ]; then \
+		terrafmt diff --check --fmtcompat examples/ || (echo "Terraform code blocks in examples/ are not formatted. Run 'make terrafmt' to fix."; exit 1); \
+	fi
+
+terrafmt: install-terrafmt
+	@echo "==> Formatting terraform code with terrafmt..."
+	@if [ -d "docs" ]; then \
+		terrafmt fmt docs/; \
+	fi
+	@if [ -d "examples" ]; then \
+		terrafmt fmt examples/; \
+	fi
 
 fmt:
 	gofmt -w -s .
@@ -50,4 +64,4 @@ sweep:
 	@echo "WARNING: This will destroy infrastructure. Use only in development accounts."
 	go test $(TEST) -v -sweep=all $(SWEEPARGS) -timeout 60m
 
-.PHONY: build install test testacc vet lint terrafmt-check terrafmt fmt sweep
+.PHONY: build install test testacc vet lint install-terrafmt terrafmt-check terrafmt fmt sweep

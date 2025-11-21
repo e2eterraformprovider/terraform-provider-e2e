@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -34,8 +34,8 @@ func (c *Client) GetSecurityGroupList(project_id string, location string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -86,7 +86,7 @@ func (c *Client) CreateSecurityGroups(payload models.SecurityGroupCreateRequest,
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	log.Printf("\n\n[INFO] NEW CREATE SECURITY GROUP | STATUS_CODE: %+v\n\n", response.StatusCode)
 
@@ -115,7 +115,7 @@ func (c *Client) UpdateSecurityGroups(payload models.SecurityGroupUpdateRequest,
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	log.Printf("\n\n[INFO] UPDATE SECURITY GROUP | STATUS_CODE: %+v\n\n", response.StatusCode)
 
@@ -140,7 +140,7 @@ func (c *Client) MakeDefaultSecurityGroup(id string, project_id string, location
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	log.Printf("\n\n[INFO] MAKE DEFAULT SECURITY GROUP | STATUS_CODE: %+v\n\n", response.StatusCode)
 
@@ -178,8 +178,8 @@ func (c *Client) DetachSecurityGroup(item *models.UpdateSecurityGroups, vm_id in
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -217,8 +217,8 @@ func (c *Client) AttachSecurityGroup(item *models.UpdateSecurityGroups, vm_id in
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	defer func() { _ = response.Body.Close() }()
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -243,7 +243,7 @@ func (c *Client) DeleteSecurityGroup(id string, project_id string, location stri
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	log.Printf("\n\n[INFO] DELETE SECURITY GROUP | STATUS_CODE: %+v\n\n", response.StatusCode)
 

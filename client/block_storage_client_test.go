@@ -252,10 +252,10 @@ func TestGetBlockStoragePlans(t *testing.T) {
 
 func TestCheckResponseStatusForBlock(t *testing.T) {
 	tests := []struct {
-		name        string
-		statusCode  int
+		name         string
+		statusCode   int
 		responseBody string
-		expectError bool
+		expectError  bool
 	}{
 		{
 			name:         "Success - 200 OK",
@@ -293,10 +293,14 @@ func TestCheckResponseStatusForBlock(t *testing.T) {
 			})
 
 			req, _ := http.NewRequest("GET", ts.server.URL+"/test/", nil)
-			resp, _ := http.DefaultClient.Do(req)
-			defer resp.Body.Close()
-
-			err := CheckResponseStatusForBlock(resp)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil && resp != nil {
+				defer resp.Body.Close()
+			}
+			if err == nil {
+				defer resp.Body.Close()
+				err = CheckResponseStatusForBlock(resp)
+			}
 
 			if (err != nil) != tt.expectError {
 				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)

@@ -15,8 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-var nameRegex string = "^[a-zA-Z0-9-_]{0,50}$"
-
 func ResourceLoadBalancer() *schema.Resource {
 	return &schema.Resource{
 		Schema:        ResouceLoadBalancerSchema(),
@@ -388,7 +386,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		},
 		"location": {
 			Type:        schema.TypeString,
-			Required:   true,
+			Required:    true,
 			Description: "This is the region of your loadbalancer",
 			ForceNew:    true,
 		},
@@ -421,7 +419,7 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 		EnableBitninja:   d.Get("enable_bitninja").(bool),
 		IsIpv6Attached:   d.Get("is_ipv6_attached").(bool),
 		DefaultBackend:   d.Get("default_backend").(string),
-		Location: 		  d.Get("location").(string),
+		Location:         d.Get("location").(string),
 	}
 	enableEosLogger, ok := d.GetOk("enable_eos_logger")
 	if ok {
@@ -509,7 +507,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	log.Printf("[INFO] LOAD BALANCER CREATE | RESPONSE BODY | %+v", response)
 
 	if _, codeok := response["code"]; !codeok {
-		return diag.Errorf(response["message"].(string))
+		return diag.Errorf("%s", response["message"].(string))
 	}
 
 	data := response["data"].(map[string]interface{})
@@ -553,7 +551,7 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	d.Set("plan_name", node_detail["plan_name"].(string))
 	d.Set("lb_mode", lb_context["lb_mode"].(string))
 
-	if d.Get("is_ipv6_attached").(bool) == true {
+	if d.Get("is_ipv6_attached").(bool) {
 		if lb_context["host_target_ipv6"] != nil {
 			d.Set("host_target_ipv6", lb_context["host_target_ipv6"].(string))
 		} else {
@@ -641,8 +639,8 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	if d.HasChange("is_ipv6_attached") {
 		ipv6_attach := d.Get("is_ipv6_attached").(bool)
-		payload := map[string]interface{}{}
-		if ipv6_attach == true {
+		var payload map[string]interface{}
+		if ipv6_attach {
 			payload = map[string]interface{}{"action": "attach"}
 		} else {
 			payload = map[string]interface{}{
@@ -662,6 +660,9 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		return diags
 	}
 	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location, d.Get("project_id").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	resData := res["data"].(map[string]interface{})
 	if resData["is_credit_sufficient"] == false {
 		return diag.Errorf("Credit is not sufficient")

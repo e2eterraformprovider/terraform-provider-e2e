@@ -359,12 +359,12 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	log.Printf("[INFO] NODE CREATE | RESPONSE BODY | %+v", resnode)
 	if _, codeok := resnode["code"]; !codeok {
-		return diag.Errorf(resnode["message"].(string))
+		return diag.Errorf("%s", resnode["message"].(string))
 	}
 
 	data := resnode["data"].(map[string]interface{})
 	if data["is_credit_sufficient"] == false {
-		return diag.Errorf(resnode["message"].(string))
+		return diag.Errorf("%s", resnode["message"].(string))
 	}
 	log.Printf("[INFO] node creation | before setting fields")
 	nodeId := data["id"].(float64)
@@ -595,7 +595,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 					return diag.FromErr(err)
 				}
 				if _, codeOK := response["code"]; !codeOK {
-					return diag.Errorf(response["message"].(string))
+					return diag.Errorf("%s", response["message"].(string))
 				}
 				continue
 			}
@@ -612,7 +612,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 				return diag.FromErr(err)
 			}
 			if _, codeOK := response["code"]; !codeOK {
-				return diag.Errorf(response["message"].(string))
+				return diag.Errorf("%s", response["message"].(string))
 			}
 		}
 	}
@@ -661,7 +661,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		prevPlan, currPlan := d.GetChange("plan")
 
 		if d.HasChange("power_status") {
-			waitForPoweringOffOn(m, nodeId, project_id, location)
+			_ = waitForPoweringOffOn(m, nodeId, project_id, location)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))

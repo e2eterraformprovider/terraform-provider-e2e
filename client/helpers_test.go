@@ -116,8 +116,8 @@ func TestGenerateSSHKeyMap(t *testing.T) {
 		expected []map[string]interface{}
 	}{
 		{
-			name:  "Empty input",
-			input: []interface{}{},
+			name:     "Empty input",
+			input:    []interface{}{},
 			expected: []map[string]interface{}{},
 		},
 		{

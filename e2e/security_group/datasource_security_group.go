@@ -100,10 +100,10 @@ func dataSourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m 
 
 	d.SetId(fmt.Sprintf("%v", sg["id"]))
 
-	_ = d.Set("project_id", sg["project_id"])
-	_ = d.Set("location", sg["location"])
-	_ = d.Set("description", sg["description"])
-	_ = d.Set("default", sg["is_default"])
+	d.Set("project_id", sg["project_id"])
+	d.Set("location", sg["location"])
+	d.Set("description", sg["description"])
+	d.Set("default", sg["is_default"])
 
 	if rulesRaw, ok := sg["rules"].([]interface{}); ok {
 		var ruleList []map[string]interface{}
@@ -120,7 +120,7 @@ func dataSourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m 
 				"size":          int(rule["network_size"].(float64)),
 			})
 		}
-		_ = d.Set("rules", ruleList)
+		d.Set("rules", ruleList)
 	}
 
 	return diags

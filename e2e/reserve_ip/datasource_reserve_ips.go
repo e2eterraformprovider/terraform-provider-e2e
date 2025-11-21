@@ -88,7 +88,7 @@ func DataSourceReserveIps() *schema.Resource {
 		ReadContext: dataSourceReadReserveIps,
 
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -111,7 +111,7 @@ func flattenReserveIps(ReserveIps *[]models.ReserveIp) []interface{} {
 
 	if ReserveIps != nil {
 
-		ois := make([]interface{}, len(*ReserveIps), len(*ReserveIps))
+		ois := make([]interface{}, len(*ReserveIps))
 		for i, reserveip := range *ReserveIps {
 
 			oi := make(map[string]interface{})

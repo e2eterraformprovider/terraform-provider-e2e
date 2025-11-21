@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceKubernetesService() *schema.Resource {
@@ -384,7 +384,7 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 	if _, codeOK := resKubernetes["code"]; !codeOK {
-		return diag.Errorf(resKubernetes["message"].(string))
+		return diag.Errorf("%s", resKubernetes["message"].(string))
 	}
 	data, ok := resKubernetes["data"].(map[string]interface{})
 	if !ok {
@@ -587,7 +587,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 						return diag.FromErr(err)
 					}
 					if _, codeOK := response["code"]; !codeOK {
-						return diag.Errorf(response["message"].(string))
+						return diag.Errorf("%s", response["message"].(string))
 					}
 					break
 				}
@@ -608,7 +608,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					return diag.FromErr(err)
 				}
 				if _, codeOK := response["code"]; !codeOK {
-					return diag.Errorf(response["message"].(string))
+					return diag.Errorf("%s", response["message"].(string))
 				}
 				continue
 				// return nil

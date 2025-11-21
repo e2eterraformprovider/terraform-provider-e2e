@@ -3,7 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -93,17 +93,17 @@ func TestSetBasicHeaders(t *testing.T) {
 
 func TestCheckResponseStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   string
-		expectError    bool
-		errorContains  string
+		name          string
+		statusCode    int
+		responseBody  string
+		expectError   bool
+		errorContains string
 	}{
 		{
-			name:        "Success - 200 OK",
-			statusCode:  http.StatusOK,
+			name:         "Success - 200 OK",
+			statusCode:   http.StatusOK,
 			responseBody: `{"status": "success"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name:          "Error - 400 Bad Request",
@@ -140,7 +140,7 @@ func TestCheckResponseStatus(t *testing.T) {
 			// Create a mock response
 			resp := &http.Response{
 				StatusCode: tt.statusCode,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(tt.responseBody)),
+				Body:       io.NopCloser(bytes.NewBufferString(tt.responseBody)),
 			}
 
 			err := CheckResponseStatus(resp)
@@ -160,17 +160,17 @@ func TestCheckResponseStatus(t *testing.T) {
 
 func TestCheckResponseCreatedStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   string
-		expectError    bool
-		errorContains  string
+		name          string
+		statusCode    int
+		responseBody  string
+		expectError   bool
+		errorContains string
 	}{
 		{
-			name:        "Success - 201 Created",
-			statusCode:  http.StatusCreated,
+			name:         "Success - 201 Created",
+			statusCode:   http.StatusCreated,
 			responseBody: `{"status": "created"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name:          "Error - 200 OK (not created)",
@@ -193,7 +193,7 @@ func TestCheckResponseCreatedStatus(t *testing.T) {
 			// Create a mock response
 			resp := &http.Response{
 				StatusCode: tt.statusCode,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(tt.responseBody)),
+				Body:       io.NopCloser(bytes.NewBufferString(tt.responseBody)),
 			}
 
 			err := CheckResponseCreatedStatus(resp)
@@ -262,7 +262,7 @@ func TestGetVpcs(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
+		_ = json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
@@ -316,16 +316,16 @@ func TestCreateVpc(t *testing.T) {
 		}
 
 		// Read and verify request body
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		var vpcCreate models.VpcCreate
-		json.Unmarshal(body, &vpcCreate)
+		_ = json.Unmarshal(body, &vpcCreate)
 
 		if vpcCreate.VpcName == "" {
 			t.Error("Expected VpcName in request body")
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
+		_ = json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
