@@ -85,7 +85,7 @@ func dataSourceReadSshKeys(ctx context.Context, d *schema.ResourceData, m interf
 func flattenSshKeys(sshKeyList *[]models.SshKey) []interface{} {
 
 	if sshKeyList != nil {
-		ois := make([]interface{}, len(*sshKeyList), len(*sshKeyList))
+		ois := make([]interface{}, len(*sshKeyList))
 
 		for i, sshKey := range *sshKeyList {
 			oi := make(map[string]interface{})

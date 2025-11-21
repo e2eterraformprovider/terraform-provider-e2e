@@ -472,7 +472,7 @@ func TestAttachPublicIPToMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		if payload["action"] != "attach" {
 			t.Errorf("Expected action 'attach', got %s", payload["action"])
@@ -513,7 +513,7 @@ func TestDetachPublicIPFromMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload map[string]string
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		if payload["action"] != "detach" {
 			t.Errorf("Expected action 'detach', got %s", payload["action"])
@@ -628,7 +628,7 @@ func TestUpgradeMariaDBPlan(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var payload map[string]interface{}
-		json.Unmarshal(body, &payload)
+		_ = json.Unmarshal(body, &payload)
 
 		templateID := int(payload["template_id"].(float64))
 		if templateID != 200 {

@@ -15,8 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
-var nameRegex string = "^[a-zA-Z0-9-_]{0,50}$"
-
 func ResourceLoadBalancer() *schema.Resource {
 	return &schema.Resource{
 		Schema:        ResouceLoadBalancerSchema(),
@@ -553,7 +551,7 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	d.Set("plan_name", node_detail["plan_name"].(string))
 	d.Set("lb_mode", lb_context["lb_mode"].(string))
 
-	if d.Get("is_ipv6_attached").(bool) == true {
+	if d.Get("is_ipv6_attached").(bool) {
 		if lb_context["host_target_ipv6"] != nil {
 			d.Set("host_target_ipv6", lb_context["host_target_ipv6"].(string))
 		} else {
@@ -642,7 +640,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	if d.HasChange("is_ipv6_attached") {
 		ipv6_attach := d.Get("is_ipv6_attached").(bool)
 		var payload map[string]interface{}
-		if ipv6_attach == true {
+		if ipv6_attach {
 			payload = map[string]interface{}{"action": "attach"}
 		} else {
 			payload = map[string]interface{}{

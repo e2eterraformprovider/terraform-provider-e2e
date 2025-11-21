@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -47,7 +47,7 @@ func (c *Client) CreateFaasNamespace(namespace string, projectID string, locatio
 		return nil, fmt.Errorf("got a non 200/201 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	var res models.FaasNamespaceResponse
 	err = json.Unmarshal(resBody, &res)
 	if err != nil {
@@ -125,7 +125,7 @@ func (c *Client) CreateFaasFunction(fn *models.FaasFunctionCreate, projectID str
 		return nil, fmt.Errorf("got a non 200/201 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	log.Printf("[INFO] CLIENT CREATE FAAS FUNCTION | Response Body: %s", string(resBody))
 
 	var res models.FaasFunctionResponse
@@ -167,7 +167,7 @@ func (c *Client) GetFaasFunction(functionID string, projectID string, location s
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	var res models.FaasFunctionResponse
 	err = json.Unmarshal(resBody, &res)
 	if err != nil {
@@ -209,7 +209,7 @@ func (c *Client) UpdateFaasFunction(functionID string, fn *models.FaasFunctionUp
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	var res models.FaasFunctionResponse
 	err = json.Unmarshal(resBody, &res)
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *Client) GetFaasLogs(functionID string, projectID string, location strin
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	var res models.FaasLogsResponse
 	err = json.Unmarshal(resBody, &res)
 	if err != nil {

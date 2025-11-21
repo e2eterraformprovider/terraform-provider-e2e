@@ -106,7 +106,7 @@ func dataSourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{
 func flattenSfs(nodes *[]models.SfssRead) []interface{} {
 
  if nodes != nil {
-     ois := make([]interface{}, len(*nodes), len(*nodes))
+     ois := make([]interface{}, len(*nodes))
 
      for i, node := range *nodes {
          oi := make(map[string]interface{})

@@ -377,7 +377,10 @@ func (c *Client) GetSavedImages(location string, project_id string) (*models.Ima
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.ImageListResponse{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -400,7 +403,10 @@ func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsRespon
 	params.Add("project_id", project_id)
 	req.URL.RawQuery = params.Encode()
 	SetBasicHeaders(c.Auth_token, req)
-	response, err := c.HttpClient.Do(req)
+	response, httpErr := c.HttpClient.Do(req)
+	if httpErr != nil {
+		return nil, httpErr
+	}
 
 	err = CheckResponseStatus(response)
 	if err != nil {
@@ -408,7 +414,10 @@ func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsRespon
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.VpcsResponse{}
 
 	err = json.Unmarshal(body, &res)

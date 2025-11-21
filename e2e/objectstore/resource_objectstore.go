@@ -102,8 +102,8 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 	_ = resourceData.Set("created_on", data["created_at"].(string))
 	_ = resourceData.Set("status", data["status"].(string))
 	_ = resourceData.Set("versioning_status", data["versioning_status"].(string))
-	resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
-	resourceData.Set("enabling_versioning", false)
+	_ = resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
+	_ = resourceData.Set("enabling_versioning", false)
 	return diags
 }
 
@@ -128,14 +128,14 @@ func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, 
 	log.Printf("[info] Object Store Resource read | before setting data")
 	data := bucket["data"].(map[string]interface{})
 	log.Printf("[INFO] Object Store Data: %s", data)
-	resourceData.Set("created_on", data["created_at"].(string))
-	resourceData.Set("status", data["status"].(string))
-	resourceData.Set("versioning_status", data["versioning_status"].(string))
-	resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
+	_ = resourceData.Set("created_on", data["created_at"].(string))
+	_ = resourceData.Set("status", data["status"].(string))
+	_ = resourceData.Set("versioning_status", data["versioning_status"].(string))
+	_ = resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
 
 	log.Printf("[info] Object Store Resource read | after setting data")
 	if resourceData.Get("status").(string) == "Running" {
-		resourceData.Set("enabling_versioning", true)
+		_ = resourceData.Set("enabling_versioning", true)
 	}
 
 	return diags
@@ -189,22 +189,4 @@ func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData
 	}
 	resourceData.SetId("")
 	return diags
-}
-
-func resourceExistsObjectStore(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
-
-	bucketName := d.Get("name").(string)
-	projectID := fmt.Sprint(d.Get("project_id").(int))
-	region := d.Get("region").(string)
-	_, err := apiClient.GetBucket(bucketName, projectID, region)
-
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return false, nil
-		} else {
-			return false, err
-		}
-	}
-	return true, nil
 }

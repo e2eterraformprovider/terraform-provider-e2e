@@ -72,7 +72,7 @@ func DataSourceObjectStores() *schema.Resource {
 		},
 		ReadContext: dataSourceReadBuckets,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -96,7 +96,7 @@ func dataSourceReadBuckets(context context.Context, resourceDataSource *schema.R
 func flattenBuckets(buckets *[]models.ObjectStore) []interface{} {
 
 	if buckets != nil {
-		buckets_list := make([]interface{}, len(*buckets), len(*buckets))
+		buckets_list := make([]interface{}, len(*buckets))
 
 		for i, bucket := range *buckets {
 			log.Printf("[INFO] Buckets----> %v", bucket)

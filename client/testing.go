@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"reflect"
 	"testing"
 )
 
@@ -67,27 +65,6 @@ func testQueryParam(t *testing.T, r *http.Request, param, expected string) {
 	}
 }
 
-// testFormValues verifies multiple form values
-func testFormValues(t *testing.T, r *http.Request, values url.Values) {
-	t.Helper()
-	if err := r.ParseForm(); err != nil {
-		t.Fatalf("Error parsing form: %v", err)
-	}
-
-	for key, want := range values {
-		if got := r.Form[key]; !reflect.DeepEqual(got, want) {
-			t.Errorf("Form value %s: %v, expected %v", key, got, want)
-		}
-	}
-}
-
-// testDeepEqual compares two values using reflect.DeepEqual
-func testDeepEqual(t *testing.T, got, want interface{}, context string) {
-	t.Helper()
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("%s:\nGot:  %+v\nWant: %+v", context, got, want)
-	}
-}
 
 // testErrorContains checks if an error contains a specific substring
 func testErrorContains(t *testing.T, err error, want string) {

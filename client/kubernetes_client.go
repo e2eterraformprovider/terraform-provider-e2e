@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -31,7 +31,7 @@ func (c *Client) GetKubernetesMasterPlans(project_id int, location string) (map[
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -63,7 +63,7 @@ func (c *Client) GetKubernetesWorkerPlans(project_id int, location string) (map[
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -107,7 +107,7 @@ func (c *Client) NewKubernetesService(item *models.KubernetesCreate, project_id 
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -136,7 +136,7 @@ func (c *Client) GetKubernetesServiceInfo(kubernetesID string, location string, 
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -252,7 +252,7 @@ func (c *Client) GetKubernetesNodePools(clusterID string, project_id int, locati
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -289,7 +289,7 @@ func (c *Client) UpdateNodePoolCardinality(item *models.NodePoolResize, nodePool
 		return nil, nil
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 
@@ -318,7 +318,7 @@ func (c *Client) DeleteNodePool(nodePoolServiceID float64, project_id int, locat
 		return nil, nil
 	}
 
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 
@@ -359,7 +359,7 @@ func (c *Client) AddNodePool(item *models.NodePoolAdd, kubernetesClusterID strin
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -397,7 +397,7 @@ func (c *Client) UpdateNodePoolDetails(item *models.NodePoolUpdate, nodePoolServ
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -428,7 +428,7 @@ func (c *Client) CheckNodePoolStatus(kubernetes_id string, project_id int, locat
 	}
 
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
