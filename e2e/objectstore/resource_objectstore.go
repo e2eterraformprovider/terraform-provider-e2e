@@ -99,11 +99,11 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 	bucketId := data["id"].(float64)
 	bucketId = math.Round(bucketId)
 	resourceData.SetId(strconv.Itoa(int(math.Round(bucketId))))
-	_ = resourceData.Set("created_on", data["created_at"].(string))
-	_ = resourceData.Set("status", data["status"].(string))
-	_ = resourceData.Set("versioning_status", data["versioning_status"].(string))
-	_ = resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
-	_ = resourceData.Set("enabling_versioning", false)
+	resourceData.Set("created_on", data["created_at"].(string))
+	resourceData.Set("status", data["status"].(string))
+	resourceData.Set("versioning_status", data["versioning_status"].(string))
+	resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
+	resourceData.Set("enabling_versioning", false)
 	return diags
 }
 
@@ -128,14 +128,14 @@ func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, 
 	log.Printf("[info] Object Store Resource read | before setting data")
 	data := bucket["data"].(map[string]interface{})
 	log.Printf("[INFO] Object Store Data: %s", data)
-	_ = resourceData.Set("created_on", data["created_at"].(string))
-	_ = resourceData.Set("status", data["status"].(string))
-	_ = resourceData.Set("versioning_status", data["versioning_status"].(string))
-	_ = resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
+	resourceData.Set("created_on", data["created_at"].(string))
+	resourceData.Set("status", data["status"].(string))
+	resourceData.Set("versioning_status", data["versioning_status"].(string))
+	resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
 
 	log.Printf("[info] Object Store Resource read | after setting data")
 	if resourceData.Get("status").(string) == "Running" {
-		_ = resourceData.Set("enabling_versioning", true)
+		resourceData.Set("enabling_versioning", true)
 	}
 
 	return diags
@@ -148,7 +148,7 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	if resourceData.HasChange("name") {
 		oldName, _ := resourceData.GetChange("name")
-		_ = resourceData.Set("name", oldName)
+		resourceData.Set("name", oldName)
 		return diag.Errorf("cannot change the bucket name of an object storage after creation")
 	}
 	bucketName := resourceData.Get("name").(string)
@@ -169,8 +169,8 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 		if err != nil {
 			return diag.FromErr(err)
 		}
-		_ = resourceData.Set("versioning_status", data["bucket_versioning_status"].(string))
-		_ = resourceData.Set("enabling_versioning", resourceData.Get("enabling_versioning").(bool))
+		resourceData.Set("versioning_status", data["bucket_versioning_status"].(string))
+		resourceData.Set("enabling_versioning", resourceData.Get("enabling_versioning").(bool))
 	}
 	return resourceReadBucket(ctx, resourceData, clientInterface)
 

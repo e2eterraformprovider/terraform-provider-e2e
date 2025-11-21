@@ -1,31 +1,49 @@
-linters-settings:
-  errcheck:
-    # Ignore error checking in test files
-    exclude-functions:
-      - (io.Closer).Close
-      - (io.ReadCloser).Close
-
 run:
-  timeout: 5m
-  tests: true
+  timeout: 10m
+  modules-download-mode: vendor
 
 issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - dupl
-    # Exclude test helper files
-    - path: testing\.go
-      linters:
-        - errcheck
+    # Exclude staticcheck deprecation warnings for schema.ResourceData.GetOkExists
+    - linters:
+        - staticcheck
+      text: "SA1019: .* is deprecated"
 
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - ineffassign
+    - gofmt
+    - goimports
+    - govet
+    - typecheck
+    - unconvert
     - staticcheck
+    - gosimple
+    - errcheck
+    - ineffassign
     - unused
+  disable:
+    - deadcode
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      # Ignore error checking for schema.Set operations
+      - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
+      - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
+      # Ignore error checking for fmt.Fprint and similar
+      - fmt.Fprint
+      - fmt.Fprintf
+      - fmt.Fprintln
+      # Ignore Close on response bodies (already logged with defer)
+      - (io.Closer).Close
+      - (io.ReadCloser).Close
+  govet:
+    settings:
+      printf:
+        funcs:
+          - diag.Errorf
+          - diag.Warningf
+  nakedret:
+    max-func-lines: 40

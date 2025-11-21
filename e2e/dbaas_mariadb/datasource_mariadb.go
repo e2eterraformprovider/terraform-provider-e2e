@@ -120,21 +120,21 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 
 	// Set fields
 	d.SetId(strconv.Itoa(maria.ID))
-	_ = d.Set("name", maria.Name)
-	_ = d.Set("database_id", db.ID)
-	_ = d.Set("database_name", db.Database)
-	_ = d.Set("database_user", db.Username)
-	_ = d.Set("status", maria.Status)
-	_ = d.Set("public_ip", master.PublicIPAddress)
-	_ = d.Set("private_ip", master.PrivateIPAddress)
-	_ = d.Set("is_public_ip_attached", master.PublicIPAddress != "")
-	_ = d.Set("disk", master.Disk)
-	_ = d.Set("plan", plan.Name)
-	_ = d.Set("software_version", software.Version)
-	_ = d.Set("power_status", master.Status)
+	d.Set("name", maria.Name)
+	d.Set("database_id", db.ID)
+	d.Set("database_name", db.Database)
+	d.Set("database_user", db.Username)
+	d.Set("status", maria.Status)
+	d.Set("public_ip", master.PublicIPAddress)
+	d.Set("private_ip", master.PrivateIPAddress)
+	d.Set("is_public_ip_attached", master.PublicIPAddress != "")
+	d.Set("disk", master.Disk)
+	d.Set("plan", plan.Name)
+	d.Set("software_version", software.Version)
+	d.Set("power_status", master.Status)
 
 	if db.PGDetail.ID != 0 {
-		_ = d.Set("parameter_group_id", db.PGDetail.ID)
+		d.Set("parameter_group_id", db.PGDetail.ID)
 	}
 
 	return diags

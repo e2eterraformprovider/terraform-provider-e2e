@@ -377,9 +377,9 @@ func (c *Client) GetSavedImages(location string, project_id string) (*models.Ima
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 	res := models.ImageListResponse{}
 	err = json.Unmarshal(body, &res)
@@ -414,9 +414,9 @@ func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsRespon
 	}
 	defer response.Body.Close()
 
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 	res := models.VpcsResponse{}
 
@@ -450,9 +450,9 @@ func (c *Client) GetVpc(vpc_id string, project_id string, location string) (*mod
 
 	defer response.Body.Close()
 
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 	res := models.VpcResponse{}
 
@@ -623,9 +623,9 @@ func (c *Client) GetReservedIps(project_id string, location string) (*models.Res
 	}
 
 	defer response.Body.Close()
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 	res := models.ResponseReserveIps{}
 	err = json.Unmarshal(body, &res)
@@ -656,9 +656,9 @@ func (c *Client) GetImage(imageId string, project_id string) (*models.ImageRespo
 	}
 
 	defer response.Body.Close()
-	body, readErr := io.ReadAll(response.Body)
-	if readErr != nil {
-		return nil, readErr
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 	res := models.ImageResponse{}
 	err = json.Unmarshal(body, &res)

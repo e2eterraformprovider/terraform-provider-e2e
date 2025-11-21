@@ -123,9 +123,9 @@ func resourceReadSecurityGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	d.SetId(fmt.Sprintf("%v", sg["id"]))
-	_ = d.Set("id", sg["id"])
-	_ = d.Set("description", sg["description"])
-	_ = d.Set("default", sg["is_default"])
+	d.Set("id", sg["id"])
+	d.Set("description", sg["description"])
+	d.Set("default", sg["is_default"])
 
 	rulesRaw := sg["rules"].([]interface{})
 	var ruleList []map[string]interface{}
@@ -145,7 +145,7 @@ func resourceReadSecurityGroup(ctx context.Context, d *schema.ResourceData, m in
 		})
 	}
 
-	_ = d.Set("rules", ruleList)
+	d.Set("rules", ruleList)
 	return diags
 }
 
@@ -203,7 +203,7 @@ func resourceCreateSecurityGroup(ctx context.Context, d *schema.ResourceData, m 
 	}
 
 	d.SetId(fmt.Sprintf("%v", sg["id"]))
-	_ = d.Set("id", sg["id"])
+	d.Set("id", sg["id"])
 
 	rulesRaw := sg["rules"].([]interface{})
 	var ruleList []map[string]interface{}
@@ -223,7 +223,7 @@ func resourceCreateSecurityGroup(ctx context.Context, d *schema.ResourceData, m 
 		})
 	}
 
-	_ = d.Set("rules", ruleList)
+	d.Set("rules", ruleList)
 
 	return diags
 }
