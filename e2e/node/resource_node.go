@@ -661,7 +661,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		prevPlan, currPlan := d.GetChange("plan")
 
 		if d.HasChange("power_status") {
-			waitForPoweringOffOn(m, nodeId, project_id, location)
+			_ = waitForPoweringOffOn(m, nodeId, project_id, location)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))

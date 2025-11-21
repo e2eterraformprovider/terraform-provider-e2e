@@ -511,7 +511,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		}
 
 		if d.HasChange("power_status") {
-			waitForPoweringOffOnDBaaS(m, dbaas_id.(string), project_id, location)
+			_ = waitForPoweringOffOnDBaaS(m, dbaas_id.(string), project_id, location)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))

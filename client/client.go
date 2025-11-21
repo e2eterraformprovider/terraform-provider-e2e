@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -85,7 +84,7 @@ func (c *Client) NewNode(item *models.NodeCreate, project_id string, location st
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -129,7 +128,7 @@ func (c *Client) GetNode(nodeId string, project_id string, location string) (map
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	log.Printf("%s", stringresponse)
 	resBytes := []byte(stringresponse)
@@ -176,7 +175,10 @@ func (c *Client) GetNodes(location string, project_id string) (*models.ResponseN
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	res := models.ResponseNodes{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -192,7 +194,10 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 		Type: action,
 		Name: Name,
 	}
-	nodeAction, err := json.Marshal(node_action)
+	nodeAction, marshalErr := json.Marshal(node_action)
+	if marshalErr != nil {
+		return nil, marshalErr
+	}
 	url := c.Api_endpoint + "nodes/" + nodeId + "/actions/"
 	log.Printf("[info] %s", url)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(nodeAction))
@@ -223,7 +228,7 @@ func (c *Client) UpdateNode(nodeId string, action string, Name string, project_i
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -374,7 +379,7 @@ func (c *Client) GetSavedImages(location string, project_id string) (*models.Ima
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.ImageListResponse{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -405,7 +410,7 @@ func (c *Client) GetVpcs(location string, project_id string) (*models.VpcsRespon
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.VpcsResponse{}
 
 	err = json.Unmarshal(body, &res)
@@ -438,7 +443,7 @@ func (c *Client) GetVpc(vpc_id string, project_id string, location string) (*mod
 
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.VpcResponse{}
 
 	err = json.Unmarshal(body, &res)
@@ -483,7 +488,7 @@ func (c *Client) CreateVpc(location string, item *models.VpcCreate, project_id s
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -515,7 +520,7 @@ func (c *Client) DeleteVpc(vpcId string, project_id string, location string) (ma
 		return nil, err
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -552,7 +557,7 @@ func (c *Client) NewReservedIp(project_id string, location string) (map[string]i
 		return nil, fmt.Errorf("unauthorized | status %v | The provided api_token or api_key or project_id seem to be incorrect. Please revise them accordingly", response.StatusCode)
 	}
 	defer response.Body.Close()
-	resBody, _ := ioutil.ReadAll(response.Body)
+	resBody, _ := io.ReadAll(response.Body)
 	stringresponse := string(resBody)
 	resBytes := []byte(stringresponse)
 	var jsonRes map[string]interface{}
@@ -608,7 +613,7 @@ func (c *Client) GetReservedIps(project_id string, location string) (*models.Res
 	}
 
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.ResponseReserveIps{}
 	err = json.Unmarshal(body, &res)
 	if err != nil {
@@ -638,7 +643,7 @@ func (c *Client) GetImage(imageId string, project_id string) (*models.ImageRespo
 	}
 
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := models.ImageResponse{}
 	err = json.Unmarshal(body, &res)
 	log.Printf("[info] CLIENT | GET IMAGE |  %+v", res)
@@ -730,7 +735,7 @@ func (c *Client) CheckNodeLCMState(nodeId string, project_id string, location st
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	res := map[string]interface{}{}
 	err = json.Unmarshal(body, &res)
 	log.Printf("[info] CLIENT | CheckNodeLCMState | res = %+v", res)

@@ -114,9 +114,9 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	d.SetId(res.Data.ID)
-	d.Set("name", res.Data.Name)
-	d.Set("namespace", res.Data.Namespace)
-	d.Set("runtime", res.Data.Runtime)
+	_ = d.Set("name", res.Data.Name)
+	_ = d.Set("namespace", res.Data.Namespace)
+	_ = d.Set("runtime", res.Data.Runtime)
 	d.Set("memory_mb", res.Data.MemoryMB)
 	d.Set("timeout_seconds", res.Data.Timeout)
 	d.Set("min_replicas", res.Data.MinReplicas)

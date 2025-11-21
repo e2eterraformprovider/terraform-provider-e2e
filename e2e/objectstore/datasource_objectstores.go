@@ -88,7 +88,7 @@ func dataSourceReadBuckets(context context.Context, resourceDataSource *schema.R
 	}
 	log.Printf("[INFO] BUCKETS DATA SOURCE | before setting --> %v", &Response.Data)
 	eos_bucket_list := flattenBuckets(&Response.Data)
-	resourceDataSource.Set("bucket_list", eos_bucket_list)
+	_ = resourceDataSource.Set("bucket_list", eos_bucket_list)
 	resourceDataSource.SetId("bucket_list")
 	return diags
 }

@@ -99,9 +99,9 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 	bucketId := data["id"].(float64)
 	bucketId = math.Round(bucketId)
 	resourceData.SetId(strconv.Itoa(int(math.Round(bucketId))))
-	resourceData.Set("created_on", data["created_at"].(string))
-	resourceData.Set("status", data["status"].(string))
-	resourceData.Set("versioning_status", data["versioning_status"].(string))
+	_ = resourceData.Set("created_on", data["created_at"].(string))
+	_ = resourceData.Set("status", data["status"].(string))
+	_ = resourceData.Set("versioning_status", data["versioning_status"].(string))
 	resourceData.Set("lifecycle_configuration_status", data["lifecycle_configuration_status"].(string))
 	resourceData.Set("enabling_versioning", false)
 	return diags

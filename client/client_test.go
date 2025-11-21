@@ -262,7 +262,7 @@ func TestGetVpcs(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(mockResponse)
+		_ = json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
@@ -318,14 +318,14 @@ func TestCreateVpc(t *testing.T) {
 		// Read and verify request body
 		body, _ := ioutil.ReadAll(r.Body)
 		var vpcCreate models.VpcCreate
-		json.Unmarshal(body, &vpcCreate)
+		_ = json.Unmarshal(body, &vpcCreate)
 
 		if vpcCreate.VpcName == "" {
 			t.Error("Expected VpcName in request body")
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(mockResponse)
+		_ = json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 

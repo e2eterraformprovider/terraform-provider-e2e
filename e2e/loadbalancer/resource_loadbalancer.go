@@ -641,7 +641,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	if d.HasChange("is_ipv6_attached") {
 		ipv6_attach := d.Get("is_ipv6_attached").(bool)
-		payload := map[string]interface{}{}
+		var payload map[string]interface{}
 		if ipv6_attach == true {
 			payload = map[string]interface{}{"action": "attach"}
 		} else {
@@ -662,6 +662,9 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		return diags
 	}
 	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location, d.Get("project_id").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
 	resData := res["data"].(map[string]interface{})
 	if resData["is_credit_sufficient"] == false {
 		return diag.Errorf("Credit is not sufficient")

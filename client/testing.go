@@ -118,12 +118,12 @@ func contains(s, substr string) bool {
 func writeJSON(w http.ResponseWriter, statusCode int, jsonData string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	fmt.Fprint(w, jsonData)
+	_, _ = fmt.Fprint(w, jsonData)
 }
 
 // writeError writes an error response
 func writeError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	fmt.Fprintf(w, `{"error": %q, "code": %d}`, message, statusCode)
+	_, _ = fmt.Fprintf(w, `{"error": %q, "code": %d}`, message, statusCode)
 }

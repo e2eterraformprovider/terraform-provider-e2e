@@ -168,7 +168,7 @@ func (client *Client) SetBucketVersioning(bucket_name string, location string, p
 	if err != nil {
 		return nil, err
 	}
-	defer versioning_response.Body.Close()
+	defer func() { _ = versioning_response.Body.Close() }()
 	resBody, _ := ioutil.ReadAll(versioning_response.Body)
 	log.Printf("[INFO] VERSIOING RESPONSE ---> %s", resBody)
 	stringresponse := string(resBody)

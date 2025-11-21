@@ -22,7 +22,7 @@ func TestCreateMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.MariaDBCreateRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Name == "" {
 			t.Error("Expected Name in request body")
@@ -197,7 +197,7 @@ func TestMariaDBExists(t *testing.T) {
 				if tt.statusCode == http.StatusOK {
 					writeJSON(w, tt.statusCode, `{"code": 200}`)
 				} else {
-					w.Write([]byte("Error"))
+					_, _ = w.Write([]byte("Error"))
 				}
 			})
 
@@ -373,7 +373,7 @@ func TestAttachVPCToMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "attach" {
 			t.Errorf("Expected action 'attach', got %s", req.Action)
@@ -431,7 +431,7 @@ func TestDetachVPCFromMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.AttachDetachVPCRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "detach" {
 			t.Errorf("Expected action 'detach', got %s", req.Action)
@@ -554,7 +554,7 @@ func TestAttachParameterGroupToMariaDB(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.ParameterGroupRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Action != "add" {
 			t.Errorf("Expected action 'add', got %s", req.Action)
@@ -670,7 +670,7 @@ func TestExpandMariaDBDisk(t *testing.T) {
 
 		body, _ := ioutil.ReadAll(r.Body)
 		var req models.DiskUpgradeRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Size != 50 {
 			t.Errorf("Expected size 50, got %d", req.Size)
