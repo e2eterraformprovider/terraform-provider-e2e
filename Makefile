@@ -49,11 +49,12 @@ fmtcheck:
 
 .PHONY: build test testacc vet fmt fmtcheck lint
 
-#.PHONY: _upgrade_goe2e
-#_upgrade_godo:
+.PHONY: _upgrade_goe2e
+_upgrade_goe2e:
 #	go get -u github.com/e2enetworks/goe2e
+	@echo "==> upgraded goe2e"
 
-#.PHONY: upgrade_goe2e
+.PHONY: upgrade_goe2e
 upgrade_goe2e: _upgrade_goe2e vendor
 	@echo "==> upgrade the goe2e version"
 	@echo ""
