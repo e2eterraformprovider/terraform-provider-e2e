@@ -49,14 +49,6 @@ func testURLPath(t *testing.T, r *http.Request, expected string) {
 	}
 }
 
-// testHeader verifies a specific header value
-func testHeader(t *testing.T, r *http.Request, header, expected string) {
-	t.Helper()
-	if got := r.Header.Get(header); got != expected {
-		t.Errorf("Header %s: %v, expected %v", header, got, expected)
-	}
-}
-
 // testQueryParam verifies a specific query parameter value
 func testQueryParam(t *testing.T, r *http.Request, param, expected string) {
 	t.Helper()
@@ -70,11 +62,4 @@ func writeJSON(w http.ResponseWriter, statusCode int, jsonData string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_, _ = fmt.Fprint(w, jsonData)
-}
-
-// writeError writes an error response
-func writeError(w http.ResponseWriter, statusCode int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_, _ = fmt.Fprintf(w, `{"error": %q, "code": %d}`, message, statusCode)
 }

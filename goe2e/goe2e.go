@@ -29,9 +29,6 @@ const (
 	defaultRetryMax     = 4
 	defaultRetryWaitMax = 30 // seconds
 	defaultRetryWaitMin = 1  // seconds
-
-	// FaaS API paths
-	faasBasePath = "faas"
 )
 
 // Client manages communication with the E2E Networks API
