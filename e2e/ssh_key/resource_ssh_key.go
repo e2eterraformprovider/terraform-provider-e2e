@@ -5,7 +5,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
@@ -57,7 +57,8 @@ func ResourceSshKey() *schema.Resource {
 }
 
 func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] SSH KEY ADD STARTS ")
@@ -88,7 +89,8 @@ func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	pk := d.Id()
@@ -119,7 +121,8 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 }
 
 func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	pk := d.Id()
@@ -155,7 +158,8 @@ func resourceUpdateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceExistsSshKey(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	pk := d.Id()
 	project_id := d.Get("project_id").(string)

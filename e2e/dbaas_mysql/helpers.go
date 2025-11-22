@@ -7,6 +7,7 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -35,7 +36,8 @@ func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *cl
 }
 
 func WaitForPoweringOffOnDBaaS(m interface{}, dbaasID string, project_id string, location string) error {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	maxRetries := 30
 	for i := 0; i < maxRetries; i++ {

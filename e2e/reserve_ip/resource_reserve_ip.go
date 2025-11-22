@@ -13,7 +13,7 @@ import (
 
 	//"time"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
@@ -102,7 +102,8 @@ func convertToString(data map[string]interface{}, key string) string {
 }
 
 func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
@@ -140,7 +141,8 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	reserveId := d.Get("ip_address").(string)
@@ -206,7 +208,8 @@ func resourceUpdateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 func resourceDeleteReserveIP(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	ip_address := d.Get("ip_address").(string)
 	project_id := d.Get("project_id").(string)

@@ -5,7 +5,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -53,7 +53,8 @@ func DataSourceSshKey() *schema.Resource {
 }
 func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	log.Printf("[INFO] INSIDE SSH KEY DATA SOURCE | read")
 	label := d.Get("label").(string)

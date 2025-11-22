@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -79,7 +79,8 @@ func DataSourceObjectStores() *schema.Resource {
 
 func dataSourceReadBuckets(context context.Context, resourceDataSource *schema.ResourceData, clientInterface interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	apiClient := clientInterface.(*client.Client)
+	cfg := clientInterface.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] ---- Execute Get Request to fetch Buckets Data. ---- ")
 	project_id := fmt.Sprint(resourceDataSource.Get("project_id").(int))
 	Response, err := apiClient.GetBuckets(resourceDataSource.Get("region").(string), project_id)

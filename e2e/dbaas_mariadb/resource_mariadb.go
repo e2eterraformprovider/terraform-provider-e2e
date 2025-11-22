@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -207,7 +207,8 @@ func ResourceMariaDB() *schema.Resource {
 }
 
 func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	projectID := d.Get("project_id").(string)
@@ -297,7 +298,8 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 }
 
 func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	id := d.Id()
@@ -335,7 +337,8 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func resourceDeleteMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	id := d.Id()
@@ -352,7 +355,8 @@ func resourceDeleteMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 }
 
 func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	id := d.Id()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)

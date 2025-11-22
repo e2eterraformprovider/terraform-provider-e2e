@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -62,7 +62,8 @@ func ResourceContainerRegistry() *schema.Resource {
 }
 
 func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
@@ -98,7 +99,8 @@ func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
@@ -122,7 +124,8 @@ func resourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
@@ -140,7 +143,8 @@ func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	if d.HasChange("prevent_vul") || d.HasChange("severity") {
 		projectID := d.Get("project_id").(string)

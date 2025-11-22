@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -302,7 +303,8 @@ func ResourceKubernetesService() *schema.Resource {
 }
 
 func GetSlugName(ctx context.Context, d *schema.ResourceData, m interface{}) (string, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] KUBERNETES PLAN READ STARTS")
 	version := d.Get("version").(string)
 	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
@@ -405,7 +407,8 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("=============INSIDE KUBERNETES READ RESOURCE==========================")
@@ -434,7 +437,8 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceDeleteKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	kubernetesID := d.Id()
 	status := d.Get("status").(string)
@@ -450,7 +454,8 @@ func resourceDeleteKubernetesService(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceExistsKubernetesService(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	kubernetesId := d.Id()
 	location := d.Get("location").(string)
@@ -467,7 +472,8 @@ func resourceExistsKubernetesService(d *schema.ResourceData, m interface{}) (boo
 }
 
 func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	status := d.Get("status").(string)
 	kubernetesId := d.Id()
 	if status != "Running" {
@@ -620,7 +626,8 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 }
 
 func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m interface{}) (map[string]interface{}, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] KUBERNETES CLUSTER NODE POOLS MAPPING STARTS")
 	clusterID := d.Id()
 	// Initialize the map to store service_name and service_id mappings

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -74,7 +74,8 @@ func ResourceBlockStorage() *schema.Resource {
 }
 
 func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	err := validateSize(d, m)
@@ -117,7 +118,8 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] BLOCK STORAGE READ STARTS")
@@ -156,7 +158,8 @@ func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 
 func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	blockStorageID := d.Id()
 	project_id := d.Get("project_id").(int)
@@ -246,7 +249,8 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	blockStorageID := d.Id()
 	status := d.Get("status").(string)
@@ -266,7 +270,8 @@ func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceExistsBlockStorage(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	blockStorageID := d.Id()
 	_, err := apiClient.GetBlockStorage(blockStorageID, d.Get("project_id").(int), d.Get("location").(string))
@@ -291,7 +296,8 @@ func convertIntoGB(bsSizeRes float64) float64 {
 }
 
 func validateSize(d *schema.ResourceData, m interface{}) error {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	resPlans, err := apiClient.GetBlockStoragePlans(d.Get("project_id").(int), d.Get("location").(string))
 

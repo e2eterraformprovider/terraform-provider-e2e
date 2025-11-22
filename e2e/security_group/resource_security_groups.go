@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -108,7 +108,8 @@ func ResourceSecurityGroup() *schema.Resource {
 }
 
 func resourceReadSecurityGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Println("[INFO] SECURITY GROUP READ STARTS")
@@ -150,7 +151,8 @@ func resourceReadSecurityGroup(ctx context.Context, d *schema.ResourceData, m in
 }
 
 func resourceCreateSecurityGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Println("[INFO] SECURITY GROUP CREATE STARTS")
@@ -229,7 +231,8 @@ func resourceCreateSecurityGroup(ctx context.Context, d *schema.ResourceData, m 
 }
 
 func resourceDeleteSecurityGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Println("[INFO] SECURITY GROUP READ STARTS")
@@ -248,7 +251,8 @@ func resourceDeleteSecurityGroup(ctx context.Context, d *schema.ResourceData, m 
 
 func resourceUpdateSecurityGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	if d.HasChange("rules") {
 		log.Println("[INFO] SECURITY GROUP RULES UPDATE STARTS")

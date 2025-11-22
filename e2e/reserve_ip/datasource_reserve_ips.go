@@ -15,7 +15,7 @@ import (
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -95,7 +95,8 @@ func DataSourceReserveIps() *schema.Resource {
 
 func dataSourceReadReserveIps(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] Inside images data source ")
 	Response, err := apiClient.GetReservedIps(d.Get("project_id").(string), d.Get("region").(string))
 	if err != nil {

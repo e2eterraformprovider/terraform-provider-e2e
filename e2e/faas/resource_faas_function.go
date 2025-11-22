@@ -114,8 +114,8 @@ func ResourceFaasFunction() *schema.Resource {
 }
 
 func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	opts := &goe2e.RequestOptions{
@@ -183,8 +183,8 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
@@ -233,8 +233,8 @@ func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
@@ -313,8 +313,8 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceDeleteFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
@@ -335,8 +335,8 @@ func resourceDeleteFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceExistsFaasFunction(d *schema.ResourceData, m interface{}) (bool, error) {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 
 	functionID := d.Id()
 	opts := &goe2e.RequestOptions{
