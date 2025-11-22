@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -114,17 +114,21 @@ func ResourceFaasFunction() *schema.Resource {
 }
 
 func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 	var diags diag.Diagnostics
 
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
+
 	namespace := d.Get("namespace").(string)
 
 	log.Printf("[INFO] FAAS FUNCTION CREATE STARTS")
 
 	// First, try to create the namespace (it may already exist, which is fine)
-	_, err := apiClient.CreateFaasNamespace(namespace, projectID, location)
+	_, _, err := client.FaaS.CreateNamespace(ctx, namespace, opts)
 	if err != nil {
 		log.Printf("[WARN] Namespace creation returned error (may already exist): %v", err)
 	}
@@ -138,7 +142,7 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	// Create the function
-	functionReq := &models.FaasFunctionCreate{
+	createReq := &goe2e.FaasFunctionCreateRequest{
 		Name:        d.Get("name").(string),
 		Namespace:   namespace,
 		Runtime:     d.Get("runtime").(string),
@@ -150,50 +154,53 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		Environment: environment,
 	}
 
-	res, err := apiClient.CreateFaasFunction(functionReq, projectID, location)
+	fn, _, err := client.FaaS.CreateFunction(ctx, createReq, opts)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] FAAS FUNCTION CREATE | RESPONSE: %+v", res)
+	log.Printf("[INFO] FAAS FUNCTION CREATE | RESPONSE: %+v", fn)
 
 	// Set the ID and other attributes
-	d.SetId(res.Data.ID)
-	d.Set("name", res.Data.Name)
-	d.Set("namespace", res.Data.Namespace)
-	d.Set("runtime", res.Data.Runtime)
-	d.Set("memory_mb", res.Data.MemoryMB)
-	d.Set("timeout_seconds", res.Data.Timeout)
-	d.Set("min_replicas", res.Data.MinReplicas)
-	d.Set("max_replicas", res.Data.MaxReplicas)
-	d.Set("endpoint_url", res.Data.EndpointURL)
-	d.Set("status", res.Data.Status)
-	d.Set("created_at", res.Data.CreatedAt)
-	d.Set("updated_at", res.Data.UpdatedAt)
+	d.SetId(fn.ID)
+	d.Set("name", fn.Name)
+	d.Set("namespace", fn.Namespace)
+	d.Set("runtime", fn.Runtime)
+	d.Set("memory_mb", fn.MemoryMB)
+	d.Set("timeout_seconds", fn.Timeout)
+	d.Set("min_replicas", fn.MinReplicas)
+	d.Set("max_replicas", fn.MaxReplicas)
+	d.Set("endpoint_url", fn.EndpointURL)
+	d.Set("status", fn.Status)
+	d.Set("created_at", fn.CreatedAt)
+	d.Set("updated_at", fn.UpdatedAt)
 
-	if res.Data.Environment != nil {
-		d.Set("environment", res.Data.Environment)
+	if fn.Environment != nil {
+		d.Set("environment", fn.Environment)
 	}
 
 	return diags
 }
 
 func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
 
 	log.Printf("[INFO] FAAS FUNCTION READ | ID: %s", functionID)
 
-	res, err := apiClient.GetFaasFunction(functionID, projectID, location)
+	fn, _, err := client.FaaS.GetFunction(ctx, functionID, opts)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if res == nil {
+	if fn == nil {
 		log.Printf("[WARN] FaaS function with ID %s not found", functionID)
 		d.SetId("")
 
@@ -206,60 +213,63 @@ func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m int
 		return diags
 	}
 
-	d.Set("name", res.Data.Name)
-	d.Set("namespace", res.Data.Namespace)
-	d.Set("runtime", res.Data.Runtime)
-	d.Set("memory_mb", res.Data.MemoryMB)
-	d.Set("timeout_seconds", res.Data.Timeout)
-	d.Set("min_replicas", res.Data.MinReplicas)
-	d.Set("max_replicas", res.Data.MaxReplicas)
-	d.Set("endpoint_url", res.Data.EndpointURL)
-	d.Set("status", res.Data.Status)
-	d.Set("created_at", res.Data.CreatedAt)
-	d.Set("updated_at", res.Data.UpdatedAt)
+	d.Set("name", fn.Name)
+	d.Set("namespace", fn.Namespace)
+	d.Set("runtime", fn.Runtime)
+	d.Set("memory_mb", fn.MemoryMB)
+	d.Set("timeout_seconds", fn.Timeout)
+	d.Set("min_replicas", fn.MinReplicas)
+	d.Set("max_replicas", fn.MaxReplicas)
+	d.Set("endpoint_url", fn.EndpointURL)
+	d.Set("status", fn.Status)
+	d.Set("created_at", fn.CreatedAt)
+	d.Set("updated_at", fn.UpdatedAt)
 
-	if res.Data.Environment != nil {
-		d.Set("environment", res.Data.Environment)
+	if fn.Environment != nil {
+		d.Set("environment", fn.Environment)
 	}
 
 	return diags
 }
 
 func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
 
 	log.Printf("[INFO] FAAS FUNCTION UPDATE | ID: %s", functionID)
 
-	updateReq := &models.FaasFunctionUpdate{}
+	updateReq := &goe2e.FaasFunctionUpdateRequest{}
 	hasChanges := false
 
 	if d.HasChange("code_inline") {
-		updateReq.Code = d.Get("code_inline").(string)
+		updateReq.Code = goe2e.String(d.Get("code_inline").(string))
 		hasChanges = true
 	}
 
 	if d.HasChange("memory_mb") {
-		updateReq.MemoryMB = d.Get("memory_mb").(int)
+		updateReq.MemoryMB = goe2e.Int(d.Get("memory_mb").(int))
 		hasChanges = true
 	}
 
 	if d.HasChange("timeout_seconds") {
-		updateReq.Timeout = d.Get("timeout_seconds").(int)
+		updateReq.Timeout = goe2e.Int(d.Get("timeout_seconds").(int))
 		hasChanges = true
 	}
 
 	if d.HasChange("min_replicas") {
-		updateReq.MinReplicas = d.Get("min_replicas").(int)
+		updateReq.MinReplicas = goe2e.Int(d.Get("min_replicas").(int))
 		hasChanges = true
 	}
 
 	if d.HasChange("max_replicas") {
-		updateReq.MaxReplicas = d.Get("max_replicas").(int)
+		updateReq.MaxReplicas = goe2e.Int(d.Get("max_replicas").(int))
 		hasChanges = true
 	}
 
@@ -279,40 +289,43 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		return diags
 	}
 
-	res, err := apiClient.UpdateFaasFunction(functionID, updateReq, projectID, location)
+	fn, _, err := client.FaaS.UpdateFunction(ctx, functionID, updateReq, opts)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] FAAS FUNCTION UPDATE | RESPONSE: %+v", res)
+	log.Printf("[INFO] FAAS FUNCTION UPDATE | RESPONSE: %+v", fn)
 
 	// Update the state with the response
-	d.Set("memory_mb", res.Data.MemoryMB)
-	d.Set("timeout_seconds", res.Data.Timeout)
-	d.Set("min_replicas", res.Data.MinReplicas)
-	d.Set("max_replicas", res.Data.MaxReplicas)
-	d.Set("endpoint_url", res.Data.EndpointURL)
-	d.Set("status", res.Data.Status)
-	d.Set("updated_at", res.Data.UpdatedAt)
+	d.Set("memory_mb", fn.MemoryMB)
+	d.Set("timeout_seconds", fn.Timeout)
+	d.Set("min_replicas", fn.MinReplicas)
+	d.Set("max_replicas", fn.MaxReplicas)
+	d.Set("endpoint_url", fn.EndpointURL)
+	d.Set("status", fn.Status)
+	d.Set("updated_at", fn.UpdatedAt)
 
-	if res.Data.Environment != nil {
-		d.Set("environment", res.Data.Environment)
+	if fn.Environment != nil {
+		d.Set("environment", fn.Environment)
 	}
 
 	return diags
 }
 
 func resourceDeleteFaasFunction(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 	var diags diag.Diagnostics
 
 	functionID := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
 
 	log.Printf("[INFO] FAAS FUNCTION DELETE | ID: %s", functionID)
 
-	err := apiClient.DeleteFaasFunction(functionID, projectID, location)
+	_, err := client.FaaS.DeleteFunction(ctx, functionID, opts)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -322,16 +335,19 @@ func resourceDeleteFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceExistsFaasFunction(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 
 	functionID := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
 
-	res, err := apiClient.GetFaasFunction(functionID, projectID, location)
+	fn, _, err := client.FaaS.GetFunction(context.Background(), functionID, opts)
 	if err != nil {
 		return false, err
 	}
 
-	return res != nil, nil
+	return fn != nil, nil
 }

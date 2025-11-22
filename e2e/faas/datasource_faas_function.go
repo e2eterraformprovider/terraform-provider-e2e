@@ -4,7 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -95,39 +96,42 @@ func DataSourceFaasFunction() *schema.Resource {
 }
 
 func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	config := m.(*config.CombinedConfig)
+	client := config.NewClient
 	var diags diag.Diagnostics
 
 	functionID := d.Get("function_id").(string)
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	opts := &goe2e.RequestOptions{
+		ProjectID: d.Get("project_id").(string),
+		Location:  d.Get("location").(string),
+	}
 
 	log.Printf("[INFO] DATASOURCE FAAS FUNCTION READ | ID: %s", functionID)
 
-	res, err := apiClient.GetFaasFunction(functionID, projectID, location)
+	fn, _, err := client.FaaS.GetFunction(ctx, functionID, opts)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if res == nil {
+	if fn == nil {
 		return diag.Errorf("FaaS function with ID %s not found", functionID)
 	}
 
-	d.SetId(res.Data.ID)
-	d.Set("name", res.Data.Name)
-	d.Set("namespace", res.Data.Namespace)
-	d.Set("runtime", res.Data.Runtime)
-	d.Set("memory_mb", res.Data.MemoryMB)
-	d.Set("timeout_seconds", res.Data.Timeout)
-	d.Set("min_replicas", res.Data.MinReplicas)
-	d.Set("max_replicas", res.Data.MaxReplicas)
-	d.Set("endpoint_url", res.Data.EndpointURL)
-	d.Set("status", res.Data.Status)
-	d.Set("created_at", res.Data.CreatedAt)
-	d.Set("updated_at", res.Data.UpdatedAt)
+	d.SetId(fn.ID)
+	d.Set("name", fn.Name)
+	d.Set("namespace", fn.Namespace)
+	d.Set("runtime", fn.Runtime)
+	d.Set("memory_mb", fn.MemoryMB)
+	d.Set("timeout_seconds", fn.Timeout)
+	d.Set("min_replicas", fn.MinReplicas)
+	d.Set("max_replicas", fn.MaxReplicas)
+	d.Set("endpoint_url", fn.EndpointURL)
+	d.Set("status", fn.Status)
+	d.Set("created_at", fn.CreatedAt)
+	d.Set("updated_at", fn.UpdatedAt)
 
-	if res.Data.Environment != nil {
-		d.Set("environment", res.Data.Environment)
+	if fn.Environment != nil {
+		d.Set("environment", fn.Environment)
 	}
 
 	return diags

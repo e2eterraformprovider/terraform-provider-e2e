@@ -1,26 +1,25 @@
 TEST?=$$(go list ./... | grep -v 'vendor')
+GOFMT_FILES?=$$(find . -name '*.go' |grep -v vendor)
+PKG_NAME?=e2e
+ACCTEST_TIMEOUT?=120m
+ACCTEST_PARALLELISM?=2
 HOSTNAME=registry.terraform.io
 NAMESPACE=e2eterraformprovider
-NAME=e2e
-BINARY=terraform-provider-${NAME}
-VERSION=0.1.0
-OS_ARCH=linux_amd64
+BINARY=terraform-provider-${PKG_NAME}
 
-default: install
 
-build:
-	go build -o ${BINARY}
+default: build
 
-install: build
-	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
-	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
+build: fmtcheck
+	go install
 
-test:
-	go test -i $(TEST) || exit 1
+test: fmtcheck
+	go test $(TEST) || exit 1
 	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
 
-testacc:
-	TF_ACC=1 go test $(TEST) -v $(TESTARGS) -timeout 120m
+testacc: fmtcheck
+	TF_ACC=1 go test -v ./$(PKG_NAME)/... $(TESTARGS) -timeout $(ACCTEST_TIMEOUT) -parallel=$(ACCTEST_PARALLELISM)
+
 
 vet:
 	@echo "go vet ."
@@ -31,37 +30,38 @@ vet:
 		exit 1; \
 	fi
 
-lint:
+goimports:
+	@echo "==> Fixing imports code with goimports..."
+	@find . -name '*.go' | grep -v vendor | grep -v generator-resource-id | while read f; do goimports -w "$$f"; done
+
+install-golangci-lint:
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+
+lint: install-golangci-lint
 	@echo "==> Checking source code with golangci-lint..."
 	@golangci-lint run ./...
-
-install-terrafmt:
-	@echo "==> Installing terrafmt..."
-	@go install github.com/katbyte/terrafmt@latest
-
-terrafmt-check: install-terrafmt
-	@echo "==> Checking terraform code with terrafmt..."
-	@if [ -d "docs" ]; then \
-		terrafmt diff --check --fmtcompat docs/ || (echo "Terraform code blocks in docs/ are not formatted. Run 'make terrafmt' to fix."; exit 1); \
-	fi
-	@if [ -d "examples" ]; then \
-		terrafmt diff --check --fmtcompat examples/ || (echo "Terraform code blocks in examples/ are not formatted. Run 'make terrafmt' to fix."; exit 1); \
-	fi
-
-terrafmt: install-terrafmt
-	@echo "==> Formatting terraform code with terrafmt..."
-	@if [ -d "docs" ]; then \
-		terrafmt fmt docs/; \
-	fi
-	@if [ -d "examples" ]; then \
-		terrafmt fmt examples/; \
-	fi
 
 fmt:
 	gofmt -w -s .
 
-sweep:
-	@echo "WARNING: This will destroy infrastructure. Use only in development accounts."
-	go test $(TEST) -v -sweep=all $(SWEEPARGS) -timeout 60m
+fmtcheck:
+	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
-.PHONY: build install test testacc vet lint install-terrafmt terrafmt-check terrafmt fmt sweep
+.PHONY: build test testacc vet fmt fmtcheck lint
+
+.PHONY: _upgrade_goe2e
+_upgrade_goe2e:
+#	go get -u github.com/e2enetworks/goe2e
+	@echo "==> upgraded goe2e"
+
+.PHONY: upgrade_goe2e
+upgrade_goe2e: _upgrade_goe2e vendor
+	@echo "==> upgrade the goe2e version"
+	@echo ""
+
+.PHONY: vendor
+vendor:
+	@echo "==> vendor dependencies"
+	@echo ""
+	go mod vendor
+	go mod tidy

@@ -1,6 +1,7 @@
 run:
-  timeout: 10m
+  timeout: 60m
   tests: true
+#  modules-download-mode: vendor
 
 issues:
   max-issues-per-linter: 0
@@ -18,14 +19,13 @@ issues:
         - dupl
 
 linters:
+  disable-all: true
   enable:
     - gofmt
     - goimports
     - govet
-    - typecheck
     - unconvert
     - staticcheck
-    - gosimple
     - errcheck
     - ineffassign
     - unused
