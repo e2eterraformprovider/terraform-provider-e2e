@@ -1,9 +1,12 @@
 package e2e
 
 import (
+	"fmt"
+
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/autoscaling"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/container_registry"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_mariadb"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_mysql"
@@ -19,6 +22,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sfs"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -90,9 +94,27 @@ func Provider() *schema.Provider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+	apiKey := d.Get("api_key").(string)
+	authToken := d.Get("auth_token").(string)
+	apiEndpoint := d.Get("api_endpoint").(string)
 
-	api_key := d.Get("api_key").(string)
-	auth_token := d.Get("auth_token").(string)
-	api_endpoint := d.Get("api_endpoint").(string)
-	return client.NewClient(api_key, auth_token, api_endpoint), nil
+	// Create old client for existing services (nodes, ssh_keys, etc.)
+	oldClient := client.NewClient(apiKey, authToken, apiEndpoint)
+
+	// Create new goe2e client for FaaS
+	opts := []goe2e.ClientOpt{}
+	if apiEndpoint != "" && apiEndpoint != "https://api.e2enetworks.com/myaccount/api/v1/" {
+		opts = append(opts, goe2e.SetBaseURL(apiEndpoint))
+	}
+
+	newClient, err := goe2e.NewClient(apiKey, authToken, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error creating goe2e client: %s", err)
+	}
+
+	// Return combined config with both clients
+	return &config.CombinedConfig{
+		OldClient: oldClient,
+		NewClient: newClient,
+	}, nil
 }
