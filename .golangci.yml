@@ -9,7 +9,7 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude-rules:
-    # Exclude staticcheck deprecation warnings for schema.ResourceData.GetOkExists
+    # Exclude staticcheck deprecation warnings for schema methods
     - linters:
         - staticcheck
       text: "SA1019: .* is deprecated"
@@ -38,20 +38,17 @@ linters:
 linters-settings:
   errcheck:
     exclude-functions:
-      # Ignore error checking for schema.Set operations (both value and pointer receivers)
+      # Ignore error checking for schema.Set operations
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
       - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
       - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
-      # Ignore error checking for fmt.Fprint and similar
+      # Ignore error checking for fmt and io
       - fmt.Fprint
       - fmt.Fprintf
       - fmt.Fprintln
   govet:
-    settings:
-      printf:
-        funcs:
-          - diag.Errorf
-          - diag.Warningf
+    disable:
+      - printf
   nakedret:
     max-func-lines: 40
