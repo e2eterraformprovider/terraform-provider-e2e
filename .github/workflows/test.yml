@@ -31,8 +31,6 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
 
       # Disabled terrafmt check for now
       # - name: Format Check
