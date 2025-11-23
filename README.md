@@ -1,16 +1,17 @@
 <div align="center">
   <img src="https://e2enetworks.com/OnlyE2E.svg" alt="E2E Networks Logo" width="180"/>
 
-  # 🚀 Terraform Provider for E2E Networks
+# 🚀 Terraform Provider for E2E Networks
 
   <p>
-    <a href="https://cloud.e2enetworks.com/"><img src="https://img.shields.io/badge/E2E_Cloud-Console-blue?style=for-the-badge" alt="E2E Cloud Console"/></a>
+    <a href="https://myaccount.e2enetworks.com/"><img src="https://img.shields.io/badge/E2E_Cloud-Console-blue?style=for-the-badge" alt="E2E Cloud Console"/></a>
     <a href="https://docs.e2enetworks.com/"><img src="https://img.shields.io/badge/E2E-Documentation-green?style=for-the-badge" alt="E2E Documentation"/></a>
     <a href="https://registry.terraform.io/providers/e2eterraformprovider/e2e/latest"><img src="https://img.shields.io/badge/Terraform-Provider-purple?style=for-the-badge" alt="Terraform E2E Provider"/></a>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT"/></a>
   </p>
 
-  **A Production-Ready Infrastructure as Code Solution for E2E Networks Cloud**
+**A Production-Ready Infrastructure as Code Solution for E2E Networks**
+
 </div>
 
 ---
@@ -22,52 +23,55 @@ The E2E Networks Terraform Provider enables you to manage your E2E Networks clou
 ## Requirements
 
 - [Terraform](https://www.terraform.io/downloads.html) 0.13+
-- [Go](https://golang.org/doc/install) 1.21+ (for building the provider plugin)
 - E2E Networks account with API credentials
 
-## Building The Provider
+## Contributing to the Provider
 
-If you want to build the provider from source:
+### Prerequisites
 
-### Clone the Repository
+- [Go](https://golang.org/doc/install) 1.24+
+- [Terraform](https://www.terraform.io/downloads.html) 0.13+
+
+### Clone and Build
 
 ```bash
+# Set GOPATH (add to ~/.bashrc or ~/.zshrc)
+export GOPATH=~/code/go
+
+# Create directory structure and clone
 mkdir -p $GOPATH/src/github.com/e2eterraformprovider
 cd $GOPATH/src/github.com/e2eterraformprovider
 git clone https://github.com/e2eterraformprovider/terraform-provider-e2e
 cd terraform-provider-e2e
+
+# Build the provider
+make build
 ```
 
-### Build
+### Installing Locally
+
+Install the provider for local development and testing:
 
 ```bash
-go build -o terraform-provider-e2e
-```
-
-### Install Locally
-
-To use the provider locally, copy it to Terraform's plugin directory:
-
-```bash
-# Set your desired version (use any version like 0.1.0, 1.0.0, etc.)
+# Set version and platform
 VERSION="0.1.0"
-PLATFORM="linux_amd64"  # See platform options below
+PLATFORM="darwin_arm64"  # darwin_amd64 (Intel Mac) | darwin_arm64 (Apple Silicon) | linux_amd64 | windows_amd64
 
-# Create Terraform's local plugin directory structure
-# This tells Terraform where to find your locally built provider
+# Install to Terraform plugin directory
 mkdir -p ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/${VERSION}/${PLATFORM}
-
-# Copy the built provider binary to the plugin directory
 cp terraform-provider-e2e ~/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/${VERSION}/${PLATFORM}/
 ```
 
-**Platform options** - Set `PLATFORM` to match your operating system:
-- Linux: `linux_amd64`
-- macOS (Intel): `darwin_amd64`
-- macOS (Apple Silicon): `darwin_arm64`
-- Windows: `windows_amd64`
+### Development Workflow
 
-**Note**: The version number (e.g., `0.1.0`) can be any value you choose for local development.
+```bash
+make fmt      # Format code
+make lint     # Run linters
+make test     # Run tests
+make vendor   # Download and vendor dependencies (optional, creates vendor/ directory)
+```
+
+**Note**: The `vendor/` directory is gitignored. Dependencies are managed via `go.mod` and `go.sum`. Use `make vendor` only if you need local vendoring for offline/air-gapped builds or testing.
 
 ## Documentation
 
@@ -83,7 +87,7 @@ For detailed documentation on all resources and data sources, visit:
 
 **Built with ❤️ using E2E Networks Cloud**
 
-[E2E Console](https://cloud.e2enetworks.com/) • [Documentation](https://docs.e2enetworks.com/) • [Terraform Provider](https://registry.terraform.io/providers/e2eterraformprovider/e2e/latest)
+[E2E Console](https://myaccount.e2enetworks.com/) • [Documentation](https://docs.e2enetworks.com/) • [Terraform Provider](https://registry.terraform.io/providers/e2eterraformprovider/e2e/latest)
 
 MIT License - See [MIT License](https://opensource.org/licenses/MIT) for details
 
