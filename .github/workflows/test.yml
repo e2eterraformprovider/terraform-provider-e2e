@@ -29,10 +29,8 @@ jobs:
       - name: Go Vet
         run: make vet
 
-      - name: Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
+      - name: Lint with golangci-lint
+        run: make lint
 
       # Disabled terrafmt check for now
       # - name: Format Check
