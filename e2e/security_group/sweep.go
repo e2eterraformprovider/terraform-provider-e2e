@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -25,7 +24,7 @@ func sweepSecurityGroups(region string) error {
 		return fmt.Errorf("error getting config for region %s: %w", region, err)
 	}
 
-	client := cfg.Client()
+	_ = cfg.Client()
 
 	// Get test project ID and location from environment
 	projectID := os.Getenv("E2E_TEST_PROJECT_ID")
