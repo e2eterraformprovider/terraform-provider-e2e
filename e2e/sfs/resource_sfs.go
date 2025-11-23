@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -113,7 +113,8 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 }
 
 func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
@@ -158,7 +159,8 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 }
 
 func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] Inside SFS Resource Read")
@@ -204,7 +206,8 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 }
 
 func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	Sfs_id := d.Id()
 	project_id := d.Get("project_id").(string)

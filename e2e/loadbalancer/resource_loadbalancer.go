@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -493,7 +494,8 @@ func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) 
 	return &loadBalancerObj, nil
 }
 func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	loadBalancerObj, diags := CreateLoadBalancerObject(apiClient, d)
@@ -524,7 +526,8 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("=============INSIDE RESOURCE READ LOAD BALANCER==========================")
@@ -571,7 +574,8 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	lbId := d.Id()
 	location := d.Get("location").(string)
@@ -671,7 +675,8 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	lbId := d.Id()
 	lb_status := d.Get("status").(string)

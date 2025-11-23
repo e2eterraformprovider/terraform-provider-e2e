@@ -15,7 +15,7 @@ import (
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -96,7 +96,8 @@ func ResouceVpc() *schema.Resource {
 func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var diags diag.Diagnostics
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] Inside vpcs  resourcsource | read ")
 	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
@@ -115,7 +116,8 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 }
 func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] Inside vpcs  resource | create ")
 
 	newvpc := models.VpcCreate{
@@ -167,7 +169,8 @@ func ResourceUpdateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 
 func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	vpcId := d.Id()
 

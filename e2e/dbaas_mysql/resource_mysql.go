@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -193,7 +194,8 @@ func CreateMySqlObject(apiClient *client.Client, d *schema.ResourceData) (*model
 func ResourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var diags diag.Diagnostics
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	mySqlObj, diags := CreateMySqlObject(apiClient, d)
 
@@ -229,7 +231,8 @@ func ResourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 
 func ResourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	res, err := apiClient.GetMySqlDbaas(d.Id(), d.Get("project_id").(string), d.Get("location").(string))
 	if err != nil {
@@ -250,7 +253,8 @@ func ResourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func ResourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	mySqlDBaaSId := d.Id()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
@@ -483,7 +487,8 @@ func ResourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 }
 
 func ResourceDeleteMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	mySqlDBaaSId := d.Id()
 

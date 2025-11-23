@@ -181,6 +181,18 @@ func WithRetryAndBackoffs(retryConfig RetryConfig) ClientOpt {
 	}
 }
 
+// SetStaticRateLimit configures rate limiting (requests per second).
+// TODO: Implement rate limiting similar to DigitalOcean's approach using rate.Limiter.
+// For now, this is a placeholder that accepts the configuration but doesn't enforce it.
+func SetStaticRateLimit(rps float64) ClientOpt {
+	return func(c *Client) error {
+		// TODO: Implement rate limiting
+		// Example implementation would use golang.org/x/time/rate:
+		// c.rateLimiter = rate.NewLimiter(rate.Limit(rps), int(rps))
+		return nil
+	}
+}
+
 // NewRequest creates an API request. A relative URL can be provided in urlStr,
 // which will be resolved to the BaseURL of the Client. Relative URLs should
 // always be specified without a preceding slash. If specified, the value

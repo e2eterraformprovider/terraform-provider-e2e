@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -104,7 +104,8 @@ func DataSourceScalerGroup() *schema.Resource {
 }
 
 func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	scalerID := d.Get("id").(string)

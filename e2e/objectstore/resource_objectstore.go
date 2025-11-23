@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -71,7 +71,8 @@ func ResourceObjectStore() *schema.Resource {
 }
 
 func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData, clientInterface interface{}) diag.Diagnostics {
-	apiClient := clientInterface.(*client.Client)
+	cfg := clientInterface.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] BUCKET CREATE STARTS ")
@@ -109,7 +110,8 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, clientInterface interface{}) diag.Diagnostics {
 
-	apiClient := clientInterface.(*client.Client)
+	cfg := clientInterface.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	log.Printf("[info] inside node Resource read")
 	bucketName := resourceData.Get("name").(string)
@@ -144,7 +146,8 @@ func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, 
 
 func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData, clientInterface interface{}) diag.Diagnostics {
 
-	apiClient := clientInterface.(*client.Client)
+	cfg := clientInterface.(*config.Config)
+	apiClient := cfg.Client()
 
 	if resourceData.HasChange("name") {
 		oldName, _ := resourceData.GetChange("name")
@@ -177,7 +180,8 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 }
 
 func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData, clientInterface interface{}) diag.Diagnostics {
-	apiClient := clientInterface.(*client.Client)
+	cfg := clientInterface.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	bucketName := resourceData.Get("name").(string)
 	projectID := fmt.Sprint(resourceData.Get("project_id").(int))

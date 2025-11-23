@@ -96,8 +96,8 @@ func DataSourceFaasFunction() *schema.Resource {
 }
 
 func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	config := m.(*config.CombinedConfig)
-	client := config.NewClient
+	cfg := m.(*config.Config)
+	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	functionID := d.Get("function_id").(string)

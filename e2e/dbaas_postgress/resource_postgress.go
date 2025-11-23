@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -178,7 +178,8 @@ func ResourcePostgresDBaaS() *schema.Resource {
 }
 
 func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] DBAAS_POSTGRESS CREATE STARTS")
@@ -273,7 +274,8 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] DBAAS_POSTGRESS READ STARTS")
@@ -320,7 +322,8 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 
 func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	if d.HasChange("power_status") {
 		status := d.Get("status").(string)
@@ -559,7 +562,8 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceDeletePostgress(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	var diags diag.Diagnostics
 
@@ -587,7 +591,8 @@ func convertToInterfaces(ids []int) []interface{} {
 }
 
 func waitForPoweringOffOnDBaaS(m interface{}, dbaasID string, project_id string, location string) error {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	maxRetries := 20 // e.g., retry up to 20 times
 	for i := 0; i < maxRetries; i++ {

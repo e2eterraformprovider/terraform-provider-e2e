@@ -7,7 +7,7 @@ import (
 	// "math"
 	// "regexp"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	// "github.com/devteametwoe/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
@@ -104,7 +104,8 @@ func DataSourceNode() *schema.Resource {
 }
 func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	log.Printf("[INFO] INSIDE NODE DATA SOURCE | read")
 	nodeId := d.Get("node_id").(string)

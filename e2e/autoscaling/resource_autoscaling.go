@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -266,7 +267,8 @@ func ResourceScalerGroup() *schema.Resource {
 func resourceCreateScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	log.Println("[INFO] Starting CreateScalerGroup operation")
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	imageName := d.Get("vm_image_name").(string)
@@ -326,7 +328,8 @@ func resourceCreateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	log.Printf("[INFO] Reading ScalerGroup ID: %s", d.Id())
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	id := d.Id()
@@ -456,7 +459,8 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 func resourceDeleteScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	log.Printf("[INFO] Deleting ScalerGroup ID: %s", d.Id())
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	id := d.Id()
@@ -569,7 +573,8 @@ func expandCreateScalerGroupRequest(d *schema.ResourceData, client *client.Clien
 }
 
 func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	projectID := d.Get("project_id").(string)
 	location := d.Get("location").(string)
 	id := d.Id()

@@ -12,7 +12,7 @@ import (
 
 	//"time"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/models"
 
 	// "github.com/hashicorp/terraform-plugin-log"
@@ -109,7 +109,8 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 }
 
 func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] IMAGE CREATE")
@@ -135,7 +136,8 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 
 func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	log.Printf("[info] inside node Resource read")
 	imageId := d.Id()
@@ -179,7 +181,8 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	log.Printf("[INFO] DELETE IMAGE")
 	imageId := d.Id()
@@ -193,7 +196,8 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 }
 
 func resourceExistsImage(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	ImageId := d.Id()
 	_, err := apiClient.GetImage(ImageId, d.Get("project_id").(string))

@@ -3,14 +3,15 @@ package node
 import (
 	"log"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
 
 func convertLabelToSshKey(m interface{}, ssh_keys []interface{}, project_id string, location string) ([]interface{}, diag.Diagnostics) {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	log.Printf("[INFO] Helper Function ssh_keys = %+v", ssh_keys)
 	if ssh_keys != nil || len(ssh_keys) > 0 {
@@ -35,7 +36,8 @@ func convertLabelToSshKey(m interface{}, ssh_keys []interface{}, project_id stri
 
 func checkBlockStorage(m interface{}, image_id, project_id string, location string) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	project_id_string, err := convertStringToInt(project_id)
 	if err != nil {
 		return diag.FromErr(err)

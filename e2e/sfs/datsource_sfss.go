@@ -16,7 +16,7 @@ import (
 	// "github.com/hashicorp/terraform-plugin-log"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -88,7 +88,8 @@ func DataSourceSfs() *schema.Resource {
 func dataSourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var diags diag.Diagnostics
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	log.Printf("[INFO] Inside nodes data source ")
 	project_id := d.Get("project_id").(string)
 	Response, err := apiClient.GetSfss(d.Get("region").(string), project_id)

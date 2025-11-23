@@ -15,6 +15,7 @@ import (
 	//"time"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 
 	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
@@ -266,7 +267,8 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 }
 
 func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	copy_ssh_keys := d.Get("ssh_keys")
 
@@ -383,7 +385,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	copy_ssh_keys := d.Get("ssh_keys")
 	log.Printf("[info] inside node Resource read")
@@ -438,7 +441,8 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -754,7 +758,8 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 }
 
 func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -771,7 +776,8 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 }
 
 func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -818,7 +824,8 @@ func convertStringToInt(str string) (int, error) {
 }
 
 func waitForPoweringOffOn(m interface{}, nodeId string, project_id string, location string) error {
-	apiClient := m.(*client.Client)
+	cfg := m.(*config.Config)
+	apiClient := cfg.Client()
 
 	for {
 		// Wait for some time before checking the status again (is Node powered on or off?)
