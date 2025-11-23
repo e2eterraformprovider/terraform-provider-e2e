@@ -15,7 +15,7 @@ rules:
         - staticcheck
       text: "SA1019: .* is deprecated"
 
-    - path: "_test\\.go"
+    - source: ".*_test\\.go$"
       linters:
         - errcheck
         - gosec
