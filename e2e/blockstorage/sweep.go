@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -25,87 +23,45 @@ func init() {
 }
 
 func sweepBlockStorages(region string) error {
-	cfg, err := sharedConfigForRegion(region)
-	if err != nil {
-		return fmt.Errorf("error getting config for region %s: %w", region, err)
-	}
+	// NOTE: The E2E API client does not currently have a method to list all block storages.
+	// The GetBlockStorage method only retrieves a single block storage by ID.
+	// Until a ListBlockStorages or GetBlockStorages method is implemented in the client,
+	// automatic sweeping of test block storages is not possible.
+	// Test block storages will need to be cleaned up manually or via the destroy functionality
+	// in the test framework.
 
-	client := cfg.Client()
+	log.Printf("[INFO] Block storage sweeping not yet implemented - waiting for ListBlockStorages API method")
+	log.Printf("[INFO] Please manually clean up test block storages with prefix '%s' if needed", testBlockStoragePrefix)
 
-	// Get test project ID and location from environment
-	projectIDStr := os.Getenv("E2E_TEST_PROJECT_ID")
-	location := os.Getenv("E2E_TEST_LOCATION")
+	// Uncomment and update the code below once the API client has a list method:
+	//
+	// cfg, err := sharedConfigForRegion(region)
+	// if err != nil {
+	// 	return fmt.Errorf("error getting config for region %s: %w", region, err)
+	// }
+	//
+	// client := cfg.Client()
+	// projectIDStr := os.Getenv("E2E_TEST_PROJECT_ID")
+	// location := os.Getenv("E2E_TEST_LOCATION")
+	//
+	// if projectIDStr == "" || location == "" {
+	// 	log.Printf("[WARNING] E2E_TEST_PROJECT_ID or E2E_TEST_LOCATION not set, skipping sweep")
+	// 	return nil
+	// }
+	//
+	// projectID, err := strconv.Atoi(projectIDStr)
+	// if err != nil {
+	// 	return fmt.Errorf("error converting project ID to int: %w", err)
+	// }
+	//
+	// // Get list of block storages
+	// response, err := client.ListBlockStorages(projectID, location)
+	// if err != nil {
+	// 	return fmt.Errorf("error listing block storages: %w", err)
+	// }
+	//
+	// ... rest of sweep logic
 
-	if projectIDStr == "" || location == "" {
-		log.Printf("[WARNING] E2E_TEST_PROJECT_ID or E2E_TEST_LOCATION not set, skipping sweep")
-		return nil
-	}
-
-	projectID, err := strconv.Atoi(projectIDStr)
-	if err != nil {
-		return fmt.Errorf("error converting project ID to int: %w", err)
-	}
-
-	// Get list of block storages
-	response, err := client.GetBlockStorages(projectID, location)
-	if err != nil {
-		return fmt.Errorf("error listing block storages: %w", err)
-	}
-
-	data, ok := response["data"].([]interface{})
-	if !ok {
-		log.Printf("[WARNING] No block storages found or invalid response format")
-		return nil
-	}
-
-	log.Printf("[DEBUG] Found %d block storages in total", len(data))
-
-	sweptCount := 0
-	for _, item := range data {
-		blockStorage, ok := item.(map[string]interface{})
-		if !ok {
-			log.Printf("[WARNING] Invalid block storage format, skipping")
-			continue
-		}
-
-		blockStorageName, ok := blockStorage["name"].(string)
-		if !ok {
-			log.Printf("[WARNING] Block storage name not found, skipping")
-			continue
-		}
-
-		if !strings.HasPrefix(blockStorageName, testBlockStoragePrefix) {
-			log.Printf("[DEBUG] Skipping block storage %s (does not have test prefix)", blockStorageName)
-			continue
-		}
-
-		// Check if block storage is attached, skip if it is
-		status, ok := blockStorage["status"].(string)
-		if ok && status == "Attached" {
-			log.Printf("[INFO] Skipping attached block storage: %s", blockStorageName)
-			continue
-		}
-
-		blockStorageID, ok := blockStorage["id"].(float64)
-		if !ok {
-			log.Printf("[WARNING] Invalid block storage ID format for %s, skipping", blockStorageName)
-			continue
-		}
-
-		blockStorageIDStr := fmt.Sprintf("%.0f", blockStorageID)
-		log.Printf("[INFO] Deleting block storage: %s (ID: %s)", blockStorageName, blockStorageIDStr)
-
-		err := client.DeleteBlockStorage(blockStorageIDStr, projectID, location)
-		if err != nil {
-			log.Printf("[ERROR] Failed to delete block storage %s: %v", blockStorageName, err)
-			continue
-		}
-
-		sweptCount++
-		log.Printf("[INFO] Successfully deleted block storage: %s", blockStorageName)
-	}
-
-	log.Printf("[INFO] Swept %d block storages", sweptCount)
 	return nil
 }
 

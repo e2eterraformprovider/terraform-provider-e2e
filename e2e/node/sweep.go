@@ -40,45 +40,27 @@ func sweepNodes(region string) error {
 	}
 
 	// Get list of nodes
-	response, err := client.GetNodes(projectID, location)
+	response, err := client.GetNodes(location, projectID)
 	if err != nil {
 		return fmt.Errorf("error listing nodes: %w", err)
 	}
 
-	data, ok := response["data"].([]interface{})
-	if !ok {
-		log.Printf("[WARNING] No nodes found or invalid response format")
+	if response == nil || len(response.Data) == 0 {
+		log.Printf("[WARNING] No nodes found")
 		return nil
 	}
 
-	log.Printf("[DEBUG] Found %d nodes in total", len(data))
+	log.Printf("[DEBUG] Found %d nodes in total", len(response.Data))
 
 	sweptCount := 0
-	for _, item := range data {
-		node, ok := item.(map[string]interface{})
-		if !ok {
-			log.Printf("[WARNING] Invalid node format, skipping")
-			continue
-		}
-
-		nodeName, ok := node["name"].(string)
-		if !ok {
-			log.Printf("[WARNING] Node name not found, skipping")
-			continue
-		}
-
+	for _, node := range response.Data {
+		nodeName := node.Name
 		if !strings.HasPrefix(nodeName, testNodePrefix) {
 			log.Printf("[DEBUG] Skipping node %s (does not have test prefix)", nodeName)
 			continue
 		}
 
-		nodeID, ok := node["id"].(float64)
-		if !ok {
-			log.Printf("[WARNING] Invalid node ID format for %s, skipping", nodeName)
-			continue
-		}
-
-		nodeIDStr := fmt.Sprintf("%.0f", nodeID)
+		nodeIDStr := fmt.Sprintf("%.0f", node.ID)
 		log.Printf("[INFO] Deleting node: %s (ID: %s)", nodeName, nodeIDStr)
 
 		err := client.DeleteNode(nodeIDStr, projectID, location)
