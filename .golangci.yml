@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 60m
   tests: true
@@ -18,11 +20,14 @@ issues:
         - gosec
         - dupl
 
-linters:
-  disable-all: true
+formatters:
   enable:
     - gofmt
     - goimports
+
+linters:
+  disable-all: true
+  enable:
     - govet
     - unconvert
     - staticcheck
