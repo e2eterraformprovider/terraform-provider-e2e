@@ -32,7 +32,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.62.0
+          version: latest
 
       # Disabled terrafmt check for now
       # - name: Format Check
