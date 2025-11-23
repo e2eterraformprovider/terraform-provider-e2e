@@ -3,7 +3,6 @@ version: 2
 run:
   timeout: 60m
   test: true
-  modules-download-mode: vendor
 
 issues:
   max-issues-per-linter: 0
