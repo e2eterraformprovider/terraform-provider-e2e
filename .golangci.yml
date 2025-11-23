@@ -3,23 +3,11 @@ version: 2
 run:
   timeout: 60m
   test: true
+  modules-download-mode: vendor
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-
-# v2 replacement for "issues.exclude-rules"
-rules:
-  exclude-rules:
-    - linters:
-        - staticcheck
-      text: "SA1019: .* is deprecated"
-
-    - source: ".*_test\\.go$"
-      linters:
-        - errcheck
-        - gosec
-        - dupl
 
 linters:
   enable:
@@ -30,23 +18,66 @@ linters:
     - ineffassign
     - unused
 
-lintersSettings:
-  errcheck:
-    exclude-functions:
-      - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
-      - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
-      - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
-      - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
-      - fmt.Fprint
-      - fmt.Fprintf
-      - fmt.Fprintln
+  settings:
+    errcheck:
+      exclude-functions:
+        - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
+        - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
+        - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
+        - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (*io.Closer).Close
 
-  govet:
-    settings:
-      printf:
-        funcs:
-          - diag.Errorf
-          - diag.Warningf
+    govet:
+      settings:
+        printf:
+          funcs:
+            - diag.Errorf
+            - diag.Warningf
 
-  nakedret:
-    max-func-lines: 40
+    nakedret:
+      max-func-lines: 40
+
+  exclusions:
+    rules:
+      # Exclude test files from certain linters
+      - path: ".*_test\\.go$"
+        linters:
+          - errcheck
+          - gosec
+          - dupl
+
+      # Exclude staticcheck QF (quickfix) suggestions
+      - linters:
+          - staticcheck
+        text: "QF1003"
+
+      - linters:
+          - staticcheck
+        text: "QF1001"
+
+      - linters:
+          - staticcheck
+        text: "QF1007"
+
+      - linters:
+          - staticcheck
+        text: "QF1011"
+
+      # Exclude staticcheck ST (style) suggestions
+      - linters:
+          - staticcheck
+        text: "ST1005"
+
+      # Exclude deprecated warnings
+      - linters:
+          - staticcheck
+        text: "SA1019.*is deprecated"
+
+      # Exclude unused warnings from sweep files
+      - linters:
+          - unused
+        path: ".*sweep\\.go$"
