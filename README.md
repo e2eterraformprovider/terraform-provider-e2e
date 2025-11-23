@@ -68,8 +68,10 @@ cp terraform-provider-e2e ~/.terraform.d/plugins/registry.terraform.io/e2eterraf
 make fmt      # Format code
 make lint     # Run linters
 make test     # Run tests
-make vendor   # Vendor dependencies
+make vendor   # Download and vendor dependencies (optional, creates vendor/ directory)
 ```
+
+**Note**: The `vendor/` directory is gitignored. Dependencies are managed via `go.mod` and `go.sum`. Use `make vendor` only if you need local vendoring for offline/air-gapped builds or testing.
 
 ## Documentation
 

@@ -5,3 +5,6 @@ terraform.tfstate.backup
 .terraform
 terraform-provider-e2e
 .terraform.lock.hcl
+
+# Vendor directory
+vendor/
