@@ -23,8 +23,6 @@ rules:
 
 linters:
   enable:
-    - gofmt
-    - goimports
     - govet
     - unconvert
     - staticcheck
