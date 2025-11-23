@@ -1,28 +1,28 @@
+version: 2
+
 run:
   timeout: 60m
-  tests: true
-#  modules-download-mode: vendor
+  test: true
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+
+# v2 replacement for "issues.exclude-rules"
+rules:
   exclude-rules:
-    # Exclude staticcheck deprecation warnings for schema.ResourceData.GetOkExists
     - linters:
         - staticcheck
       text: "SA1019: .* is deprecated"
-    # Exclude errcheck from test files
-    - path: _test\.go
+
+    - source: ".*_test\\.go$"
       linters:
         - errcheck
         - gosec
         - dupl
 
 linters:
-  disable-all: true
   enable:
-    - gofmt
-    - goimports
     - govet
     - unconvert
     - staticcheck
@@ -30,23 +30,23 @@ linters:
     - ineffassign
     - unused
 
-linters-settings:
+lintersSettings:
   errcheck:
     exclude-functions:
-      # Ignore error checking for schema.Set operations (both value and pointer receivers)
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
       - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).Set
       - (github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
       - (*github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema.ResourceData).SetId
-      # Ignore error checking for fmt.Fprint and similar
       - fmt.Fprint
       - fmt.Fprintf
       - fmt.Fprintln
+
   govet:
     settings:
       printf:
         funcs:
           - diag.Errorf
           - diag.Warningf
+
   nakedret:
     max-func-lines: 40
