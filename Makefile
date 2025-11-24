@@ -11,7 +11,9 @@ BINARY=terraform-provider-${PKG_NAME}
 default: build
 
 build: fmtcheck
-	go install
+	go mod tidy
+	@mkdir -p bin
+	go build -o bin/$(BINARY)
 
 test: fmtcheck
 	go test $(TEST) || exit 1
@@ -47,21 +49,26 @@ fmt:
 fmtcheck:
 	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
-.PHONY: build test testacc vet fmt fmtcheck lint
+.PHONY: build test testacc vet fmt fmtcheck lint install _upgrade_goe2e upgrade_goe2e vendor
 
-.PHONY: _upgrade_goe2e
 _upgrade_goe2e:
 #	go get -u github.com/e2enetworks/goe2e
 	@echo "==> upgraded goe2e"
 
-.PHONY: upgrade_goe2e
 upgrade_goe2e: _upgrade_goe2e vendor
 	@echo "==> upgrade the goe2e version"
 	@echo ""
 
-.PHONY: vendor
 vendor:
 	@echo "==> vendor dependencies"
 	@echo ""
 	go mod vendor
 	go mod tidy
+
+install: build
+	@PLATFORM="darwin_arm64"; \
+	VERSION="0.1.0"; \
+	PLUGIN_DIR=$$HOME/.terraform.d/plugins/registry.terraform.io/e2eterraformprovider/e2e/$$VERSION/$$PLATFORM; \
+	echo "Version: $$VERSION | Platform: $$PLATFORM | Installing provider to Terraform plugin directory"; \
+	mkdir -p $$PLUGIN_DIR && cp bin/$(BINARY) $$PLUGIN_DIR/; \
+	echo "==> Provider installed successfully to $$PLUGIN_DIR"
