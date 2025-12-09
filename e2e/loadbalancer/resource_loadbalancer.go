@@ -2,15 +2,16 @@ package loadbalancer
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -18,24 +19,102 @@ import (
 
 func ResourceLoadBalancer() *schema.Resource {
 	return &schema.Resource{
-		Schema:        ResouceLoadBalancerSchema(),
+		Schema:        ResourceLoadBalancerSchema(),
 		CreateContext: resourceCreateLoadBalancer,
 		ReadContext:   resourceReadLoadBalancer,
 		UpdateContext: resourceUpdateLoadBalancer,
 		DeleteContext: resourceDeleteLoadBalancer,
 		Exists:        resourceExistsLoadBalancer,
+		CustomizeDiff: resourceLoadBalancerCustomizeDiff,
 		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
+			State: customImportStateLoadBalancer,
+		},
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceLoadBalancerResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceLoadBalancerStateUpgradeV0toV1,
+				Version: 0,
+			},
 		},
 	}
 }
 
-func ResouceLoadBalancerSchema() map[string]*schema.Schema {
+func customImportStateLoadBalancer(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), "/")
+
+	// Support both formats: <lb_id> or <project_id>/<region>/<lb_id>
+	if len(parts) == 1 {
+		// Simple format: just LB ID (uses provider defaults for project/region)
+		d.SetId(parts[0])
+		return []*schema.ResourceData{d}, nil
+	} else if len(parts) == 3 {
+		// Full format: project_id/region/lb_id
+		d.Set(e2econstants.AttrProjectID, parts[0])
+		d.Set(e2econstants.AttrRegion, parts[1])
+		d.SetId(parts[2])
+		return []*schema.ResourceData{d}, nil
+	}
+
+	return nil, fmt.Errorf("invalid import format, expected: <lb_id> or <project_id>/<region>/<lb_id>")
+}
+
+// resourceLoadBalancerCustomizeDiff handles custom diff logic
+// Validates field conflicts and emits deprecation warnings
+func resourceLoadBalancerCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
+	// Emit deprecation warning if location is used
+	if _, ok := d.GetOk(e2econstants.AttrLocation); ok {
+		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
+	}
+
+	// Validate that region and location are not both set (handled by ConflictsWith, but double-check)
+	if _, hasRegion := d.GetOk(e2econstants.AttrRegion); hasRegion {
+		if _, hasLocation := d.GetOk(e2econstants.AttrLocation); hasLocation {
+			return fmt.Errorf("cannot set both 'region' and 'location' parameters")
+		}
+	}
+
+	// Ensure at least one of name or lb_name is provided
+	_, hasName := d.GetOk(e2econstants.AttrName)
+	_, hasLbName := d.GetOk(e2econstants.AttrLbName)
+	if !hasName && !hasLbName {
+		return fmt.Errorf("either 'name' or 'lb_name' must be provided")
+	}
+
+	// Emit deprecation warning if lb_name is used
+	if hasLbName {
+		log.Printf("[WARN] Parameter 'lb_name' is deprecated and will be removed in v4.0. Please use 'name' instead")
+	}
+
+	// Emit deprecation warning if lb_reserve_ip is used
+	if _, ok := d.GetOk("lb_reserve_ip"); ok {
+		log.Printf("[WARN] Parameter 'lb_reserve_ip' is deprecated and will be removed in v4.0. Please use 'floating_ip_id' instead")
+	}
+
+	return nil
+}
+
+func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
-		"plan_name": {
+		// ============================================
+		// COMMON FIELDS
+		// ============================================
+		e2econstants.AttrRegion: config.RegionSchema(),
+		e2econstants.AttrLocation: func() *schema.Schema {
+			s := config.LocationSchema()
+			s.Deprecated = "The 'location' field is deprecated. Use 'region' instead. This field will be removed in v4.0."
+			return s
+		}(),
+		e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+		// ============================================
+		// REQUIRED INPUT FIELDS (Immutable)
+		// ============================================
+		e2econstants.AttrPlan: {
 			Type:        schema.TypeString,
 			Required:    true,
-			Description: "It is the plan of which load balancer is going to launch",
+			ForceNew:    true,
+			Description: "the plan name of the Load Balancer",
 			ValidateFunc: validation.StringInSlice([]string{
 				"E2E-LB-2",
 				"E2E-LB-3",
@@ -43,111 +122,133 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 				"E2E-LB-5",
 			}, false),
 		},
-		"lb_name": {
-			Type:         schema.TypeString,
-			Required:     true,
-			Description:  "It is the name of load balancer, letter,digit,underscore,hyphen are allowed",
-			ValidateFunc: node.ValidateName,
+		e2econstants.AttrName: {
+			Type:          schema.TypeString,
+			Optional:      true,
+			Description:   "name of the Load Balancer (letters, digits, underscores, and hyphens are allowed). This is the recommended field name.",
+			ValidateFunc:  node.ValidateName,
+			ConflictsWith: []string{e2econstants.AttrLbName},
 		},
-		"project_id": {
+		e2econstants.AttrLbName: {
+			Type:          schema.TypeString,
+			Optional:      true,
+			Deprecated:    "The 'lb_name' field is deprecated. Use 'name' instead. This field will be removed in v4.0.",
+			Description:   "name of the Load Balancer (letters, digits, underscores, and hyphens are allowed). Deprecated: use 'name' instead.",
+			ValidateFunc:  node.ValidateName,
+			ConflictsWith: []string{e2econstants.AttrName},
+		},
+		e2econstants.AttrLbMode: {
 			Type:        schema.TypeString,
 			Required:    true,
-			Description: "This is your project ID in which you want to create the resource.",
 			ForceNew:    true,
-		},
-		"lb_type": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "External",
-			Description: "It is used to define internal or extenal load balancer",
-		},
-		"lb_mode": {
-			Type:        schema.TypeString,
-			Required:    true,
-			Description: "In which mode load balancer is going to launch http, https, both",
+			Description: "the mode of the Load Balancer (HTTP, HTTPS, or Both)",
 			ValidateFunc: validation.StringInSlice([]string{
 				"HTTP",
 				"HTTPS",
 				"Both",
 			}, false),
 		},
+
+		// ============================================
+		// OPTIONAL INPUT FIELDS - CREATION (Immutable)
+		// ============================================
+		e2econstants.AttrLbType: {
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     "External",
+			ForceNew:    true,
+			Description: "the type of Load Balancer (Internal or External)",
+		},
 		"node_list_type": {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "S",
-			Description: "It is used to find out either node is static or dynamic autoscaling",
+			ForceNew:    true,
+			Description: "the node list type (S for static nodes, D for dynamic autoscaling)",
 			ValidateFunc: validation.StringInSlice([]string{
 				"S",
 				"D",
 			}, false),
 		},
+		"floating_ip_id": {
+			Type:          schema.TypeString,
+			Optional:      true,
+			Description:   "id of the floating IP to attach to the Load Balancer. This is the recommended field name.",
+			ConflictsWith: []string{"lb_reserve_ip"},
+		},
+		"lb_reserve_ip": {
+			Type:          schema.TypeString,
+			Optional:      true,
+			Default:       "",
+			Deprecated:    "The 'lb_reserve_ip' field is deprecated. Use 'floating_ip_id' instead. This field will be removed in v4.0.",
+			Description:   "id of the reserved IP to attach to the Load Balancer. Deprecated: use 'floating_ip_id' instead.",
+			ConflictsWith: []string{"floating_ip_id"},
+		},
+		"enable_bitninja": {
+			Type:        schema.TypeBool,
+			Optional:    true,
+			Default:     false,
+			Description: "whether to enable BitNinja security for the Load Balancer",
+		},
+
+		// ============================================
+		// OPTIONAL INPUT FIELDS - CONFIGURATION (Mutable)
+		// ============================================
 		"checkbox_enable": {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "",
-			Description: "This checkbox is", // need description for this checkbox
-		},
-		"lb_reserve_ip": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Default:     "",
-			Description: "This field is for any reserve IP which is going to attach on load balancer",
+			Description: "checkbox configuration option",
 		},
 		"ssl_certificate_id": {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "",
-			Description: "This field is used to set ssl sertificate if lb mode is https or both",
+			Description: "id of the SSL certificate (required if lb_mode is HTTPS or Both)",
 		},
 		"ssl_context": {
 			Type:        schema.TypeList,
 			Optional:    true,
-			Description: "This field is used to set ssl context",
+			Description: "SSL context configuration for the Load Balancer",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"redirect_to_https": {
 						Type:        schema.TypeBool,
 						Optional:    true,
 						Default:     false,
-						Description: "If Load balancer is set to both http and https then this option need to select",
+						Description: "whether to redirect HTTP to HTTPS (required if Load Balancer is set to Both)",
 					},
 				},
 			},
 		},
-		"enable_bitninja": {
-			Type:        schema.TypeBool,
-			Optional:    true,
-			Default:     false,
-			Description: "Modular security tool used to enable load balancer from wide range of cyber attacks",
-		},
-		"backends": {
+		e2econstants.AttrBackends: {
 			Type:        schema.TypeList,
 			Optional:    true,
 			MinItems:    1,
-			Description: "This will contain the backend details which will be attached to load balancer",
+			Description: "list of backend details to attach to the Load Balancer",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"name": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "This will be the name of your backend.",
+						Description: "name of the backend",
 					},
 					"scaler_id": {
 						Type:        schema.TypeString,
 						Optional:    true,
 						Default:     "",
-						Description: "Need scalar ID if you want to attach autoscaling",
+						Description: "id of the scaler group to attach (if using autoscaling)",
 					},
 					"scaler_port": {
 						Type:        schema.TypeString,
 						Optional:    true,
 						Default:     "",
-						Description: "Need scalar port if you want to attach autoscaling",
+						Description: "port of the scaler group to attach (if using autoscaling)",
 					},
 					"balance": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "This will contain the type of algorithim used while load balancing",
+						Description: "the load balancing algorithm (source, roundrobin, or leastconn)",
 						ValidateFunc: validation.StringInSlice([]string{
 							"source",
 							"roundrobin",
@@ -158,35 +259,43 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 						Type:        schema.TypeBool,
 						Optional:    true,
 						Default:     false,
-						Description: "This checkbox is to enable healthcheck",
+						Description: "whether to enable healthcheck",
 					},
 					"domain_name": {
 						Type:        schema.TypeString,
 						Optional:    true,
 						Default:     "localhost",
-						Description: "domain name for healthcheck",
+						Description: "the domain name for healthcheck",
 					},
 					"check_url": {
 						Type:        schema.TypeString,
 						Optional:    true,
 						Default:     "/",
-						Description: "endpoint of healthckeck to ping",
+						Description: "the endpoint URL for healthcheck",
 					},
 					"servers": {
 						Type:        schema.TypeList,
 						Optional:    true,
-						Description: "description of servers that are going to attach on backend",
+						Description: "list of servers to attach to the backend",
 						Elem: &schema.Resource{
 							Schema: map[string]*schema.Schema{
+								"node_id": {
+									Type:          schema.TypeString,
+									Optional:      true,
+									Description:   "id of the Node to attach. This is the recommended field name.",
+									ConflictsWith: []string{"id"},
+								},
 								"id": {
-									Type:        schema.TypeString,
-									Required:    true,
-									Description: "Node id which you want to attach",
+									Type:          schema.TypeString,
+									Optional:      true,
+									Deprecated:    "The 'id' field in backend servers is deprecated. Use 'node_id' instead. This field will be removed in v4.0.",
+									Description:   "id of the Node to attach. Deprecated: use 'node_id' instead.",
+									ConflictsWith: []string{"node_id"},
 								},
 								"port": {
 									Type:        schema.TypeString,
 									Required:    true,
-									Description: "Port Number of the node",
+									Description: "port number of the Node",
 								},
 							},
 						},
@@ -195,7 +304,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 						Type:        schema.TypeBool,
 						Optional:    true,
 						Default:     false,
-						Description: "Check if http health check in enable",
+						Description: "whether HTTP health check is enabled",
 					},
 				},
 			},
@@ -203,23 +312,23 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		"acl_list": {
 			Type:        schema.TypeList,
 			Optional:    true,
-			Description: "This will give the acl rule which you want to apply",
+			Description: "list of ACL rules to apply",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"acl_name": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Name of your ACL rule",
+						Description: "name of the ACL rule",
 					},
 					"acl_condition": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Condition in which ACL rule will match",
+						Description: "the condition in which the ACL rule will match",
 					},
 					"acl_matching_path": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "path in which this rule will work",
+						Description: "the path in which this rule will work",
 					},
 				},
 			},
@@ -228,24 +337,24 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		"acl_map": {
 			Type:        schema.TypeList,
 			Optional:    true,
-			Description: "This will give you how you want to route request according to acl rule",
+			Description: "list of ACL routing rules to route requests according to ACL rules",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"acl_name": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Name of your ACL rule",
+						Description: "name of the ACL rule",
 					},
 					"acl_condition_state": {
 						Type:        schema.TypeBool,
 						Optional:    true,
 						Default:     true,
-						Description: "status of acl condition state",
+						Description: "whether the ACL condition state is enabled",
 					},
 					"acl_backend": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Name of your backend server",
+						Description: "name of the backend server",
 					},
 				},
 			},
@@ -254,34 +363,34 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 			Type:        schema.TypeSet,
 			Elem:        &schema.Schema{Type: schema.TypeInt},
 			Optional:    true,
-			Description: "List of vpc Id which you want to attach",
+			Description: "list of VPC ids to attach to the Load Balancer",
 		},
 		"enable_eos_logger": {
 			Type:        schema.TypeList,
 			Optional:    true,
-			Description: "If you want to get the logs of loadbalancer. Please connect eos bucket",
+			Description: "configuration to enable EOS bucket logging for the Load Balancer",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"appliance_id": {
 						Type:        schema.TypeInt,
 						Optional:    true,
 						Default:     0,
-						Description: "ID of the appliance",
+						Description: "id of the appliance",
 					},
 					"access_key": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Access key of your object storage bucket",
+						Description: "the access key of the Object Store bucket",
 					},
 					"secret_key": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Secret key of your object storage bucket",
+						Description: "the secret key of the Object Store bucket",
 					},
 					"bucket": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Bucket name of your object storage bucket",
+						Description: "the bucket name of the Object Store",
 					},
 				},
 			},
@@ -289,19 +398,19 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 		"tcp_backend": {
 			Type:        schema.TypeList,
 			Optional:    true,
-			Description: "Need Information of TCP backend If user want to attach",
+			Description: "list of TCP backend configurations to attach",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"backend_name": {
 						Type:         schema.TypeString,
 						Required:     true,
-						Description:  "Your TCP backend name",
+						Description:  "name of the TCP backend",
 						ValidateFunc: node.ValidateName,
 					},
 					"port": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "Port number for your TCP backend. 8080, 10050, 9101,80 or 443 port not allowed",
+						Description: "port number for the TCP backend (ports 8080, 10050, 9101, 80, or 443 are not allowed)",
 						ValidateFunc: validation.StringNotInSlice([]string{
 							"8080",
 							"10050",
@@ -313,7 +422,7 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 					"balance": {
 						Type:        schema.TypeString,
 						Required:    true,
-						Description: "This will contain the type of algorithim used while load balancing",
+						Description: "the load balancing algorithm (source, roundrobin, or leastconn)",
 						ValidateFunc: validation.StringInSlice([]string{
 							"source",
 							"roundrobin",
@@ -323,19 +432,28 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 					"servers": {
 						Type:        schema.TypeList,
 						Required:    true,
-						Description: "description of servers that are going to attach on backend",
+						Description: "list of servers to attach to the TCP backend",
 						Elem: &schema.Resource{
 							Schema: map[string]*schema.Schema{
+								"node_id": {
+									Type:          schema.TypeString,
+									Optional:      true,
+									Description:   "id of the Node to attach. This is the recommended field name.",
+									ValidateFunc:  node.ValidateName,
+									ConflictsWith: []string{"id"},
+								},
 								"id": {
-									Type:         schema.TypeString,
-									Required:     true,
-									Description:  "Node id which you want to attach",
-									ValidateFunc: node.ValidateName,
+									Type:          schema.TypeString,
+									Optional:      true,
+									Deprecated:    "The 'id' field in TCP backend servers is deprecated. Use 'node_id' instead. This field will be removed in v4.0.",
+									Description:   "id of the Node to attach. Deprecated: use 'node_id' instead.",
+									ValidateFunc:  node.ValidateName,
+									ConflictsWith: []string{"node_id"},
 								},
 								"port": {
 									Type:        schema.TypeString,
 									Required:    true,
-									Description: "Port Number of the node",
+									Description: "port number of the Node",
 								},
 							},
 						},
@@ -343,353 +461,593 @@ func ResouceLoadBalancerSchema() map[string]*schema.Schema {
 				},
 			},
 		},
+		// ============================================
+		// OPTIONAL INPUT FIELDS - MANAGEMENT (Mutable)
+		// ============================================
+		e2econstants.AttrPowerStatus: {
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     "power_on",
+			Description: "the power state of the Load Balancer (power_on to start, power_off to power off)",
+		},
 		"is_ipv6_attached": {
 			Type:        schema.TypeBool,
 			Optional:    true,
 			Default:     false,
-			Description: "This is used to attach IPV6 on your load balancer",
+			Description: "whether IPv6 is attached to the Load Balancer",
 		},
 		"default_backend": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "",
-		},
-		"power_status": {
 			Type:        schema.TypeString,
 			Optional:    true,
-			Default:     "power_on",
-			Description: "power_on to start the load balancer and power_off to power off the load balancer",
+			Default:     "",
+			Description: "the default backend name for the Load Balancer",
+		},
+		e2econstants.AttrTags: {
+			Type:        schema.TypeMap,
+			Optional:    true,
+			Description: "tags to apply to the Load Balancer (state-only until API support is added)",
+			Elem:        &schema.Schema{Type: schema.TypeString},
+		},
+
+		// ============================================
+		// COMPUTED FIELDS - STATUS
+		// ============================================
+		e2econstants.AttrStatus: {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "state of the Load Balancer instance (API value: Creating, Running, Powered off, etc.)",
+		},
+		e2econstants.AttrState: {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "normalized state of the Load Balancer (creating, running, stopped, etc.)",
+		},
+
+		// ============================================
+		// COMPUTED FIELDS - NETWORK
+		// ============================================
+		e2econstants.AttrPublicIPAddress: {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "the Load Balancer's public IPv4 address. This is the recommended field name.",
+		},
+		e2econstants.AttrPrivateIPAddress: {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "the Load Balancer's private IPv4 address. This is the recommended field name.",
 		},
 		"public_ip": {
 			Type:        schema.TypeString,
 			Computed:    true,
-			Description: "Public IP of load balancer",
+			Deprecated:  "The 'public_ip' field is deprecated. Use 'public_ip_address' instead. This field will be removed in v4.0.",
+			Description: "the Load Balancer's public IPv4 address. Deprecated: use 'public_ip_address' instead.",
 		},
 		"private_ip": {
 			Type:        schema.TypeString,
 			Computed:    true,
-			Description: "Private IP of load balancer",
-		},
-		"ram": {
-			Type:        schema.TypeString,
-			Computed:    true,
-			Description: "This is the ram allotted to your loadbalancer",
-		},
-		"disk": {
-			Type:        schema.TypeString,
-			Computed:    true,
-			Description: "This is the disk storage allotted to your loadbalancer",
-		},
-		"vcpu": {
-			Type:        schema.TypeFloat,
-			Computed:    true,
-			Description: "This is the vcpu allotted to your loadbalancer",
-		},
-		"location": {
-			Type:        schema.TypeString,
-			Required:    true,
-			Description: "This is the region of your loadbalancer",
-			ForceNew:    true,
+			Deprecated:  "The 'private_ip' field is deprecated. Use 'private_ip_address' instead. This field will be removed in v4.0.",
+			Description: "the Load Balancer's private IPv4 address. Deprecated: use 'private_ip_address' instead.",
 		},
 		"host_target_ipv6": {
 			Type:        schema.TypeString,
 			Computed:    true,
-			Description: "This is the ipv6 allotted to your loadbalancer",
+			Description: "the IPv6 address allocated to the Load Balancer",
 		},
-		"status": {
+
+		// ============================================
+		// COMPUTED FIELDS - RESOURCES
+		// ============================================
+		e2econstants.AttrRAM: {
 			Type:        schema.TypeString,
 			Computed:    true,
-			Description: "This is the status of your loadbalancer, only to get the status from my account.",
+			Description: "the RAM allocated to the Load Balancer",
+		},
+		e2econstants.AttrDisk: {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "the disk storage allocated to the Load Balancer",
+		},
+		e2econstants.AttrVCPU: {
+			Type:        schema.TypeFloat,
+			Computed:    true,
+			Description: "the number of virtual CPUs allocated to the Load Balancer",
 		},
 	}
 }
 
-func CreateLoadBalancerObject(apiClient *client.Client, d *schema.ResourceData) (*models.LoadBalancerCreate, diag.Diagnostics) {
-	log.Printf("[INFO] LOAD BALANCER OBJECT CREATION STARTS")
+// CreateLoadBalancerObjectWithGoe2e creates a goe2e LoadBalancerCreateRequest from schema data
+func CreateLoadBalancerObjectWithGoe2e(ctx context.Context, goe2eClient *goe2e.Client, d *schema.ResourceData, region string, projectID string) (*goe2e.LoadBalancerCreateRequest, diag.Diagnostics) {
+	log.Printf("[INFO] LOAD BALANCER OBJECT CREATION STARTS (goe2e)")
 
-	loadBalancerObj := models.LoadBalancerCreate{
-		PlanName:         d.Get("plan_name").(string),
-		LbName:           d.Get("lb_name").(string),
-		LbType:           d.Get("lb_type").(string),
-		LbMode:           d.Get("lb_mode").(string),
-		LbPort:           GetLbPort(d.Get("lb_mode").(string)),
+	// Handle name vs lb_name (prefer name, fallback to lb_name)
+	var lbName string
+	if name, ok := d.GetOk(e2econstants.AttrName); ok {
+		lbName = name.(string)
+	} else if lbNameVal, ok := d.GetOk(e2econstants.AttrLbName); ok {
+		lbName = lbNameVal.(string)
+	}
+
+	// Handle floating_ip_id vs lb_reserve_ip (prefer floating_ip_id, fallback to lb_reserve_ip)
+	var lbReserveIP string
+	if floatingIPID, ok := d.GetOk("floating_ip_id"); ok {
+		lbReserveIP = floatingIPID.(string)
+	} else if lbReserveIPVal, ok := d.GetOk("lb_reserve_ip"); ok {
+		lbReserveIP = lbReserveIPVal.(string)
+	}
+
+	loadBalancerObj := &goe2e.LoadBalancerCreateRequest{
+		PlanName:         d.Get(e2econstants.AttrPlan).(string),
+		LBName:           lbName,
+		LBType:           d.Get(e2econstants.AttrLbType).(string),
+		LBMode:           d.Get(e2econstants.AttrLbMode).(string),
+		LBPort:           GetLbPort(d.Get(e2econstants.AttrLbMode).(string)),
 		NodeListType:     d.Get("node_list_type").(string),
 		CheckBoxEnable:   d.Get("checkbox_enable").(string),
-		LbReserveIp:      d.Get("lb_reserve_ip").(string),
-		SslCertificateId: d.Get("ssl_certificate_id").(string),
-		EnableBitninja:   d.Get("enable_bitninja").(bool),
-		IsIpv6Attached:   d.Get("is_ipv6_attached").(bool),
+		LBReserveIP:      lbReserveIP,
+		SSLCertificateID: d.Get("ssl_certificate_id").(string),
+		EnableBitNinja:   d.Get("enable_bitninja").(bool),
+		IsIPv6Attached:   d.Get("is_ipv6_attached").(bool),
 		DefaultBackend:   d.Get("default_backend").(string),
-		Location:         d.Get("location").(string),
+		Location:         region,
 	}
+
 	enableEosLogger, ok := d.GetOk("enable_eos_logger")
 	if ok {
-		eosDetail, err := ExpandEnableEosLogger(enableEosLogger.(*schema.Set).List())
+		eosDetail, err := ExpandEnableEosLogger(enableEosLogger.([]interface{}))
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
-		loadBalancerObj.EnableEosLogger = eosDetail
+		loadBalancerObj.EnableEOSLogger = eosDetail
 	}
+
 	aclList, ok := d.GetOk("acl_list")
 	if ok {
 		aclListDetail, err := ExpandAclList(aclList.([]interface{}))
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
-		loadBalancerObj.AclList = aclListDetail
+		loadBalancerObj.ACLList = aclListDetail
 	} else {
-		loadBalancerObj.AclList = make([]models.AclListInfo, 0)
+		loadBalancerObj.ACLList = make([]goe2e.LBACLList, 0)
 	}
+
 	aclMap, ok := d.GetOk("acl_map")
 	if ok {
 		aclMapDetail, err := ExpandAclMap(aclMap.([]interface{}))
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
-		loadBalancerObj.AclMap = aclMapDetail
+		loadBalancerObj.ACLMap = aclMapDetail
 	} else {
-		loadBalancerObj.AclMap = make([]models.AclMapInfo, 0)
+		loadBalancerObj.ACLMap = make([]goe2e.LBACLMap, 0)
 	}
+
 	tcpBackend, ok := d.GetOk("tcp_backend")
 	if ok {
-		tcpBackendDetail, err := ExpandTcpBackend(tcpBackend.([]interface{}), apiClient, d.Get("project_id").(string), d.Get("location").(string))
+		tcpBackendDetail, err := ExpandTcpBackendWithGoe2e(ctx, tcpBackend.([]interface{}), goe2eClient, projectID, region)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
-		loadBalancerObj.TcpBackend = tcpBackendDetail
+		loadBalancerObj.TCPBackend = tcpBackendDetail
 	} else {
-		loadBalancerObj.TcpBackend = make([]models.TcpBackendDetail, 0)
+		loadBalancerObj.TCPBackend = make([]goe2e.LBTCPBackend, 0)
 	}
 
-	backends, ok := d.GetOk("backends")
+	backends, ok := d.GetOk(e2econstants.AttrBackends)
 	if ok {
-		backendDetail, err := ExpandBackends(backends.([]interface{}), apiClient, d.Get("project_id").(string), d.Get("location").(string))
+		backendDetail, err := ExpandBackendsWithGoe2e(ctx, backends.([]interface{}), goe2eClient, projectID, region)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
 		loadBalancerObj.Backends = backendDetail
 	} else {
-		loadBalancerObj.Backends = make([]models.Backend, 0)
+		loadBalancerObj.Backends = make([]goe2e.LBBackend, 0)
 	}
 
 	vpcList, ok := d.GetOk("vpc_list")
 	if ok {
-		vpcListDetail, err := ExpandVpcList(d, vpcList.(*schema.Set).List(), apiClient)
+		vpcListDetail, err := ExpandVpcListWithGoe2e(ctx, d, vpcList.(*schema.Set).List(), goe2eClient)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
-		loadBalancerObj.VpcList = vpcListDetail
+		loadBalancerObj.VPCList = vpcListDetail
 	} else {
-		loadBalancerObj.VpcList = make([]models.VpcDetail, 0)
+		loadBalancerObj.VPCList = make([]goe2e.LBVPCDetail, 0)
 	}
 
 	sslContext, ok := d.GetOk("ssl_context")
 	if ok {
 		sslContextList := sslContext.([]interface{})
 		detail := sslContextList[0].(map[string]interface{})
-		loadBalancerObj.SslContext = detail
+		loadBalancerObj.SSLContext = detail
 	} else {
-		loadBalancerObj.SslContext = map[string]interface{}{"redirect_to_https": false}
+		loadBalancerObj.SSLContext = map[string]interface{}{"redirect_to_https": false}
 	}
-	return &loadBalancerObj, nil
+
+	return loadBalancerObj, nil
 }
+
 func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
-	loadBalancerObj, diags := CreateLoadBalancerObject(apiClient, d)
-	if diags != nil {
-		return diags
-	}
-	response, err := apiClient.NewLoadBalancer(loadBalancerObj, d.Get("project_id").(string))
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[INFO] LOAD BALANCER CREATE | RESPONSE BODY | %+v", response)
 
-	if _, codeok := response["code"]; !codeok {
-		return diag.Errorf("%s", response["message"].(string))
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	data := response["data"].(map[string]interface{})
-	if data["is_credit_sufficient"] == false {
-		return diag.Errorf("Credit is not sufficient")
+	// Use goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	loadBalancerObj, diags := CreateLoadBalancerObjectWithGoe2e(ctx, goe2eClient, d, region, projectID)
+	if diags != nil {
+		return diags
+	}
+
+	// Get lbName for error messages
+	var lbName string
+	if name, ok := d.GetOk(e2econstants.AttrName); ok {
+		lbName = name.(string)
+	} else if lbNameVal, ok := d.GetOk(e2econstants.AttrLbName); ok {
+		lbName = lbNameVal.(string)
+	}
+
+	lb, _, err := goe2eClient.LoadBalancer.CreateLoadBalancer(ctx, loadBalancerObj)
+	if err != nil {
+		return diag.Errorf("Error creating load balancer (name: %s) in project (%s), region (%s): %s", lbName, projectID, region, err)
+	}
+	log.Printf("[INFO] LOAD BALANCER CREATE | RESPONSE | %+v", lb)
+
+	if !lb.IsCreditSufficient {
+		return diag.Errorf("Cannot create load balancer (name: %s) in project (%s), region (%s): insufficient credits. Please add credits to your account", lbName, projectID, region)
 	}
 	log.Printf("[INFO] load balancer creation | before setting fields")
 
-	lbId := data["id"].(float64)
-	lbId = math.Round(lbId)
-	d.SetId(strconv.Itoa(int(math.Round(lbId))))
-	d.Set("public_ip", data["IP"].(string))
+	// Set ID (goe2e client returns ID as string)
+	d.SetId(lb.ID)
+
+	// Wait for load balancer to reach Running status
+	log.Printf("[INFO] Waiting for load balancer %s to reach Running status", lb.ID)
+	if err := waitForLoadBalancerStatus(ctx, goe2eClient, lb.ID, goe2econstants.LBStateRunning, 15); err != nil {
+		return diag.Errorf("Error waiting for load balancer to become ready: %s", err)
+	}
+
+	// Set both new and deprecated computed fields for backwards compatibility
+	if lb.PublicIPAddress != "" {
+		d.Set(e2econstants.AttrPublicIPAddress, lb.PublicIPAddress)
+		d.Set("public_ip", lb.PublicIPAddress) // Deprecated field
+	}
+
+	// Store tags in state if provided
+	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
+		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
+		}
+	}
+
 	return diags
 }
 
 func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("=============INSIDE RESOURCE READ LOAD BALANCER==========================")
 	lbId := d.Id()
-	location := d.Get("location").(string)
-	lb, err := apiClient.GetLoadBalancerInfo(lbId, location, d.Get("project_id").(string))
-	log.Println("===========GET_LOAD_BALANCER_RESPONSE==========", lb)
+
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		return diag.Errorf("error finding Item with ID %s", lbId)
+		return diag.FromErr(err)
+	}
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Use goe2e client with typed nested response
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	apiResponse, err := getLoadBalancerWithNestedResponse(ctx, goe2eClient, lbId)
+	if err != nil {
+		return diag.Errorf("Error retrieving load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
 	}
 
 	log.Printf("[INFO] LOADBALANCER READ | BEFORE SETTING DATA")
-	data := lb["data"].(map[string]interface{})
-	node_detail := data["node_detail"].(map[string]interface{})
-	appliance_instance := data["appliance_instance"].([]interface{})
-	instance := appliance_instance[0].(map[string]interface{})
-	lb_context := instance["context"].(map[string]interface{})
-	d.Set("private_ip", node_detail["private_ip"].(string))
-	d.Set("public_ip", node_detail["public_ip"].(string))
-	d.Set("ram", node_detail["ram"].(string))
-	d.Set("disk", node_detail["disk"].(string))
-	d.Set("vcpu", node_detail["vcpu"].(float64))
-	d.Set("lb_name", data["name"].(string))
-	d.Set("plan_name", node_detail["plan_name"].(string))
-	d.Set("lb_mode", lb_context["lb_mode"].(string))
 
-	if d.Get("is_ipv6_attached").(bool) {
-		if lb_context["host_target_ipv6"] != nil {
-			d.Set("host_target_ipv6", lb_context["host_target_ipv6"].(string))
-		} else {
-			d.Set("is_ipv6_attached", false)
+	// Set both new and deprecated computed fields for backwards compatibility
+	if apiResponse.Data.NodeDetail.PrivateIP != "" {
+		d.Set(e2econstants.AttrPrivateIPAddress, apiResponse.Data.NodeDetail.PrivateIP)
+		d.Set("private_ip", apiResponse.Data.NodeDetail.PrivateIP) // Deprecated field
+	}
+	if apiResponse.Data.NodeDetail.PublicIP != "" {
+		d.Set(e2econstants.AttrPublicIPAddress, apiResponse.Data.NodeDetail.PublicIP)
+		d.Set("public_ip", apiResponse.Data.NodeDetail.PublicIP) // Deprecated field
+	}
+	d.Set(e2econstants.AttrRAM, apiResponse.Data.NodeDetail.RAM)
+	d.Set(e2econstants.AttrDisk, apiResponse.Data.NodeDetail.Disk)
+	d.Set(e2econstants.AttrVCPU, apiResponse.Data.NodeDetail.VCPU)
+
+	// Set both name and lb_name for backwards compatibility
+	if apiResponse.Data.Name != "" {
+		d.Set(e2econstants.AttrName, apiResponse.Data.Name)
+		d.Set(e2econstants.AttrLbName, apiResponse.Data.Name) // Deprecated field
+	}
+
+	d.Set(e2econstants.AttrPlan, apiResponse.Data.NodeDetail.PlanName)
+
+	// Extract lb_mode and host_target_ipv6 from appliance_instance[0].context
+	if len(apiResponse.Data.ApplianceInstance) > 0 {
+		context := apiResponse.Data.ApplianceInstance[0].Context
+		d.Set(e2econstants.AttrLbMode, context.LBMode)
+
+		if d.Get("is_ipv6_attached").(bool) {
+			if context.HostTargetIPv6 != "" {
+				d.Set("host_target_ipv6", context.HostTargetIPv6)
+			} else {
+				d.Set("is_ipv6_attached", false)
+			}
 		}
 	}
-	err = SetLoadBalancerStatus(d, data["lb_status"])
+
+	// Set status using SetLoadBalancerStatus helper (needs map for now)
+	lbStatusMap := map[string]interface{}{
+		"status": apiResponse.Data.LBStatus.Status,
+		"data_monitor": map[string]interface{}{
+			"status": apiResponse.Data.LBStatus.DataMonitor.Status,
+		},
+	}
+	err = SetLoadBalancerStatus(d, lbStatusMap)
 	if err != nil {
-		return diag.Errorf("error while setting lb status with ID %s, error : %s", lbId, err)
+		return diag.Errorf("Error setting load balancer status for ID (%s) in project (%s), region (%s): %s", lbId, projectID, region, err)
 	}
-	if d.Get("status").(string) == "Powered off" {
-		d.Set("power_status", "power_off")
+
+	// Set normalized state field
+	if status, ok := d.GetOk("status"); ok {
+		statusStr := status.(string)
+		d.Set(e2econstants.AttrState, normalizeLoadBalancerState(statusStr))
+	}
+
+	if d.Get("status").(string) == goe2econstants.LBStatusPoweredOff {
+		d.Set(e2econstants.AttrPowerStatus, "power_off")
 	} else {
-		d.Set("power_status", "power_on")
+		d.Set(e2econstants.AttrPowerStatus, "power_on")
 	}
+
+	// Preserve tags in state (state-only until API support)
+	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
+		d.Set(e2econstants.AttrTags, tags)
+	}
+
 	return diags
 }
 
 func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 
 	lbId := d.Id()
-	location := d.Get("location").(string)
-	lb_status := d.Get("status").(string)
-	response, err := apiClient.GetLoadBalancerInfo(lbId, location, d.Get("project_id").(string))
-	data := response["data"].(map[string]interface{})
-	if err != nil {
-		return diag.Errorf("error Fetching Load Balancer resource with ID %s", lbId)
-	}
 
-	node_detail := data["node_detail"].(map[string]interface{})
-
-	if d.HasChange("power_status") {
-		disablePowerStatusList := []string{"Creating", "Deploying", "Upgrading"}
-
-		if CheckStatus(disablePowerStatusList, lb_status) {
-			return diag.Errorf("Load Balancer is in %s state, can not change power status.", lb_status)
-		}
-
-		payload := map[string]interface{}{"type": d.Get("power_status").(string)}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		return resourceReadLoadBalancer(ctx, d, m)
-	}
-
-	if d.HasChange("plan_name") {
-		currentPlanName := node_detail["plan_name"].(string)
-		newPlanName := d.Get("plan_name").(string)
-		if strings.Compare(newPlanName, currentPlanName) == -1 {
-			return diag.Errorf("Can not downgrade your plan. Kindly provide the higher plan name")
-		}
-		payload := map[string]interface{}{
-			"type":      "upgrade_plan",
-			"name":      data["name"].(string),
-			"plan_name": newPlanName,
-		}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		return resourceReadLoadBalancer(ctx, d, m)
-	}
-
-	if lb_status == "Powered off" {
-		return diag.Errorf("Can not Update Load Balancer as it is in %s state", lb_status)
-	}
-
-	if d.HasChange("lb_name") {
-		payload := map[string]interface{}{
-			"type": "rename",
-			"name": d.Get("lb_name").(string),
-		}
-		err := apiClient.UpdateLoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		return resourceReadLoadBalancer(ctx, d, m)
-	}
-
-	appliance_instance := data["appliance_instance"].([]interface{})
-	instance := appliance_instance[0].(map[string]interface{})
-	lb_context := instance["context"].(map[string]interface{})
-
-	if d.HasChange("is_ipv6_attached") {
-		ipv6_attach := d.Get("is_ipv6_attached").(bool)
-		var payload map[string]interface{}
-		if ipv6_attach {
-			payload = map[string]interface{}{"action": "attach"}
-		} else {
-			payload = map[string]interface{}{
-				"action":      "detach",
-				"detach_ipv6": lb_context["host_target_ipv6"].(string),
-			}
-		}
-		err := apiClient.IPV6LoadBalancerAction(payload, lbId, location, d.Get("project_id").(string))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		return resourceReadLoadBalancer(ctx, d, m)
-	}
-
-	loadBalancerObj, diags := CreateLoadBalancerObject(apiClient, d)
-	if diags != nil {
-		return diags
-	}
-	res, err := apiClient.LoadBalancerBackendUpdate(loadBalancerObj, lbId, location, d.Get("project_id").(string))
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	resData := res["data"].(map[string]interface{})
-	if resData["is_credit_sufficient"] == false {
-		return diag.Errorf("Credit is not sufficient")
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	lb_status := d.Get("status").(string)
+
+	// Use goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	// Get current load balancer info for plan upgrade check and status checks
+	apiResponse, err := getLoadBalancerWithNestedResponse(ctx, goe2eClient, lbId)
+	if err != nil {
+		return diag.Errorf("Error retrieving load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+	}
+
+	if d.HasChange(e2econstants.AttrPowerStatus) {
+		disablePowerStatusList := []string{goe2econstants.LBStatusCreating, goe2econstants.LBStatusDeploying, goe2econstants.LBStatusUpgrading}
+
+		if CheckStatus(disablePowerStatusList, lb_status) {
+			return diag.Errorf("Cannot change power status for load balancer (ID: %s): load balancer is in %s state in project (%s), region (%s). Power status can only be changed when load balancer is in %s or %s state", lbId, lb_status, projectID, region, goe2econstants.LBStatusRunning, goe2econstants.LBStatusPoweredOff)
+		}
+
+		actionReq := &goe2e.LoadBalancerActionRequest{
+			Type: d.Get(e2econstants.AttrPowerStatus).(string),
+		}
+		_, err = goe2eClient.LoadBalancer.UpdateLoadBalancerAction(ctx, lbId, actionReq)
+		if err != nil {
+			return diag.Errorf("Error updating power status for load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+		}
+		// Wait for power action to complete
+		var targetStatus string
+		if d.Get(e2econstants.AttrPowerStatus).(string) == "power_on" {
+			targetStatus = goe2econstants.LBStateRunning
+		} else {
+			targetStatus = goe2econstants.LBStateStopped
+		}
+		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, targetStatus, 5); err != nil {
+			return diag.Errorf("Error waiting for load balancer power action to complete: %s", err)
+		}
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	if d.HasChange(e2econstants.AttrPlan) {
+		currentPlanName := apiResponse.Data.NodeDetail.PlanName
+		newPlanName := d.Get(e2econstants.AttrPlan).(string)
+		currentNum, err := extractPlanNumber(currentPlanName)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		newNum, err := extractPlanNumber(newPlanName)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		if newNum < currentNum {
+			return diag.Errorf("Cannot downgrade plan for load balancer (ID: %s) from %s to %s in project (%s), region (%s): plan downgrades are not supported. Please specify a plan equal to or higher than the current plan", lbId, currentPlanName, newPlanName, projectID, region)
+		}
+		actionReq := &goe2e.LoadBalancerActionRequest{
+			Type:     "upgrade_plan",
+			Name:     apiResponse.Data.Name,
+			PlanName: newPlanName,
+		}
+		_, err = goe2eClient.LoadBalancer.UpdateLoadBalancerAction(ctx, lbId, actionReq)
+		if err != nil {
+			return diag.Errorf("Error upgrading plan for load balancer (ID: %s) from %s to %s in project (%s), region (%s): %s", lbId, currentPlanName, newPlanName, projectID, region, err)
+		}
+		// Wait for upgrade to complete
+		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, goe2econstants.LBStateRunning, 10); err != nil {
+			return diag.Errorf("Error waiting for load balancer plan upgrade to complete: %s", err)
+		}
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	if lb_status == goe2econstants.LBStatusPoweredOff {
+		return diag.Errorf("Cannot update load balancer (ID: %s): load balancer is in %s state in project (%s), region (%s). Load balancer must be powered on to update configuration", lbId, lb_status, projectID, region)
+	}
+
+	// Handle name or lb_name changes
+	if d.HasChange(e2econstants.AttrName) || d.HasChange(e2econstants.AttrLbName) {
+		var newName string
+		if name, ok := d.GetOk(e2econstants.AttrName); ok {
+			newName = name.(string)
+		} else if lbName, ok := d.GetOk(e2econstants.AttrLbName); ok {
+			newName = lbName.(string)
+		}
+
+		actionReq := &goe2e.LoadBalancerActionRequest{
+			Type: "rename",
+			Name: newName,
+		}
+		_, err = goe2eClient.LoadBalancer.UpdateLoadBalancerAction(ctx, lbId, actionReq)
+		if err != nil {
+			return diag.Errorf("Error renaming load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+		}
+		// Rename is immediate, no need to wait
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	// Handle tags updates (state-only)
+	if d.HasChange(e2econstants.AttrTags) {
+		// Tags are state-only, just update state
+		if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
+			d.Set(e2econstants.AttrTags, tags)
+		}
+		// Continue to other updates
+	}
+
+	if d.HasChange("is_ipv6_attached") {
+		ipv6_attach := d.Get("is_ipv6_attached").(bool)
+		var ipv6Req *goe2e.IPv6ActionRequest
+		if ipv6_attach {
+			ipv6Req = &goe2e.IPv6ActionRequest{
+				Action: "attach",
+			}
+		} else {
+			// Get IPv6 address from appliance instance context
+			var detachIPv6 string
+			if len(apiResponse.Data.ApplianceInstance) > 0 {
+				detachIPv6 = apiResponse.Data.ApplianceInstance[0].Context.HostTargetIPv6
+			}
+			ipv6Req = &goe2e.IPv6ActionRequest{
+				Action:     "detach",
+				DetachIPv6: detachIPv6,
+			}
+		}
+		_, err = goe2eClient.LoadBalancer.UpdateIPv6(ctx, lbId, ipv6Req)
+		if err != nil {
+			return diag.Errorf("Error updating IPv6 configuration for load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+		}
+		return resourceReadLoadBalancer(ctx, d, m)
+	}
+
+	loadBalancerObj, diags := CreateLoadBalancerObjectWithGoe2e(ctx, goe2eClient, d, region, projectID)
+	if diags != nil {
+		return diags
+	}
+
+	// Convert to UpdateRequest
+	updateReq := &goe2e.LoadBalancerUpdateRequest{
+		CheckBoxEnable:   loadBalancerObj.CheckBoxEnable,
+		SSLCertificateID: loadBalancerObj.SSLCertificateID,
+		SSLContext:       loadBalancerObj.SSLContext,
+		Backends:         loadBalancerObj.Backends,
+		ACLList:          loadBalancerObj.ACLList,
+		ACLMap:           loadBalancerObj.ACLMap,
+		VPCList:          loadBalancerObj.VPCList,
+		EnableEOSLogger:  loadBalancerObj.EnableEOSLogger,
+		TCPBackend:       loadBalancerObj.TCPBackend,
+		DefaultBackend:   loadBalancerObj.DefaultBackend,
+	}
+
+	res, _, err := goe2eClient.LoadBalancer.UpdateLoadBalancer(ctx, lbId, updateReq)
+	if err != nil {
+		return diag.Errorf("Error updating backend configuration for load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+	}
+
+	if !res.IsCreditSufficient {
+		return diag.Errorf("Cannot update load balancer (ID: %s) in project (%s), region (%s): insufficient credits. Please add credits to your account", lbId, projectID, region)
 	}
 	return resourceReadLoadBalancer(ctx, d, m)
 }
 
 func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	lbId := d.Id()
-	lb_status := d.Get("status").(string)
-	disableDeleteLbStatusList := []string{"Creating", "Deploying", "Upgrading"}
 
-	if CheckStatus(disableDeleteLbStatusList, lb_status) {
-		return diag.Errorf("Load Balancer is in %s state. Currently can not destroy the resource.", lb_status)
-	}
-
-	err := apiClient.DeleteLoadBalancer(lbId, d.Get("location").(string), d.Get("project_id").(string))
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	lb_status := d.Get("status").(string)
+	disableDeleteLbStatusList := []string{goe2econstants.LBStatusCreating, goe2econstants.LBStatusDeploying, goe2econstants.LBStatusUpgrading}
+
+	if CheckStatus(disableDeleteLbStatusList, lb_status) {
+		return diag.Errorf("Cannot delete load balancer (ID: %s): load balancer is in %s state in project (%s), region (%s). Load balancer can only be deleted when not in %s, %s, or %s state", lbId, lb_status, projectID, region, goe2econstants.LBStatusCreating, goe2econstants.LBStatusDeploying, goe2econstants.LBStatusUpgrading)
+	}
+
+	// Use goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	_, err = goe2eClient.LoadBalancer.DeleteLoadBalancer(ctx, lbId)
+	if err != nil {
+		return diag.Errorf("Error deleting load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
+	}
+
+	// Wait for load balancer deletion to complete
+	log.Printf("[INFO] Waiting for load balancer %s deletion to complete", lbId)
+	if err := waitForLoadBalancerDeletion(ctx, goe2eClient, lbId, 10); err != nil {
+		// Log warning but don't fail - deletion may still be in progress
+		log.Printf("[WARN] Timeout waiting for load balancer deletion, but deletion may still be in progress: %s", err)
+	}
+
 	d.SetId("")
 	return diags
 }
@@ -698,25 +1056,172 @@ func resourceExistsLoadBalancer(d *schema.ResourceData, m interface{}) (bool, er
 	return true, nil
 }
 
-// func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *client.Client) ([]models.VpcDetail, error) {
-// 	var vpc_details []models.VpcDetail
+// extractPlanNumber extracts the numeric part from plan names like "E2E-LB-2" -> 2
+func extractPlanNumber(planName string) (int, error) {
+	parts := strings.Split(planName, "-")
+	if len(parts) < 3 {
+		return 0, fmt.Errorf("invalid plan name format: %s", planName)
+	}
+	return strconv.Atoi(parts[2])
+}
 
-// 	for _, id := range vpc_list {
-// 		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(int), d.Get("location").(string))
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		data := vpc_detail.Data
-// 		if data.State != "Active" {
-// 			return nil, fmt.Errorf("Can not attach vpc currently, vpc is in %s state", data.State)
-// 		}
-// 		r := models.VpcDetail{
-// 			Network_id: data.Network_id,
-// 			VpcName:    data.Name,
-// 			Ipv4_cidr:  data.Ipv4_cidr,
-// 		}
+// resourceLoadBalancerResourceV0 returns the V0 schema for state migration
+func resourceLoadBalancerResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			e2econstants.AttrPlan: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			e2econstants.AttrLbName: {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			e2econstants.AttrLbMode: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			e2econstants.AttrLbType: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "External",
+				ForceNew: true,
+			},
+			"node_list_type": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "S",
+				ForceNew: true,
+			},
+			"lb_reserve_ip": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
+			"enable_bitninja": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			e2econstants.AttrStatus: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"public_ip": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"private_ip": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrPublicIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"host_target_ipv6": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrRAM: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrDisk: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrVCPU: {
+				Type:     schema.TypeFloat,
+				Computed: true,
+			},
+		},
+	}
+}
 
-// 		vpc_details = append(vpc_details, r)
-// 	}
-// 	return vpc_details, nil
-// }
+// resourceLoadBalancerStateUpgradeV0toV1 upgrades state from V0 to V1
+// Renames deprecated fields to new fields, adds new computed fields
+func resourceLoadBalancerStateUpgradeV0toV1(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+	// Rename location to region if location exists and region doesn't
+	if location, ok := rawState[e2econstants.AttrLocation].(string); ok && location != "" {
+		if _, hasRegion := rawState[e2econstants.AttrRegion]; !hasRegion || rawState[e2econstants.AttrRegion] == "" {
+			rawState[e2econstants.AttrRegion] = location
+		}
+		// Keep location in state for backwards compatibility
+	}
+
+	// Rename lb_name to name if lb_name exists and name doesn't
+	if lbName, ok := rawState[e2econstants.AttrLbName].(string); ok && lbName != "" {
+		if _, hasName := rawState[e2econstants.AttrName]; !hasName || rawState[e2econstants.AttrName] == "" {
+			rawState[e2econstants.AttrName] = lbName
+		}
+		// Keep lb_name in state for backwards compatibility
+	}
+
+	// Rename lb_reserve_ip to floating_ip_id if lb_reserve_ip exists and floating_ip_id doesn't
+	if lbReserveIP, ok := rawState["lb_reserve_ip"].(string); ok && lbReserveIP != "" {
+		if _, hasFloatingIPID := rawState["floating_ip_id"]; !hasFloatingIPID || rawState["floating_ip_id"] == "" {
+			rawState["floating_ip_id"] = lbReserveIP
+		}
+		// Keep lb_reserve_ip in state for backwards compatibility
+	}
+
+	// Rename public_ip to public_ip_address if public_ip exists and public_ip_address doesn't
+	if publicIP, ok := rawState["public_ip"].(string); ok && publicIP != "" {
+		if _, hasPublicIPAddress := rawState[e2econstants.AttrPublicIPAddress]; !hasPublicIPAddress || rawState[e2econstants.AttrPublicIPAddress] == "" {
+			rawState[e2econstants.AttrPublicIPAddress] = publicIP
+		}
+		// Keep public_ip in state for backwards compatibility
+	}
+
+	// Rename private_ip to private_ip_address if private_ip exists and private_ip_address doesn't
+	if privateIP, ok := rawState["private_ip"].(string); ok && privateIP != "" {
+		if _, hasPrivateIPAddress := rawState[e2econstants.AttrPrivateIPAddress]; !hasPrivateIPAddress || rawState[e2econstants.AttrPrivateIPAddress] == "" {
+			rawState[e2econstants.AttrPrivateIPAddress] = privateIP
+		}
+		// Keep private_ip in state for backwards compatibility
+	}
+
+	// Add new computed fields with default values
+	if _, ok := rawState[e2econstants.AttrState]; !ok {
+		// Normalize status to state if available
+		if status, ok := rawState[e2econstants.AttrStatus].(string); ok {
+			rawState[e2econstants.AttrState] = normalizeLoadBalancerState(status)
+		} else {
+			rawState[e2econstants.AttrState] = ""
+		}
+	}
+
+	if _, ok := rawState[e2econstants.AttrTags]; !ok {
+		rawState[e2econstants.AttrTags] = map[string]interface{}{}
+	}
+
+	return rawState, nil
+}
+
+// normalizeLoadBalancerState normalizes the API status to a normalized state value
+func normalizeLoadBalancerState(status string) string {
+	switch status {
+	case goe2econstants.LBStatusCreating, goe2econstants.LBStatusDeploying:
+		return goe2econstants.LBStateCreating
+	case goe2econstants.LBStatusRunning:
+		return goe2econstants.LBStateRunning
+	case goe2econstants.LBStatusPoweredOff:
+		return goe2econstants.LBStateStopped
+	case goe2econstants.LBStatusUpgrading:
+		return goe2econstants.LBStateUpgrading
+	case goe2econstants.LBStatusError, "Failed":
+		return goe2econstants.LBStateError
+	default:
+		return strings.ToLower(status)
+	}
+}

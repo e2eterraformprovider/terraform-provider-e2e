@@ -2,9 +2,9 @@ package image_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
@@ -15,14 +15,13 @@ func TestAccE2EImagesDataSource_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EImageDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EImagesDataSourceConfig_basic(nodeName, imageName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.#"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.#")),
 			},
 		},
 	})
@@ -34,7 +33,7 @@ func TestAccE2EImagesDataSource_VerifyImageList(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EImageDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -44,8 +43,7 @@ func TestAccE2EImagesDataSource_VerifyImageList(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.0.image_type"),
 					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.0.image_state"),
 					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.0.name"),
-					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.0.image_id"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_images.test", "image_list.0.image_id")),
 			},
 		},
 	})
@@ -58,24 +56,14 @@ func testAccCheckE2EImagesDataSourceConfig_basic(nodeName, imageName string) str
 resource "e2e_node" "test" {
   name       = "%s"
   plan       = "c2-2c-4gb"
-  image      = "ubuntu-20.04"
-  project_id = "%s"
-  location   = "%s"
-}
+  image      = "ubuntu-20.04"}
 
 resource "e2e_image" "test" {
   node_id    = e2e_node.test.id
-  name       = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  name       = "%s"}
 
 data "e2e_images" "test" {
-  region     = "%s"
-  project_id = "%s"
   depends_on = [e2e_image.test]
 }
-`, nodeName, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		imageName, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_LOCATION"), os.Getenv("E2E_TEST_PROJECT_ID"))
+`, nodeName, imageName)
 }

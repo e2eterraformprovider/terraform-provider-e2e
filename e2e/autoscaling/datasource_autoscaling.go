@@ -2,9 +2,11 @@ package autoscaling
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -13,62 +15,56 @@ func DataSourceScalerGroup() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceReadScalerGroup,
 		Schema: map[string]*schema.Schema{
-			"id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "ID of the scaler group",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Project ID associated with the scaler group",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location of the scaler group",
-			},
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
-			"name": {
+			// Autoscaling-specific fields
+			e2econstants.AttrID: {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "id of the Scaler Group",
+			},
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the scaler group",
+				Description: "name of the Scaler Group",
 			},
-			"desired": {
+			e2econstants.AttrDesired: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Desired node count",
+				Description: "the desired number of nodes",
 			},
-			"min_nodes": {
+			e2econstants.AttrMinNodes: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Minimum nodes allowed",
+				Description: "the minimum number of nodes",
 			},
-			"max_nodes": {
+			e2econstants.AttrMaxNodes: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Maximum nodes allowed",
+				Description: "the maximum number of nodes",
 			},
-			"plan_name": {
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Plan name for the scaler group",
+				Description: "the plan of the Scaler Group",
 			},
 			"vm_image_name": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "VM image name used",
+				Description: "the VM image name used",
 			},
 			"provision_status": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Provision status (e.g., Running, Stopped)",
+				Description: "the provision status of the Scaler Group (e.g., Running, Stopped)",
 			},
-
 			"policy_type": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Policy type (elastic, scheduled, etc.)",
+				Description: "the policy type (elastic, scheduled, etc.)",
 			},
 			"policy": {
 				Type:     schema.TypeList,
@@ -85,7 +81,7 @@ func DataSourceScalerGroup() *schema.Resource {
 						"cooldown":       {Type: schema.TypeString, Computed: true},
 					},
 				},
-				Description: "Elastic scaling policies (upscale and downscale).",
+				Description: "list of elastic scaling policies (upscale and downscale)",
 			},
 			"scheduled_policy": {
 				Type:     schema.TypeList,
@@ -97,7 +93,7 @@ func DataSourceScalerGroup() *schema.Resource {
 						"recurrence": {Type: schema.TypeString, Computed: true},
 					},
 				},
-				Description: "Scheduled scaling policies (upscale and downscale).",
+				Description: "list of scheduled scaling policies (upscale and downscale)",
 			},
 		},
 	}
@@ -105,28 +101,49 @@ func DataSourceScalerGroup() *schema.Resource {
 
 func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	scalerID := d.Get("id").(string)
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
-	group, err := apiClient.GetScalerGroup(scalerID, projectID, location)
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(group.ID))
+	// Get project_id with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Create GoE2E client for this project/region
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))
+	}
+
+	// Get scaler group using GoE2E client
+	group, _, err := goe2eClient.Autoscaling.GetScalerGroup(ctx, scalerID)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to read scaler group: %w", err))
+	}
+
+	if group == nil {
+		return diag.Errorf("scaler group with ID %s not found", scalerID)
+	}
+
+	d.SetId(group.ID)
 	d.Set("name", group.Name)
-	d.Set("desired", group.Desired)
-	d.Set("min_nodes", group.MinNodes)
-	d.Set("max_nodes", group.MaxNodes)
-	d.Set("plan_name", group.PlanName)
+	d.Set(e2econstants.AttrDesired, group.Desired)
+	d.Set(e2econstants.AttrMinNodes, group.MinNodes)
+	d.Set(e2econstants.AttrMaxNodes, group.MaxNodes)
+	d.Set(e2econstants.AttrPlan, group.PlanName)
 	d.Set("vm_image_name", group.VMImageName)
-	d.Set("provision_status", group.ProvisionStatus)
+	d.Set("provision_status", NormalizeStatus(group.ProvisionStatus))
 	d.Set("policy_type", group.PolicyType)
 
+	// Set policy list (V2 format for datasource)
 	policyList := []map[string]interface{}{
 		{
 			"type":           group.PolicyType,

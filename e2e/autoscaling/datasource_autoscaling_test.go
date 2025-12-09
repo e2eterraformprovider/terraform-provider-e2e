@@ -1,11 +1,13 @@
 package autoscaling_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -17,7 +19,7 @@ func TestAccDataSourceE2EScalerGroup_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EScalerGroupDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -29,10 +31,9 @@ func TestAccDataSourceE2EScalerGroup_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.e2e_scaler_group.test", "min_nodes", "e2e_scaler_group.test", "min_nodes"),
 					resource.TestCheckResourceAttrPair("data.e2e_scaler_group.test", "max_nodes", "e2e_scaler_group.test", "max_nodes"),
 					resource.TestCheckResourceAttrPair("data.e2e_scaler_group.test", "desired", "e2e_scaler_group.test", "desired"),
-					resource.TestCheckResourceAttrSet("data.e2e_scaler_group.test", "plan_name"),
+					resource.TestCheckResourceAttrSet("data.e2e_scaler_group.test", "plan"),
 					resource.TestCheckResourceAttrSet("data.e2e_scaler_group.test", "vm_image_name"),
-					resource.TestCheckResourceAttrSet("data.e2e_scaler_group.test", "provision_status"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_scaler_group.test", "provision_status")),
 			},
 		},
 	})
@@ -41,7 +42,7 @@ func TestAccDataSourceE2EScalerGroup_Basic(t *testing.T) {
 func TestAccDataSourceE2EScalerGroup_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EScalerGroupConfig_missingID(),
@@ -62,7 +63,7 @@ func TestAccDataSourceE2EScalerGroup_MissingRequiredArguments(t *testing.T) {
 func TestAccDataSourceE2EScalerGroup_NotFound(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EScalerGroupConfig_notFound(),
@@ -85,14 +86,18 @@ func testAccCheckDataSourceE2EScalerGroupExists(resourceName string) resource.Te
 			return fmt.Errorf("No Scaler Group ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 
 		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
+		location := acceptance.GetRegionOrLocationFromState(rs)
 		id := rs.Primary.Attributes["id"]
 
-		group, err := client.GetScalerGroup(id, projectID, location)
+		goe2eClient, err := cfg.Goe2eClientForProject(projectID, location)
+		if err != nil {
+			return fmt.Errorf("failed to create GoE2E client: %w", err)
+		}
+
+		group, _, err := goe2eClient.Autoscaling.GetScalerGroup(context.Background(), id)
 		if err != nil {
 			return err
 		}
@@ -109,11 +114,8 @@ func testAccCheckDataSourceE2EScalerGroupExists(resourceName string) resource.Te
 
 func testAccDataSourceE2EScalerGroupConfig_basic(name string) string {
 	return fmt.Sprintf(`
-resource "e2e_scaler_group" "test" {
-  project_id             = "%s"
-  location               = "%s"
-  name                   = "%s"
-  plan_name              = "%s"
+resource "e2e_scaler_group" "test" {  name                   = "%s"
+  plan              = "%s"
   vm_image_name          = "%s"
   is_encryption_enabled  = false
   min_nodes              = 1
@@ -126,45 +128,35 @@ data "e2e_scaler_group" "test" {
   project_id = e2e_scaler_group.test.project_id
   location   = e2e_scaler_group.test.location
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), name,
+`, name,
 		os.Getenv("E2E_TEST_PLAN_NAME"), os.Getenv("E2E_TEST_VM_IMAGE_NAME"))
 }
 
 // Error case configurations
 
 func testAccDataSourceE2EScalerGroupConfig_missingID() string {
-	return fmt.Sprintf(`
-data "e2e_scaler_group" "test" {
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+	return `
+data "e2e_scaler_group" "test" {}
+`
 }
 
 func testAccDataSourceE2EScalerGroupConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_scaler_group" "test" {
-  id       = "12345"
-  location = "%s"
-}
-`, os.Getenv("E2E_TEST_LOCATION"))
+  id       = "12345"}
+`
 }
 
 func testAccDataSourceE2EScalerGroupConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_scaler_group" "test" {
-  id         = "12345"
-  project_id = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+  id         = "12345"}
+`
 }
 
 func testAccDataSourceE2EScalerGroupConfig_notFound() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_scaler_group" "test" {
-  id         = "999999999"
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  id         = "999999999"}
+`
 }

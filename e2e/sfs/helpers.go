@@ -1,0 +1,205 @@
+package sfs
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+)
+
+const (
+	sfsCreateTimeout   = 10 * time.Minute
+	sfsDeleteTimeout   = 5 * time.Minute
+	sfsPollingInterval = 10 * time.Second
+)
+
+// normalizeSfsState converts API status to normalized state
+func normalizeSfsState(status string) string {
+	switch strings.ToLower(status) {
+	case "creating":
+		return "creating"
+	case "active":
+		return "active"
+	case "deleting":
+		return "deleting"
+	case "deleted":
+		return "deleted"
+	case "error":
+		return "error"
+	default:
+		return strings.ToLower(status)
+	}
+}
+
+// waitForSfsStatus polls the SFS status until it reaches the desired state or times out
+func waitForSfsStatus(ctx context.Context, client *goe2e.Client, sfsID string, desiredStatus string, timeout time.Duration) error {
+	ticker := time.NewTicker(sfsPollingInterval)
+	defer ticker.Stop()
+
+	timeoutChan := time.After(timeout)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case <-timeoutChan:
+			return fmt.Errorf("timeout waiting for SFS %s to reach status %s", sfsID, desiredStatus)
+
+		case <-ticker.C:
+			sfs, _, err := client.Sfs.GetSfs(ctx, sfsID)
+			if err != nil {
+				// Check if it's a 404 (not found)
+				if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+					if desiredStatus == "deleted" || desiredStatus == "404" {
+						return nil
+					}
+					return fmt.Errorf("SFS %s not found", sfsID)
+				}
+				// Log transient errors but continue polling
+				log.Printf("[WARN] Error polling SFS %s status: %s", sfsID, err)
+				continue
+			}
+
+			if sfs == nil {
+				if desiredStatus == "deleted" || desiredStatus == "404" {
+					return nil
+				}
+				return fmt.Errorf("SFS %s not found", sfsID)
+			}
+
+			currentStatus := sfs.Status
+			normalizedStatus := normalizeSfsState(currentStatus)
+
+			// Check if we've reached desired status
+			if normalizedStatus == desiredStatus || currentStatus == desiredStatus {
+				log.Printf("[DEBUG] SFS %s reached desired status: %s", sfsID, desiredStatus)
+				return nil
+			}
+
+			// Check for error status
+			if normalizedStatus == "error" {
+				return fmt.Errorf("SFS %s entered error state during %s operation", sfsID, desiredStatus)
+			}
+
+			log.Printf("[DEBUG] Waiting for SFS %s status: current=%s, desired=%s", sfsID, currentStatus, desiredStatus)
+		}
+	}
+}
+
+// waitForSfsActive waits for SFS to become Active after creation
+func waitForSfsActive(ctx context.Context, client *goe2e.Client, sfsID string) error {
+	return waitForSfsStatus(ctx, client, sfsID, "active", sfsCreateTimeout)
+}
+
+// parseSfsImportID parses the import ID string
+// Supports two formats:
+// 1. Simple: <sfs_id>
+// 2. Full: <project_id>/<region>/<sfs_id>
+func parseSfsImportID(id string) (projectID, region, sfsID string, err error) {
+	parts := strings.Split(id, "/")
+
+	switch len(parts) {
+	case 1:
+		// Simple format: just SFS ID
+		sfsID = parts[0]
+		return "", "", sfsID, nil
+
+	case 3:
+		// Full format: project_id/region/sfs_id
+		projectID = parts[0]
+		region = parts[1]
+		sfsID = parts[2]
+		if projectID == "" || region == "" || sfsID == "" {
+			return "", "", "", fmt.Errorf("invalid import ID format: %s. Expected either <sfs_id> or <project_id>/<region>/<sfs_id>", id)
+		}
+		return projectID, region, sfsID, nil
+
+	default:
+		return "", "", "", fmt.Errorf("invalid import ID format: %s. Expected either <sfs_id> or <project_id>/<region>/<sfs_id>", id)
+	}
+}
+
+// getEffectiveFieldValue returns the effective value from conflicting V2/V3 field pairs
+// Prefers V3 fields over V2 fields if both are set
+func getEffectiveSizeGB(d interface{}, attrSizeGB, attrDiskSize string, defaultValue int) int {
+	type getter interface {
+		Get(string) interface{}
+		GetOk(string) (interface{}, bool)
+	}
+
+	if g, ok := d.(getter); ok {
+		// Prefer V3 field
+		if val, ok := g.GetOk(attrSizeGB); ok && val != 0 {
+			if v, ok := val.(int); ok && v > 0 {
+				return v
+			}
+		}
+		// Fall back to V2 field
+		if val, ok := g.GetOk(attrDiskSize); ok && val != 0 {
+			if v, ok := val.(int); ok && v > 0 {
+				return v
+			}
+		}
+	}
+
+	return defaultValue
+}
+
+// getEffectiveIOPS returns the effective IOPS value from conflicting V2/V3 field pairs
+func getEffectiveIOPS(d interface{}, attrIOPS, attrDiskIOPS string, defaultValue int) int {
+	type getter interface {
+		Get(string) interface{}
+		GetOk(string) (interface{}, bool)
+	}
+
+	if g, ok := d.(getter); ok {
+		// Prefer V3 field
+		if val, ok := g.GetOk(attrIOPS); ok && val != 0 {
+			if v, ok := val.(int); ok && v > 0 {
+				return v
+			}
+		}
+		// Fall back to V2 field
+		if val, ok := g.GetOk(attrDiskIOPS); ok && val != 0 {
+			if v, ok := val.(int); ok && v > 0 {
+				return v
+			}
+		}
+	}
+
+	return defaultValue
+}
+
+// getEffectiveEncryptionEnabled returns the effective encryption_enabled value from conflicting V2/V3 field pairs
+func getEffectiveEncryptionEnabled(d interface{}, attrEncryptionEnabled, attrIsEncryptionEnabled string) bool {
+	type getter interface {
+		Get(string) interface{}
+		GetOk(string) (interface{}, bool)
+	}
+
+	if g, ok := d.(getter); ok {
+		// Prefer V3 field
+		if val, ok := g.GetOk(attrEncryptionEnabled); ok {
+			if v, ok := val.(bool); ok {
+				return v
+			}
+		}
+		// Fall back to V2 field
+		if val, ok := g.GetOk(attrIsEncryptionEnabled); ok {
+			if v, ok := val.(bool); ok {
+				return v
+			}
+		}
+	}
+
+	return false
+}
+
+// logDeprecationWarning logs a deprecation warning for old field usage
+func logDeprecationWarning(oldField, newField string) {
+	log.Printf("[WARN] The '%s' field is deprecated and will be removed in v4.0. Please use '%s' instead.", oldField, newField)
+}

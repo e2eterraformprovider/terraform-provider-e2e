@@ -1,94 +1,172 @@
 package sfs
 
 import (
-	// "context"
-
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func ResourceSfs() *schema.Resource {
 	return &schema.Resource{
+		SchemaVersion: 1,
 		Schema: map[string]*schema.Schema{
+			// Common fields
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
-			"name": {
+			// Resource identity and configuration
+			e2econstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				Description:  "The name of the resource, also acts as it's unique ID",
+				Description:  "name of the SFS",
 				ValidateFunc: validateName,
 			},
-			"plan": {
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "Details  of the Plan",
+				Description: "the plan of the SFS",
 			},
-			"vpc_id": {
+			e2econstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "virtual private cloud id of sfs",
-			},
-			"disk_size": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
-				Description: "size of disk to be created",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "ID of the E2E Cloud project",
-			},
-			"disk_iops": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
-				Description: "input output per second",
-			},
-			"status": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "status will be updated after creation",
-			},
-			"region": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Location where sfs is to be launched",
+				Description: "id of the VPC for the SFS",
 			},
 
-			"encryption_passphrase": {
+			// V3 Storage fields (preferred)
+			e2econstants.AttrSizeGB: {
+				Type:          schema.TypeInt,
+				Optional:      true,
+				ForceNew:      true,
+				ConflictsWith: []string{e2econstants.AttrDiskSize},
+				Description:   "the size of the SFS volume in gigabytes",
+			},
+			e2econstants.AttrIOPS: {
+				Type:          schema.TypeInt,
+				Optional:      true,
+				ForceNew:      true,
+				ConflictsWith: []string{"disk_iops"},
+				Description:   "the IOPS value of the SFS",
+			},
+
+			// V2 Storage fields (deprecated)
+			e2econstants.AttrDiskSize: {
+				Type:          schema.TypeInt,
+				Optional:      true,
+				ForceNew:      true,
+				Deprecated:    "Use size_gb instead. This field will be removed in v4.0.",
+				ConflictsWith: []string{e2econstants.AttrSizeGB},
+				Description:   "DEPRECATED: Use size_gb instead. The size of the disk in gigabytes.",
+			},
+			"disk_iops": {
+				Type:          schema.TypeInt,
+				Optional:      true,
+				ForceNew:      true,
+				Deprecated:    "Use iops instead. This field will be removed in v4.0.",
+				ConflictsWith: []string{e2econstants.AttrIOPS},
+				Description:   "DEPRECATED: Use iops instead. The IOPS of the disk.",
+			},
+
+			// V3 Encryption field (preferred)
+			e2econstants.AttrEncryptionEnabled: {
+				Type:          schema.TypeBool,
+				Optional:      true,
+				ForceNew:      true,
+				Default:       false,
+				ConflictsWith: []string{e2econstants.AttrIsEncryptionEnabled},
+				Description:   "whether to enable encryption for the SFS",
+			},
+
+			// V2 Encryption field (deprecated)
+			e2econstants.AttrIsEncryptionEnabled: {
+				Type:          schema.TypeBool,
+				Optional:      true,
+				ForceNew:      true,
+				Default:       false,
+				Deprecated:    "Use encryption_enabled instead. This field will be removed in v4.0.",
+				ConflictsWith: []string{e2econstants.AttrEncryptionEnabled},
+				Description:   "DEPRECATED: Use encryption_enabled instead. Whether encryption is enabled.",
+			},
+
+			// Encryption passphrase (shared by both versions)
+			e2econstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
 				ForceNew:    true,
 				Default:     "",
-				Description: "Passphrase for encryption, if encryption is enabled. This field is optional and should only be set if `is_encryption_enabled` is true.",
+				Description: "passphrase for encryption, if encryption is enabled. This field is optional and should only be set if encryption_enabled or is_encryption_enabled is true.",
 			},
-			"is_encryption_enabled": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				ForceNew: true,
-				Default:  false,
+
+			// Tags (state-only until API support)
+			e2econstants.AttrTags: {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				Description: "map of tags for the SFS instance",
+			},
+
+			// Computed fields - Status
+			e2econstants.AttrStatus: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the API status of the SFS instance (Creating, Active, Error, Deleting)",
+			},
+			e2econstants.AttrState: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the normalized state of the SFS instance (creating, active, error, deleting)",
+			},
+
+			// Computed fields - Networking
+			"private_endpoint": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the NFS mount endpoint for the SFS",
+			},
+			"mount_endpoint": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "alias for private_endpoint - the NFS mount endpoint for the SFS",
+			},
+
+			// Computed fields - Storage and backup
+			"is_backup_enabled": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether backups are enabled for the SFS",
+			},
+
+			// Computed fields - Metadata
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the creation timestamp of the SFS",
 			},
 		},
 		CreateContext: resourceCreateSfs,
 		ReadContext:   resourceReadSfs,
 		DeleteContext: resourceDeleteSfs,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceSfsResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceSfsStateUpgradeV0toV1,
+				Version: 0,
+			},
+		},
 		Importer: &schema.ResourceImporter{
 			State: node.CustomImportStateFunc,
 		},
@@ -114,92 +192,209 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 
 func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
-	log.Printf("[INFO] NODE CREATE STARTS ")
-	node := models.SfsCreate{
-		Name:                d.Get("name").(string),
-		Plan:                d.Get("plan").(string),
-		Vpc_id:              d.Get("vpc_id").(string),
-		Disk_size:           d.Get("disk_size").(int),
-		Disk_iops:           d.Get("disk_iops").(int),
-		IsEncryptionEnabled: d.Get("is_encryption_enabled").(bool),
-	}
-
-	if pass, ok := d.GetOk("encryption_passphrase"); ok {
-		node.EncryptionPassphrase = pass.(string)
-	}
-
-	project_id := d.Get("project_id").(string)
-	location := d.Get("region").(string)
-	res_Sfs, err := apiClient.NewSfs(&node, project_id, location)
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] NODE CREATE | RESPONSE BODY | %+v", res_Sfs)
-	if _, codeok := res_Sfs["code"]; !codeok {
-		return diag.Errorf("%s", res_Sfs["message"].(string))
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	data := res_Sfs["data"].(map[string]interface{})
-	if data["is_credit_sufficient"] == false {
-		return diag.Errorf("%s", res_Sfs["message"].(string))
-	}
-	log.Printf("[INFO] sfs creation | before setting fields")
-	sfsId, ok := data["efs_id"].(float64)
-	if !ok {
-		return diag.Errorf("unable to retrieve valid 'id' from response")
+	// Create goe2e client with specific projectID and region
+	client, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
 	}
 
-	d.SetId(strconv.Itoa(int(math.Round(sfsId))))
+	log.Printf("[INFO] SFS CREATE STARTS")
+
+	name := d.Get(e2econstants.AttrName).(string)
+	plan := d.Get(e2econstants.AttrPlan).(string)
+	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+
+	// Get size: prefer V3 field size_gb over V2 field disk_size
+	sizeGB := getEffectiveSizeGB(d, e2econstants.AttrSizeGB, e2econstants.AttrDiskSize, 0)
+	if sizeGB == 0 {
+		return diag.Errorf("Error creating SFS (name: %s): size_gb or disk_size must be specified", name)
+	}
+
+	// Log deprecation warning if old field is used
+	if _, ok := d.GetOk(e2econstants.AttrDiskSize); ok && !d.HasChanges(e2econstants.AttrDiskSize) {
+		if _, ok2 := d.GetOk(e2econstants.AttrSizeGB); !ok2 {
+			logDeprecationWarning(e2econstants.AttrDiskSize, e2econstants.AttrSizeGB)
+		}
+	}
+
+	// Get IOPS: prefer V3 field iops over V2 field disk_iops
+	iops := getEffectiveIOPS(d, e2econstants.AttrIOPS, "disk_iops", 0)
+	if iops == 0 {
+		return diag.Errorf("Error creating SFS (name: %s): iops or disk_iops must be specified", name)
+	}
+
+	// Log deprecation warning if old field is used
+	if _, ok := d.GetOk("disk_iops"); ok && !d.HasChanges("disk_iops") {
+		if _, ok2 := d.GetOk(e2econstants.AttrIOPS); !ok2 {
+			logDeprecationWarning("disk_iops", e2econstants.AttrIOPS)
+		}
+	}
+
+	// Get encryption: prefer V3 field encryption_enabled over V2 field is_encryption_enabled
+	isEncrypted := getEffectiveEncryptionEnabled(d, e2econstants.AttrEncryptionEnabled, e2econstants.AttrIsEncryptionEnabled)
+
+	// Log deprecation warning if old encryption field is used
+	if _, ok := d.GetOk(e2econstants.AttrIsEncryptionEnabled); ok && !d.HasChanges(e2econstants.AttrIsEncryptionEnabled) {
+		if _, ok2 := d.GetOk(e2econstants.AttrEncryptionEnabled); !ok2 {
+			logDeprecationWarning(e2econstants.AttrIsEncryptionEnabled, e2econstants.AttrEncryptionEnabled)
+		}
+	}
+
+	createReq := &goe2e.SfsCreateRequest{
+		Name:                name,
+		Plan:                plan,
+		VPCID:               vpcID,
+		DiskSize:            sizeGB,
+		DiskIOPS:            iops,
+		IsEncryptionEnabled: isEncrypted,
+	}
+
+	if pass, ok := d.GetOk(e2econstants.AttrEncryptionPassphrase); ok {
+		createReq.EncryptionPassphrase = pass.(string)
+	}
+
+	sfs, _, err := client.Sfs.CreateSfs(ctx, createReq)
+	if err != nil {
+		return diag.Errorf("Error creating SFS (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
+	}
+
+	log.Printf("[INFO] SFS CREATE | RESPONSE: %+v", sfs)
+
+	if sfs == nil || sfs.ID == "" {
+		return diag.Errorf("Error creating SFS (name: %s) in project (%s), region (%s): unable to retrieve valid 'efs_id' from API response", createReq.Name, projectID, region)
+	}
+
+	d.SetId(sfs.ID)
+
+	// Store tags in state (state-only until API supports it)
+	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
+		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
+		}
+	}
+
+	// Poll for SFS to become Active
+	if err := waitForSfsActive(ctx, client, sfs.ID); err != nil {
+		return diag.Errorf("Error waiting for SFS (ID: %s) to become active in project (%s), region (%s): %s", sfs.ID, projectID, region, err)
+	}
 
 	return diags
 }
 
 func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("[INFO] Inside SFS Resource Read")
-	Sfs_id := d.Id()
-	project_id := d.Get("project_id").(string)
-	location := d.Get("region").(string)
+	sfsID := d.Id()
 
-	resp, err := apiClient.GetSfs(Sfs_id, project_id, location)
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		return diag.FromErr(err)
+	}
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Create goe2e client with specific projectID and region
+	client, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	sfs, _, err := client.Sfs.GetSfs(ctx, sfsID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+			log.Printf("[WARN] SFS with ID %s not found", sfsID)
 			d.SetId("")
-		} else {
-			return diag.Errorf("error finding SFS with ID %s: %s", Sfs_id, err)
+			return diags
 		}
+		return diag.Errorf("Error retrieving SFS (ID: %s) in project (%s), region (%s): %s", sfsID, projectID, region, err)
+	}
+
+	if sfs == nil {
+		log.Printf("[WARN] SFS with ID %s not found", sfsID)
+		d.SetId("")
 		return diags
 	}
 
-	data := resp["data"].(map[string]interface{})
-
-	d.Set("name", data["name"])
-	d.Set("status", data["status"])
-	d.Set("is_encryption_enabled", data["isEncryptionEnabled"])
-
-	if v, ok := data["disk_iops"].(float64); ok {
-		d.Set("disk_iops", int(v))
+	// Set core identity fields
+	if err := d.Set(e2econstants.AttrName, sfs.Name); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting name: %w", err))
 	}
-	if v, ok := data["vpc_id"].(string); ok {
-		d.Set("vpc_id", v)
+	if err := d.Set(e2econstants.AttrPlan, sfs.PlanName); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting plan: %w", err))
+	}
+	if err := d.Set(e2econstants.AttrVPCID, sfs.VPCID); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting vpc_id: %w", err))
 	}
 
-	if v, ok := data["efs_disk_size"].(string); ok {
-
-		diskSizeStr := strings.TrimSpace(strings.ReplaceAll(v, "GB", ""))
+	// Set size fields - prefer V3 fields but maintain V2 for backwards compatibility
+	if sfs.DiskSize != "" {
+		diskSizeStr := strings.TrimSpace(strings.ReplaceAll(sfs.DiskSize, "GB", ""))
 		if sizeInt, err := strconv.Atoi(diskSizeStr); err == nil {
-			d.Set("disk_size", sizeInt)
+			// Set both V3 and V2 fields for backwards compatibility
+			if err := d.Set(e2econstants.AttrSizeGB, sizeInt); err != nil {
+				return diag.FromErr(fmt.Errorf("error setting size_gb: %w", err))
+			}
+			if err := d.Set(e2econstants.AttrDiskSize, sizeInt); err != nil {
+				return diag.FromErr(fmt.Errorf("error setting disk_size: %w", err))
+			}
 		}
 	}
-	if v, ok := data["plan_name"].(string); ok {
-		d.Set("plan", v)
+
+	// Set IOPS fields - prefer V3 fields but maintain V2 for backwards compatibility
+	if err := d.Set(e2econstants.AttrIOPS, sfs.DiskIOPS); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting iops: %w", err))
+	}
+	if err := d.Set("disk_iops", sfs.DiskIOPS); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting disk_iops: %w", err))
+	}
+
+	// Set encryption fields - prefer V3 fields but maintain V2 for backwards compatibility
+	if err := d.Set(e2econstants.AttrEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting encryption_enabled: %w", err))
+	}
+	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting is_encryption_enabled: %w", err))
+	}
+
+	// Set computed fields
+	if err := d.Set(e2econstants.AttrStatus, sfs.Status); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
+	}
+
+	// Normalize and set state field
+	normalizedState := normalizeSfsState(sfs.Status)
+	if err := d.Set(e2econstants.AttrState, normalizedState); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting state: %w", err))
+	}
+
+	// Set networking fields
+	if err := d.Set("private_endpoint", sfs.PrivateIPAddress); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting private_endpoint: %w", err))
+	}
+	if err := d.Set("mount_endpoint", sfs.PrivateIPAddress); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting mount_endpoint: %w", err))
+	}
+
+	// Set backup field
+	if err := d.Set("is_backup_enabled", sfs.IsBackupEnabled); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting is_backup_enabled: %w", err))
 	}
 
 	return diags
@@ -207,19 +402,36 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 
 func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
-	Sfs_id := d.Id()
-	project_id := d.Get("project_id").(string)
-	node_status := d.Get("status").(string)
-	if node_status == "Creating" {
-		return diag.Errorf("Sfs in %s state", node_status)
-	}
-	location := d.Get("region").(string)
-	err := apiClient.DeleteSFs(Sfs_id, project_id, location)
+	sfsID := d.Id()
+
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Check if SFS is in Creating state
+	status := d.Get(e2econstants.AttrStatus).(string)
+	if status == "Creating" {
+		return diag.Errorf("Cannot delete SFS (ID: %s): SFS is in Creating state in project (%s), region (%s). Please wait for SFS creation to complete", sfsID, projectID, region)
+	}
+
+	// Create goe2e client with specific projectID and region
+	client, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	_, err = client.Sfs.DeleteSfs(ctx, sfsID)
+	if err != nil {
+		return diag.Errorf("Error deleting SFS (ID: %s) in project (%s), region (%s): %s", sfsID, projectID, region, err)
+	}
+
 	d.SetId("")
 	return diags
 }

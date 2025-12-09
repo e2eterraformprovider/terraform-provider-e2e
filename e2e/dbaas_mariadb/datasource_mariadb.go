@@ -2,9 +2,11 @@ package dbaas_mariadb
 
 import (
 	"context"
+	"log"
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -13,85 +15,81 @@ func DataSourceMariaDB() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceReadMariaDB,
 		Schema: map[string]*schema.Schema{
-			"id": {
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// MariaDB-specific fields
+			e2econstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "ID of the MariaDB cluster",
+				Description: "id of the MariaDB DBaaS instance",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Project ID associated with the MariaDB cluster",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location/region of the MariaDB cluster (e.g. 'Delhi')",
-			},
-			"name": {
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the MariaDB cluster",
+				Description: "name of the MariaDB DBaaS instance",
 			},
-			"database_id": {
+			e2econstants.AttrDatabaseID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Database ID inside the MariaDB cluster",
+				Description: "id of the database",
 			},
-			"database_name": {
+			e2econstants.AttrDatabaseName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the MariaDB database",
+				Description: "name of the database",
 			},
-			"database_user": {
+			e2econstants.AttrDatabaseUser: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Username for the MariaDB database",
+				Description: "the database username",
 			},
-			"status": {
+			e2econstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "High-level status of the MariaDB cluster",
+				Description: "state of the MariaDB DBaaS instance",
 			},
-			"public_ip": {
+			e2econstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Public IP address of the master node (if attached)",
+				Description: "the MariaDB DBaaS instances public ipv4 address",
 			},
-			"private_ip": {
+			e2econstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Private IP address of the master node",
+				Description: "the MariaDB DBaaS instances private ipv4 address",
 			},
 			"is_public_ip_attached": {
 				Type:        schema.TypeBool,
 				Computed:    true,
-				Description: "Whether a public IP is currently attached",
+				Description: "whether a public IP is currently attached",
 			},
 			"disk": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Disk size of the master node (e.g. '400 GB')",
+				Description: "the disk size of the MariaDB DBaaS instance",
 			},
-			"plan": {
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the plan associated with the master node",
+				Description: "the plan name of the MariaDB DBaaS instance",
 			},
 			"software_version": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "MariaDB software version",
+				Description: "the MariaDB software version",
 			},
-			"parameter_group_id": {
+			e2econstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Parameter group ID attached to the DB",
+				Description: "id of the attached parameter group",
 			},
-			"power_status": {
+			e2econstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "VM status of the master node (e.g., 'Running', 'Stopped')",
+				Description: "the power status of the MariaDB DBaaS instance (e.g., Running, Stopped)",
 			},
 		},
 	}
@@ -99,18 +97,23 @@ func DataSourceMariaDB() *schema.Resource {
 
 func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	// Fetch basic identifiers
 	clusterID := d.Get("id").(string)
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
-	// Call API
-	maria, err := apiClient.ReadMariaDB(clusterID, projectID, location)
+	log.Printf("[DEBUG] Reading MariaDB datasource for cluster ID: %s", clusterID)
+
+	// Get MariaDB cluster using goe2e client
+	maria, _, err := goe2eClient.MariaDB.GetMariaDB(ctx, clusterID)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.Errorf("error retrieving MariaDB DBaaS (ID: %s): %s", clusterID, err)
+	}
+
+	// Check if resource was deleted
+	if maria == nil {
+		return diag.Errorf("MariaDB cluster %s not found", clusterID)
 	}
 
 	// Extract nested structures
@@ -119,24 +122,73 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	plan := master.Plan
 	software := plan.Software
 
-	// Set fields
+	// Set resource ID
 	d.SetId(strconv.Itoa(maria.ID))
-	d.Set("name", maria.Name)
-	d.Set("database_id", db.ID)
-	d.Set("database_name", db.Database)
-	d.Set("database_user", db.Username)
-	d.Set("status", maria.Status)
-	d.Set("public_ip", master.PublicIPAddress)
-	d.Set("private_ip", master.PrivateIPAddress)
-	d.Set("is_public_ip_attached", master.PublicIPAddress != "")
-	d.Set("disk", master.Disk)
-	d.Set("plan", plan.Name)
-	d.Set("software_version", software.Version)
-	d.Set("power_status", master.Status)
 
-	if db.PGDetail.ID != 0 {
-		d.Set("parameter_group_id", db.PGDetail.ID)
+	// Set basic fields
+	if err := d.Set(e2econstants.AttrName, maria.Name); err != nil {
+		return diag.FromErr(err)
 	}
+
+	// Set database fields
+	if err := d.Set(e2econstants.AttrDatabaseID, db.ID); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrDatabaseName, db.Database); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrDatabaseUser, db.Username); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Normalize status (SUSPENDED → STOPPED)
+	status := maria.Status
+	if status == "SUSPENDED" {
+		status = "STOPPED"
+	}
+	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set network fields
+	if err := d.Set(e2econstants.AttrPublicIPAddress, master.PublicIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("is_public_ip_attached", master.PublicIPAddress != ""); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set disk field
+	if err := d.Set("disk", master.Disk); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set plan field
+	if err := d.Set(e2econstants.AttrPlan, plan.Name); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set software version
+	if err := d.Set("software_version", software.Version); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set power status
+	if err := d.Set(e2econstants.AttrPowerStatus, master.Status); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set parameter group ID if present
+	if db.PGDetail.ID != 0 {
+		if err := d.Set(e2econstants.AttrParameterGroupID, db.PGDetail.ID); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	log.Printf("[DEBUG] Successfully read MariaDB datasource: %s (ID: %s)", maria.Name, clusterID)
 
 	return diags
 }

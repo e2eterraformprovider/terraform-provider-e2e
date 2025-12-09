@@ -1,11 +1,13 @@
 package kubernetes_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -17,7 +19,7 @@ func TestAccDataSourceE2EKubernetes_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EKubernetesDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -29,8 +31,7 @@ func TestAccDataSourceE2EKubernetes_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.e2e_kubernetes.test", "version", "e2e_kubernetes.test", "version"),
 					resource.TestCheckResourceAttrSet("data.e2e_kubernetes.test", "status"),
 					resource.TestCheckResourceAttrSet("data.e2e_kubernetes.test", "created_at"),
-					resource.TestCheckResourceAttrSet("data.e2e_kubernetes.test", "master_node_id"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_kubernetes.test", "master_node_id")),
 			},
 		},
 	})
@@ -39,7 +40,7 @@ func TestAccDataSourceE2EKubernetes_Basic(t *testing.T) {
 func TestAccDataSourceE2EKubernetes_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EKubernetesConfig_missingServiceID(),
@@ -60,7 +61,7 @@ func TestAccDataSourceE2EKubernetes_MissingRequiredArguments(t *testing.T) {
 func TestAccDataSourceE2EKubernetes_NotFound(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EKubernetesConfig_notFound(),
@@ -83,16 +84,17 @@ func testAccCheckDataSourceE2EKubernetesExists(resourceName string) resource.Tes
 			return fmt.Errorf("No Kubernetes ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
-
-		location := rs.Primary.Attributes["location"]
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		location := acceptance.GetRegionOrLocationFromState(rs)
 		projectIDStr := rs.Primary.Attributes["project_id"]
 		serviceID := rs.Primary.Attributes["service_id"]
-		projectID := 0
-		fmt.Sscanf(projectIDStr, "%d", &projectID)
 
-		kubernetes, err := client.GetKubernetesServiceInfo(serviceID, location, projectID)
+		goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, location)
+		if err != nil {
+			return fmt.Errorf("error creating goe2e client: %w", err)
+		}
+
+		kubernetes, _, err := goe2eClient.Kubernetes.Get(context.Background(), serviceID)
 		if err != nil {
 			return err
 		}
@@ -110,11 +112,9 @@ func testAccCheckDataSourceE2EKubernetesExists(resourceName string) resource.Tes
 func testAccDataSourceE2EKubernetesConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_kubernetes" "test" {
-  name       = "%s"
-  version    = "%s"
-  project_id = %s
-  location   = "%s"
-  vpc_id     = "%s"
+  name    = "%s"
+  version = "%s"
+  vpc_id  = "%s"
 
   node_pools {
     name            = "default-pool"
@@ -129,46 +129,39 @@ data "e2e_kubernetes" "test" {
   project_id = e2e_kubernetes.test.project_id
   location   = e2e_kubernetes.test.location
 }
-`, name, os.Getenv("E2E_TEST_K8S_VERSION"), os.Getenv("E2E_TEST_PROJECT_ID"),
-		os.Getenv("E2E_TEST_LOCATION"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_NODE_POOL_SPECS"))
+`, name, os.Getenv("E2E_TEST_K8S_VERSION"),
+		os.Getenv("E2E_TEST_VPC_ID"), os.Getenv("E2E_TEST_NODE_POOL_SPECS"))
 }
 
 // Error case configurations
 
 func testAccDataSourceE2EKubernetesConfig_missingServiceID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_kubernetes" "test" {
-  project_id = %s
-  location   = "%s"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccDataSourceE2EKubernetesConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_kubernetes" "test" {
   service_id = "12345"
-  location   = "%s"
 }
-`, os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccDataSourceE2EKubernetesConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_kubernetes" "test" {
   service_id = "12345"
-  project_id = %s
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+`
 }
 
 func testAccDataSourceE2EKubernetesConfig_notFound() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_kubernetes" "test" {
   service_id = "999999999"
-  project_id = %s
-  location   = "%s"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }

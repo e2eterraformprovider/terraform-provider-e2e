@@ -6,11 +6,11 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -18,133 +18,261 @@ import (
 
 func ResourceKubernetesService() *schema.Resource {
 	return &schema.Resource{
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceKubernetesResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: ResourceKubernetesStateUpgradeV0toV1,
+				Version: 0,
+			},
+		},
 		Schema: map[string]*schema.Schema{
-			"name": {
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion: config.RegionSchema(),
+			e2econstants.AttrLocation: {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Deprecated:    "Use 'region' instead. The 'location' field will be removed in v4.0.0",
+				ConflictsWith: []string{e2econstants.AttrRegion},
+				Description:   "the location of the cluster (deprecated, use 'region')",
+			},
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// V3 PREFERRED CLUSTER FIELDS (Aliases)
+			// ============================================
+			"cluster_name": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				Description:   "name of the Kubernetes cluster (preferred over 'name')",
+				ConflictsWith: []string{e2econstants.AttrName},
+				ValidateFunc:  validation.StringLenBetween(1, 255),
+			},
+			"kubernetes_version": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				Description:   "the Kubernetes version (preferred over 'version')",
+				ConflictsWith: []string{e2econstants.AttrVersion},
+				ValidateFunc:  validation.StringMatch(regexp.MustCompile(`^1\.\d{2}$`), "must be format 1.XX"),
+			},
+
+			// ============================================
+			// DEPRECATED CLUSTER FIELDS (V2)
+			// ============================================
+			e2econstants.AttrName: {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				Deprecated:    "Use 'cluster_name' instead for consistency with other providers. The 'name' field will be removed in v4.0.0",
+				ConflictsWith: []string{"cluster_name"},
+				Description:   "name of the Kubernetes cluster (deprecated, use 'cluster_name')",
+			},
+			e2econstants.AttrVersion: {
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				Deprecated:    "Use 'kubernetes_version' instead for clarity. The 'version' field will be removed in v4.0.0",
+				ConflictsWith: []string{"kubernetes_version"},
+				Description:   "the Kubernetes version (deprecated, use 'kubernetes_version')",
+			},
+			e2econstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The name of the Kubernetes service",
+				ForceNew:    true,
+				Description: "id of the VPC for the Kubernetes cluster",
 			},
-			"version": {
+
+			// ============================================
+			// V3 NEW FEATURES
+			// ============================================
+			"tags": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Description: "tags to apply to the Kubernetes cluster (state-only, not sent to API)",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"security_group_ids": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "list of security group IDs to attach to the cluster",
+				Elem: &schema.Schema{
+					Type: schema.TypeInt,
+				},
+			},
+			"encryption_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "whether encryption is enabled for the cluster",
+				ForceNew:    true,
+			},
+			"encryption_passphrase": {
 				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Version of the Kubernetes service",
+				Optional:    true,
+				Sensitive:   true,
+				Description: "passphrase for cluster encryption (required if encryption_enabled is true)",
+				ForceNew:    true,
 			},
-			"project_id": {
-				Type:        schema.TypeInt,
-				Required:    true,
-				Description: "ID of the project. It should be unique",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location of the block storage",
-			},
-			"slug_name": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Slug name of the Kubernetes service",
-			},
-			"vpc_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "VPC ID of the Kubernetes service",
-			},
-			"sku_id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "SKU ID of the Kubernetes service",
-			},
-			"node_pools": {
+
+			// ============================================
+			// REQUIRED INPUT FIELDS (Mutable via Updates)
+			// ============================================
+			e2econstants.AttrNodePools: {
 				Type:        schema.TypeList,
 				Required:    true,
-				Description: "List of worker node pools",
+				Description: "list of node pools for the Kubernetes cluster",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						// Node pool immutable fields
 						"name": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Name of the worker node pool",
+							ForceNew:    true,
+							Description: "name of the node pool",
 						},
-						"slug_name": {
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "Slug name of the worker node pool",
+
+						// V3 PREFERRED NODE POOL FIELDS (Aliases)
+						"plan": {
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Description:   "the plan/SKU for worker nodes (preferred over 'specs_name')",
+							ConflictsWith: []string{"specs_name"},
 						},
-						"sku_id": {
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "SKU ID of the worker node pool",
+						"type": {
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Description:   "the node pool type: Static or Autoscale (preferred over 'node_pool_type')",
+							ConflictsWith: []string{"node_pool_type"},
+							ValidateFunc:  validation.StringInSlice([]string{"Static", "Autoscale"}, false),
 						},
+						"size": {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Description:   "the number of worker nodes for Static pools (preferred over 'worker_node')",
+							ConflictsWith: []string{"worker_node"},
+							ValidateFunc:  validation.IntBetween(2, 25),
+						},
+						"min_nodes": {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Default:       0,
+							Description:   "minimum number of nodes for Autoscale pools (preferred over 'min_vms')",
+							ConflictsWith: []string{e2econstants.AttrMinVMs},
+							ValidateFunc:  validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
+						},
+						"max_nodes": {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Default:       0,
+							Description:   "maximum number of nodes for Autoscale pools (preferred over 'max_vms')",
+							ConflictsWith: []string{e2econstants.AttrMaxVMs},
+							ValidateFunc:  validation.IntAtMost(25),
+						},
+
+						// DEPRECATED NODE POOL FIELDS (V2)
 						"specs_name": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "Specs name of the worker node pool",
-						},
-						"service_id": {
-							Type:        schema.TypeString,
-							Computed:    true,
-							Description: "Services ID of the worker node pool",
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Deprecated:    "Use 'plan' instead. Will be removed in v5.0.0",
+							ConflictsWith: []string{"plan"},
+							Description:   "the plan/SKU for worker nodes (deprecated, use 'plan')",
 						},
 						"node_pool_type": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "Its value can be Autoscale or Static",
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Deprecated:    "Use 'type' instead. Will be removed in v5.0.0",
+							ConflictsWith: []string{"type"},
+							Description:   "the node pool type (deprecated, use 'type')",
 							ValidateFunc: validation.StringInSlice([]string{
 								"Static",
 								"Autoscale",
 							}, false),
 						},
 						"worker_node": {
-							Type:         schema.TypeInt,
-							Optional:     true, //If the type is autoscale then this field is not needed. Otherwise the default value will be 3
-							Description:  "Number of worker nodes in the pool",
-							ValidateFunc: validation.IntBetween(2, 25),
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Deprecated:    "Use 'size' instead. Will be removed in v5.0.0",
+							ConflictsWith: []string{"size"},
+							Description:   "number of worker nodes (deprecated, use 'size')",
+							ValidateFunc:  validation.IntBetween(2, 25),
 						},
-						"min_vms": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      0,
-							ValidateFunc: validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
-							Description:  "Minimum number of virtual machines",
+						e2econstants.AttrMinVMs: {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Default:       0,
+							Deprecated:    "Use 'min_nodes' instead. Will be removed in v5.0.0",
+							ConflictsWith: []string{"min_nodes"},
+							ValidateFunc:  validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
+							Description:   "the minimum number of virtual machines (Autoscale pools only, deprecated, use 'min_nodes')",
 						},
-						"cardinality": {
-							Type:        schema.TypeInt,
-							Computed:    true, //NEW CHANGE
-							Description: "Cardinality computed from min_vms during creation",
+						e2econstants.AttrMaxVMs: {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							Default:       0,
+							Deprecated:    "Use 'max_nodes' instead. Will be removed in v5.0.0",
+							ConflictsWith: []string{"max_nodes"},
+							ValidateFunc:  validation.IntAtMost(25),
+							Description:   "the maximum number of virtual machines (Autoscale pools only, deprecated, use 'max_nodes')",
 						},
 						"node_pool_size": {
-							Type:        schema.TypeInt,
-							Optional:    true, //NEW CHANGE
-							Description: "Cardinality computed from min_vms during creation",
-						},
-						"max_vms": {
 							Type:         schema.TypeInt,
 							Optional:     true,
-							Default:      0,
-							ValidateFunc: validation.IntAtMost(25),
-							Description:  "Maximum number of virtual machines",
+							ValidateFunc: validation.IntAtLeast(2),
+							Description:  "the target size for resizing the node pool (must be at least 2)",
+						},
+
+						// Node pool computed fields
+						"cardinality": {
+							Type:        schema.TypeInt,
+							Computed:    true,
+							Description: "the current number of nodes in the pool",
+						},
+						"slug_name": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the slug name of the node pool plan",
+						},
+						"sku_id": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the SKU id of the node pool",
+						},
+						"service_id": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "id of the service for the node pool",
 						},
 						"elasticity_dict": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: "Elasticity dictionary for the worker node pool",
+							Description: "the elasticity dictionary for the worker node pool",
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"worker": {
 										Type:        schema.TypeList,
 										Optional:    true,
-										Description: "Worker settings in the elasticity dictionary",
+										Description: "worker settings in the elasticity dictionary",
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"period_number": {
 													Type:        schema.TypeInt,
 													Required:    true,
-													Description: "Period number",
+													Description: "the period number",
 												},
 												"policy_paramter_type": {
 													Type:        schema.TypeString,
 													Required:    true,
-													Description: "Its value can be Default or Custom. If it is custom then you must provide the parameter field.",
+													Description: "the policy parameter type (Default or Custom; if Custom, you must provide the parameter field)",
 													ValidateFunc: validation.StringInSlice([]string{
 														"Default",
 														"Custom",
@@ -154,7 +282,7 @@ func ResourceKubernetesService() *schema.Resource {
 													Type:        schema.TypeString,
 													Optional:    true,
 													Default:     "CPU",
-													Description: "Parameter (e.g., CPU, Memory)",
+													Description: "the parameter (e.g., CPU, Memory)",
 													ValidateFunc: validation.Any(
 														validation.StringInSlice([]string{"Memory", "CPU"}, false),
 														validation.StringMatch(
@@ -166,43 +294,43 @@ func ResourceKubernetesService() *schema.Resource {
 												"elasticity_policies": {
 													Type:        schema.TypeList,
 													Required:    true,
-													Description: "List of elasticity policies",
+													Description: "list of elasticity policies",
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"type": {
 																Type:        schema.TypeString,
 																Computed:    true,
-																Description: "It has a fixed value, i.e, CHANGE",
+																Description: "the type (fixed value: CHANGE)",
 															},
 															"adjust": {
 																Type:        schema.TypeString,
 																Computed:    true,
-																Description: "Adjust Value. Its value can be 1 or -1",
+																Description: "the adjust value (1 or -1)",
 															},
 															"operator": {
 																Type:        schema.TypeString,
 																Required:    true,
-																Description: "Operator for adding worker (e.g., >, >=)",
+																Description: "the operator for adding worker (e.g., >, >=)",
 															},
 															"value": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "Value for adding worker",
+																Description: "the value for adding worker",
 															},
 															"period": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "Period",
+																Description: "the period",
 															},
 															"watch_period": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "Period Number",
+																Description: "the period number",
 															},
 															"cooldown": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "Cooldown",
+																Description: "the cooldown period",
 															},
 														},
 													},
@@ -216,13 +344,13 @@ func ResourceKubernetesService() *schema.Resource {
 						"scheduled_dict": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: "Scheduled dictionary for the worker node pool",
+							Description: "the scheduled dictionary for the worker node pool",
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"worker": {
 										Type:        schema.TypeList,
 										Optional:    true,
-										Description: "Worker settings in the scheduled dictionary",
+										Description: "worker settings in the scheduled dictionary",
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"scheduled_policies": {
@@ -233,23 +361,23 @@ func ResourceKubernetesService() *schema.Resource {
 															"upscale_cardinality": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "The cardinality for upscaling",
+																Description: "the cardinality for upscaling",
 															},
 															"upscale_recurrence": {
 																Type:         schema.TypeString,
 																Required:     true,
-																Description:  "The recurrence timing for upscaling",
+																Description:  "the recurrence timing for upscaling",
 																ValidateFunc: validation.StringInSlice([]string{"0 12 * * *", "0 0 1 * *", "0 20 * * *", "0 9 * * 1-5", "0 9-13 * * *"}, false),
 															},
 															"downscale_cardinality": {
 																Type:        schema.TypeInt,
 																Required:    true,
-																Description: "The cardinality for downscaling",
+																Description: "the cardinality for downscaling",
 															},
 															"downscale_recurrence": {
 																Type:         schema.TypeString,
 																Required:     true,
-																Description:  "The recurrence timing for downscaling",
+																Description:  "the recurrence timing for downscaling",
 																ValidateFunc: validation.StringInSlice([]string{"0 2 * * *", "0 0 15 * *", "30 5 * * 1-5", "0 0 * * 6,7", "0 0 12 1 1"}, false),
 															},
 														},
@@ -264,227 +392,483 @@ func ResourceKubernetesService() *schema.Resource {
 						"policy_type": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Policy type for the worker node pool",
+							Description: "the policy type for the worker node pool",
 						},
 						"custom_param_name": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Custom parameter name for the worker node pool",
+							Description: "the custom parameter name for the worker node pool",
 						},
 						"custom_param_value": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Custom parameter value for the worker node pool",
+							Description: "the custom parameter value for the worker node pool",
 						},
 					},
 				},
 			},
-			"status": {
+
+			// ============================================
+			// COMPUTED FIELDS - CLUSTER INFO
+			// ============================================
+			"slug_name": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "This is the status of the Kubernetes Service, only to get the status from my account.",
+				Description: "the slug name of the Kubernetes cluster plan",
 			},
-			"created_at": {
+			"sku_id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Creation time of the Kubernetes Service",
+				Description: "the SKU id of the Kubernetes cluster",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			e2econstants.AttrStatus: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "state of the Kubernetes cluster instance",
+			},
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the creation timestamp of the Kubernetes cluster",
 			},
 		},
-
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(30 * time.Minute),
+			Update: schema.DefaultTimeout(30 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
+		},
 		CreateContext: resourceCreateKubernetesService,
 		ReadContext:   resourceReadKubernetesService,
 		UpdateContext: resourceUpdateKubernetesService,
 		DeleteContext: resourceDeleteKubernetesService,
 		Exists:        resourceExistsKubernetesService,
 		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
+			StateContext: resourceKubernetesImport,
 		},
 	}
 }
 
-func GetSlugName(ctx context.Context, d *schema.ResourceData, m interface{}) (string, error) {
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+func GetSlugName(ctx context.Context, d *schema.ResourceData, cfg *config.Config) (string, error) {
 	log.Printf("[INFO] KUBERNETES PLAN READ STARTS")
-	version := d.Get("version").(string)
-	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
-	kubernetesPlan, err := apiClient.GetKubernetesMasterPlans(d.Get("project_id").(int), d.Get("location").(string))
+	version := getKubernetesVersion(d)
+	if version == "" {
+		return "", fmt.Errorf("kubernetes_version or version is required")
+	}
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
-		return "", fmt.Errorf("error getting Kubernetes plans: %s", err.Error())
+		return "", err
 	}
-	// Extract slug_name based on the version
-	data, ok := kubernetesPlan["data"].([]interface{})
-	if !ok {
-		return "", fmt.Errorf("unexpected response format: missing 'data' field or not a list")
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return "", err
 	}
-	for _, plan := range data {
-		planData, ok := plan.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		k8sVersion, ok := planData["k8s_version"].(string)
-		if !ok {
-			continue
-		}
-		if k8sVersion == version {
-			slugName, ok := planData["plan"].(string)
-			if ok {
-				specs := planData["specs"].(map[string]interface{})
-				sku_id := specs["id"].(string)
-				d.Set("sku_id", sku_id)
-				return slugName, nil
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return "", fmt.Errorf("error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
+	log.Printf("--------------MAKING API CALL FOR SLUGNAME-------------")
+	plans, _, err := goe2eClient.Kubernetes.GetMasterPlans(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error retrieving Kubernetes plans for project (%s), region (%s): %s", projectIDStr, region, err.Error())
+	}
+
+	// Find plan matching the version
+	for _, plan := range plans {
+		if plan.K8sVersion == version {
+			if err := d.Set("sku_id", plan.Specs.ID); err != nil {
+				log.Printf("[WARN] Failed to set sku_id: %s", err)
 			}
+			return plan.Plan, nil
 		}
 	}
-	return "", fmt.Errorf("plan not found for version %s", version)
+
+	return "", fmt.Errorf("Kubernetes plan not found for version %s in project (%s), region (%s)", version, projectIDStr, region)
 }
 
-func CreateKubernetesObject(m interface{}, d *schema.ResourceData, slugName string) (*models.KubernetesCreate, diag.Diagnostics) {
-	apiClient, ok := m.(*client.Client)
-	if !ok {
-		return nil, diag.Errorf("Invalid type provided for client")
-	}
+func CreateKubernetesObject(ctx context.Context, cfg *config.Config, d *schema.ResourceData, slugName string, goe2eClient *goe2e.Client) (*goe2e.KubernetesClusterCreateRequest, diag.Diagnostics) {
 	log.Printf("[INFO] KUBERNETES OBJECT CREATION STARTS")
-	kubernetesObj := models.KubernetesCreate{
-		Name:     d.Get("name").(string),
-		Version:  d.Get("version").(string),
-		VPCID:    d.Get("vpc_id").(string),
-		SKUID:    d.Get("sku_id").(string),
+
+	clusterName := getClusterName(d)
+	kubernetesVersion := getKubernetesVersion(d)
+	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+	skuID := d.Get("sku_id").(string)
+
+	kubernetesObj := &goe2e.KubernetesClusterCreateRequest{
+		Name:     clusterName,
+		Version:  kubernetesVersion,
+		VPCID:    vpcID,
+		SKUID:    skuID,
 		SlugName: slugName,
 	}
-	if nodePools, ok := d.GetOk("node_pools"); ok {
+
+	if nodePools, ok := d.GetOk(e2econstants.AttrNodePools); ok {
 		nodePoolList := nodePools.([]interface{})
-		nodePoolsDetail, err := ExpandNodePools(nodePoolList, apiClient, d.Get("project_id").(int), d.Get("location").(string))
+
+		// Use config helpers instead of direct Get()
+		projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 		if err != nil {
 			return nil, diag.FromErr(err)
 		}
+
+		region, err := cfg.GetRegionOrDefault(d)
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
+
+		nodePoolsDetail, err := ExpandNodePools(ctx, nodePoolList, goe2eClient, projectIDStr, region)
+		if err != nil {
+			return nil, diag.Errorf("error preparing node pools for Kubernetes cluster in project (%s), region (%s): %s", projectIDStr, region, err)
+		}
 		kubernetesObj.NodePools = nodePoolsDetail
 	} else {
-		kubernetesObj.NodePools = make([]models.NodePool, 0)
+		kubernetesObj.NodePools = make([]goe2e.NodePool, 0)
 	}
-	return &kubernetesObj, nil
+
+	return kubernetesObj, nil
 }
 
 func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	apiClient, ok := m.(*client.Client)
-	if !ok {
-		return diag.Errorf("Invalid type provided for client")
-	}
+	cfg := m.(*config.Config)
 	var diags diag.Diagnostics
-	slugName, err := GetSlugName(ctx, d, apiClient)
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("slug_name", slugName)
-	kubernetesObject, diags := CreateKubernetesObject(apiClient, d, slugName)
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return diag.Errorf("Error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
+	// Log deprecation warnings
+	logDeprecationWarning(d, e2econstants.AttrName, "cluster_name")
+	logDeprecationWarning(d, e2econstants.AttrVersion, "kubernetes_version")
+	logDeprecationWarning(d, e2econstants.AttrLocation, e2econstants.AttrRegion)
+
+	clusterName := getClusterName(d)
+
+	slugName, err := GetSlugName(ctx, d, cfg)
+	if err != nil {
+		return diag.Errorf("Error retrieving Kubernetes plan slug name for cluster (name: %s) in project (%s), region (%s): %s", clusterName, projectIDStr, region, err)
+	}
+	if err := d.Set("slug_name", slugName); err != nil {
+		return diag.FromErr(fmt.Errorf("error setting slug_name: %w", err))
+	}
+
+	kubernetesObject, diags := CreateKubernetesObject(ctx, cfg, d, slugName, goe2eClient)
 	if diags != nil {
 		return diags
 	}
-	log.Printf("---------KUBERNETES OBJECT CREATED---------: %+v", kubernetesObject)
-	resKubernetes, err := apiClient.NewKubernetesService(kubernetesObject, d.Get("project_id").(int), d.Get("location").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	if _, codeOK := resKubernetes["code"]; !codeOK {
-		return diag.Errorf("%s", resKubernetes["message"].(string))
-	}
-	data, ok := resKubernetes["data"].(map[string]interface{})
-	if !ok {
-		return diag.Errorf("Failed to parse 'data' field in the response")
-	}
-	document, ok := data["DOCUMENT"].(map[string]interface{})
-	if !ok {
-		return diag.Errorf("Failed to parse 'DOCUMENT' field in the response")
-	}
-	clusterIDStr, ok := document["ID"].(string)
-	if !ok {
-		return diag.Errorf("Failed to parse 'ID' field in the 'DOCUMENT'")
-	}
-	d.SetId(clusterIDStr)
-	log.Printf("[INFO] Kubernetes Cluster creation | before setting fields")
-	return diags
 
+	log.Printf("---------KUBERNETES OBJECT CREATED---------: %+v", kubernetesObject)
+
+	// Create cluster via goe2e
+	cluster, _, err := goe2eClient.Kubernetes.Create(ctx, kubernetesObject)
+	if err != nil {
+		return diag.Errorf("Error creating Kubernetes cluster (name: %s) in project (%s), region (%s): %s", clusterName, projectIDStr, region, err)
+	}
+
+	if cluster == nil {
+		return diag.Errorf("Cluster creation returned nil response")
+	}
+
+	// Set ID
+	d.SetId(cluster.ServiceID)
+
+	// Store tags in state (state-only, not sent to API)
+	if tags, ok := d.GetOk("tags"); ok {
+		if err := d.Set("tags", tags); err != nil {
+			log.Printf("[WARN] Failed to set tags: %s", err)
+		}
+	}
+
+	// Wait for cluster to become Running (async operation, 30 min timeout)
+	err = waitForClusterStatus(ctx, goe2eClient, cluster.ServiceID, "Running", 30*time.Minute)
+	if err != nil {
+		return diag.Errorf("Error waiting for cluster (ID: %s) to become Running: %s", cluster.ServiceID, err)
+	}
+
+	// Attach security groups if specified
+	if securityGroupIDs, ok := d.GetOk("security_group_ids"); ok {
+		sgIDs := expandSecurityGroupIDs(securityGroupIDs.([]interface{}))
+		attachReq := &goe2e.AttachSecurityGroupRequest{
+			SecurityGroupIDs: sgIDs,
+		}
+		_, err = goe2eClient.Kubernetes.AttachSecurityGroups(ctx, cluster.ServiceID, attachReq)
+		if err != nil {
+			return diag.Errorf("Error attaching security groups to cluster (ID: %s): %s", cluster.ServiceID, err)
+		}
+	}
+
+	// Read to populate all computed fields
+	return resourceReadKubernetesService(ctx, d, m)
 }
 
 func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 
 	log.Printf("=============INSIDE KUBERNETES READ RESOURCE==========================")
-	kubernetesId := d.Id()
-	location := d.Get("location").(string)
-	kubernetes, err := apiClient.GetKubernetesServiceInfo(kubernetesId, location, d.Get("project_id").(int))
-	log.Println("===========GET_KUBERNETES_RESPONSE==========", kubernetes)
+	clusterID := d.Id()
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
-		return diag.Errorf("error finding Item with ID %s", kubernetesId)
+		return diag.FromErr(err)
+	}
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return diag.Errorf("Error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
+	// Get cluster details
+	cluster, _, err := goe2eClient.Kubernetes.Get(ctx, clusterID)
+	if err != nil {
+		return diag.Errorf("Error reading Kubernetes cluster (ID: %s): %s", clusterID, err)
+	}
+
+	if cluster == nil {
+		log.Printf("[WARN] Kubernetes cluster (ID: %s) returned nil, removing from state", clusterID)
+		d.SetId("")
+		return diags
 	}
 
 	log.Printf("[INFO] KUBERNETES READ | BEFORE SETTING DATA")
-	data := kubernetes["data"].([]interface{})[0].(map[string]interface{})
 	log.Printf("[INFO] SETTING--------- (1)")
-	serviceIDFloat, ok := data["service_id"].(float64)
-	if !ok {
-		return diag.Errorf("Failed to convert 'service_id' to float64")
+
+	// Set computed fields
+	if err := d.Set(e2econstants.AttrStatus, cluster.State); err != nil {
+		log.Printf("[WARN] Failed to set status: %s", err)
 	}
-	serviceIDStr := fmt.Sprintf("%.0f", serviceIDFloat)
-	d.SetId(serviceIDStr)
-	d.Set("name", data["service_name"].(string))
-	d.Set("status", data["state"].(string))
-	d.Set("version", data["version"].(string))
-	d.Set("created_at", data["created_at"].(string))
+	if err := d.Set(e2econstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
+		log.Printf("[WARN] Failed to set created_at: %s", err)
+	}
+	if err := d.Set("slug_name", d.Get("slug_name")); err != nil {
+		log.Printf("[WARN] Failed to set slug_name: %s", err)
+	}
+	if err := d.Set("sku_id", d.Get("sku_id")); err != nil {
+		log.Printf("[WARN] Failed to set sku_id: %s", err)
+	}
+
+	// Set preferred fields (always use V3 names on read)
+	if err := d.Set("cluster_name", cluster.ServiceName); err != nil {
+		log.Printf("[WARN] Failed to set cluster_name: %s", err)
+	}
+	if err := d.Set("kubernetes_version", cluster.Version); err != nil {
+		log.Printf("[WARN] Failed to set kubernetes_version: %s", err)
+	}
+	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+		log.Printf("[WARN] Failed to set region: %s", err)
+	}
+	if err := d.Set(e2econstants.AttrVPCID, cluster.VPCID); err != nil {
+		log.Printf("[WARN] Failed to set vpc_id: %s", err)
+	}
+
+	// Get node pools
+	nodePools, _, err := goe2eClient.Kubernetes.GetNodePools(ctx, clusterID)
+	if err != nil {
+		return diag.Errorf("Error reading node pools for cluster (ID: %s): %s", clusterID, err)
+	}
+
+	// Flatten node pools
+	if err := d.Set(e2econstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
+		return diag.Errorf("Error setting node_pools: %s", err)
+	}
+
+	// Get security groups
+	securityGroups, _, err := goe2eClient.Kubernetes.ListAttachedSecurityGroups(ctx, clusterID)
+	if err == nil && len(securityGroups) > 0 {
+		sgIDs := make([]int, len(securityGroups))
+		for i, sg := range securityGroups {
+			sgIDs[i] = sg.ID
+		}
+		if err := d.Set("security_group_ids", sgIDs); err != nil {
+			log.Printf("[WARN] Failed to set security_group_ids: %s", err)
+		}
+	}
+
 	return diags
 }
 
 func resourceDeleteKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
-	kubernetesID := d.Id()
-	status := d.Get("status").(string)
-	if status != "Running" {
-		return diag.Errorf("Kubernetes is in %s state. You can delete it once it comes to the Running state.", status)
-	}
-	err := apiClient.DeleteKubernetesService(kubernetesID, d.Get("location").(string), d.Get("project_id").(int))
+	clusterID := d.Id()
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return diag.Errorf("Error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
+	status := d.Get("status").(string)
+	invalidStates := []string{"Deleting", "Deleted", "Failed", "Error"}
+	for _, s := range invalidStates {
+		if status == s {
+			return diag.Errorf("cannot delete Kubernetes cluster (ID: %s): cluster is in %s state in project (%s), region (%s)", clusterID, status, projectIDStr, region)
+		}
+	}
+
+	_, err = goe2eClient.Kubernetes.Delete(ctx, clusterID)
+	if err != nil {
+		return diag.Errorf("Error deleting Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", clusterID, projectIDStr, region, err)
+	}
+
 	d.SetId("")
 	return diags
 }
 
 func resourceExistsKubernetesService(d *schema.ResourceData, m interface{}) (bool, error) {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	ctx := context.Background()
 
-	kubernetesId := d.Id()
-	location := d.Get("location").(string)
-	_, err := apiClient.GetKubernetesServiceInfo(kubernetesId, location, d.Get("project_id").(int))
+	clusterID := d.Id()
 
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return false, nil
-		} else {
-			return false, err
-		}
+		return false, err
 	}
-	return true, nil
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return false, err
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return false, fmt.Errorf("error getting goe2e client: %s", err)
+	}
+
+	cluster, resp, err := goe2eClient.Kubernetes.Get(ctx, clusterID)
+	if err != nil {
+		if resp != nil && resp.StatusCode == 404 {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return cluster != nil, nil
 }
 
 func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	status := d.Get("status").(string)
-	kubernetesId := d.Id()
-	if status != "Running" {
-		return diag.Errorf("Kubernetes is in %s state. You can update it once it comes to the Running state.", status)
-	}
-	serviceMapping, err := GetNodePoolServiceMapping(ctx, d, m)
+	clusterID := d.Id()
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if d.HasChange("node_pools") {
-		oldData, newData := d.GetChange("node_pools")
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return diag.Errorf("Error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
+	status := d.Get("status").(string)
+	invalidStates := []string{"Deleting", "Deleted", "Failed", "Error"}
+	for _, s := range invalidStates {
+		if status == s {
+			return diag.Errorf("cannot update Kubernetes cluster (ID: %s): cluster is in %s state in project (%s), region (%s)", clusterID, status, projectIDStr, region)
+		}
+	}
+
+	// Handle tags update (state-only, no API call)
+	if d.HasChange("tags") {
+		if tags, ok := d.GetOk("tags"); ok {
+			if err := d.Set("tags", tags); err != nil {
+				log.Printf("[WARN] Failed to set tags: %s", err)
+			}
+		}
+	}
+
+	// Handle security group updates
+	if d.HasChange("security_group_ids") {
+		old, new := d.GetChange("security_group_ids")
+		oldSGIDs := expandSecurityGroupIDs(old.([]interface{}))
+		newSGIDs := expandSecurityGroupIDs(new.([]interface{}))
+
+		// Detach removed security groups
+		toDetach := difference(oldSGIDs, newSGIDs)
+		if len(toDetach) > 0 {
+			detachReq := &goe2e.DetachSecurityGroupRequest{
+				SecurityGroupIDs: toDetach,
+			}
+			_, err = goe2eClient.Kubernetes.DetachSecurityGroups(ctx, clusterID, detachReq)
+			if err != nil {
+				return diag.Errorf("Error detaching security groups from cluster (ID: %s): %s", clusterID, err)
+			}
+		}
+
+		// Attach new security groups
+		toAttach := difference(newSGIDs, oldSGIDs)
+		if len(toAttach) > 0 {
+			attachReq := &goe2e.AttachSecurityGroupRequest{
+				SecurityGroupIDs: toAttach,
+			}
+			_, err = goe2eClient.Kubernetes.AttachSecurityGroups(ctx, clusterID, attachReq)
+			if err != nil {
+				return diag.Errorf("Error attaching security groups to cluster (ID: %s): %s", clusterID, err)
+			}
+		}
+	}
+
+	serviceMapping, err := GetNodePoolServiceMapping(ctx, d, m)
+	if err != nil {
+		return diag.Errorf("Error retrieving node pool service mapping for Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", clusterID, projectIDStr, region, err)
+	}
+	if d.HasChange(e2econstants.AttrNodePools) {
+		oldData, newData := d.GetChange(e2econstants.AttrNodePools)
 
 		oldNodePools := oldData.([]interface{})
 		newNodePools := newData.([]interface{})
@@ -494,12 +878,13 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			oldNPName := oldNodePoolMap["name"].(string)
 			oldServiceFind := serviceMapping[oldNPName]
 			if oldServiceFind == nil {
-				return diag.Errorf("The Node Pool you are trying to delete does not exist!")
+				return diag.Errorf("Cannot delete node pool '%s' from Kubernetes cluster (ID: %s): node pool does not exist in project (%s), region (%s)", oldNPName, clusterID, projectIDStr, region)
 			}
-			oldServiceID := oldServiceFind.(float64)
+			oldServiceIDFloat := oldServiceFind.(float64)
+			oldServiceID := fmt.Sprintf("%.0f", oldServiceIDFloat)
 			found := false
 			if len(newNodePools) <= 0 {
-				return diag.Errorf("Atleast one node pool must be present in a kubernetes cluster!")
+				return diag.Errorf("Cannot delete node pool from Kubernetes cluster (ID: %s): at least one node pool must be present in a Kubernetes cluster", clusterID)
 			}
 			// Check if the old service_id exists in the new node pools
 			for _, newNodePool := range newNodePools {
@@ -511,25 +896,18 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 				}
 			}
 			if !found {
-				kubernetes, err := apiClient.CheckNodePoolStatus(kubernetesId, d.Get("project_id").(int), d.Get("location").(string))
+				nodePools, _, err := goe2eClient.Kubernetes.CheckNodePoolStatus(ctx, clusterID)
 				if err != nil {
-					return diag.Errorf("error finding Item with ID %s", kubernetesId)
+					return diag.Errorf("Error retrieving Kubernetes cluster (ID: %s) status in project (%s), region (%s): %s", clusterID, projectIDStr, region, err)
 				}
-				if !IsNodePoolRunning(oldServiceID, kubernetes["data"].([]interface{})) {
-					d.Set("node_pools", oldData)
-					return diag.Errorf("You can delete a Node Pool once it comes to the running state")
+				if !IsNodePoolRunning(oldServiceIDFloat, nodePools) {
+					d.Set(e2econstants.AttrNodePools, oldData)
+					return diag.Errorf("Cannot delete node pool '%s' from Kubernetes cluster (ID: %s): node pool must be in Running state before deletion", oldNPName, clusterID)
 				}
-				response, err := apiClient.DeleteNodePool(oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+				_, err = goe2eClient.Kubernetes.DeleteNodePool(ctx, oldServiceID)
 				if err != nil {
-					if response == nil {
-						return nil
-					}
-					if len(response) > 0 {
-						return diag.Errorf("Error: %s", response["Status"])
-					}
-					return diag.FromErr(err)
+					return diag.Errorf("Error deleting node pool '%s' from Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", oldNPName, clusterID, projectIDStr, region, err)
 				}
-				// return nil
 			}
 		}
 
@@ -541,13 +919,15 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			for _, oldNodePool := range oldNodePools {
 				oldNodePoolMap := oldNodePool.(map[string]interface{})
 				oldNPName := oldNodePoolMap["name"].(string)
-				oldServiceID := serviceMapping[oldNPName].(float64)
+				oldServiceIDFloat := serviceMapping[oldNPName].(float64)
+				oldServiceID := fmt.Sprintf("%.0f", oldServiceIDFloat)
 				// If exists then check if there is any change in cardinality
 				if newNPName == oldNPName {
 					found = true
 					oldCardinality := oldNodePoolMap["cardinality"].(int)
-					if oldNodePoolMap["node_pool_type"].(string) == "Static" {
-						oldCardinality = oldNodePoolMap["worker_node"].(int)
+					oldPoolType := getNodePoolType(oldNodePoolMap)
+					if oldPoolType == "Static" {
+						oldCardinality = getNodePoolSize(oldNodePoolMap)
 					}
 					node_pool_size := oldCardinality
 					if newNodePoolMap["node_pool_size"].(int) != 0 {
@@ -555,45 +935,45 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					}
 					log.Printf("----------------PREV CARD:%+v     NEW CARD:%+v------------------", oldCardinality, node_pool_size)
 					if node_pool_size < 2 {
-						return diag.Errorf("Cardinality of worker nodes cannot be less than 2")
+						return diag.Errorf("Cannot update node pool '%s' in Kubernetes cluster (ID: %s): node_pool_size must be at least 2 (current value: %d)", newNPName, clusterID, node_pool_size)
 					}
 					if oldCardinality != node_pool_size {
-						nodePoolResize := models.NodePoolResize{
-							NodePoolSize: newNodePoolMap["node_pool_size"].(int),
+						resizeReq := &goe2e.NodePoolResizeRequest{
+							NodePoolSize: node_pool_size,
 						}
-						newNodePoolMap["cardinality"] = newNodePoolMap["node_pool_size"].(int)
-						response, err := apiClient.UpdateNodePoolCardinality(&nodePoolResize, oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+						newNodePoolMap["cardinality"] = node_pool_size
+						_, err := goe2eClient.Kubernetes.UpdateNodePoolCardinality(ctx, oldServiceID, resizeReq)
 						if err != nil {
-							if response == nil {
-								// return nil
-								break
-							}
-							if len(response) > 0 {
-								return diag.Errorf("Error: %s", response["errors"])
-							}
-							return diag.FromErr(err)
+							return diag.Errorf("Error updating node pool '%s' cardinality in Kubernetes cluster (ID: %s), project (%s), region (%s): %s", newNPName, clusterID, projectIDStr, region, err)
 						}
 						break
 					}
-					old_node_pool_type := oldNodePoolMap["node_pool_type"].(string)
-					new_node_pool_type := newNodePoolMap["node_pool_type"].(string)
+					new_node_pool_type := getNodePoolType(newNodePoolMap)
 					// You cannot change the node pool type from Static to Autoscale and vice versa
-					if old_node_pool_type != new_node_pool_type {
-						return diag.Errorf("You cannot change the node pool type")
+					if oldPoolType != new_node_pool_type {
+						return diag.Errorf("Cannot update node pool type for node pool '%s' in Kubernetes cluster (ID: %s): this field is immutable after node pool creation", newNPName, clusterID)
 					}
 					if new_node_pool_type == "Static" {
 						break
 					}
-					nodePoolObject, err := ExpandNPUpdate(newNodePoolMap, apiClient, d.Get("project_id").(int), d.Get("location").(string))
+					nodePoolObject, err := ExpandNodePoolUpdate(ctx, newNodePoolMap, goe2eClient, projectIDStr, region)
 					if err != nil {
-						return diag.FromErr(err)
+						return diag.Errorf("Error preparing node pool '%s' update for Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", newNPName, clusterID, projectIDStr, region, err)
 					}
-					response, err := apiClient.UpdateNodePoolDetails(&nodePoolObject, oldServiceID, d.Get("project_id").(int), d.Get("location").(string))
+					updateReq := &goe2e.NodePoolUpdateRequest{
+						MinVms:           nodePoolObject.MinVms,
+						Cardinality:      nodePoolObject.Cardinality,
+						MaxVms:           nodePoolObject.MaxVms,
+						PlanID:           nodePoolObject.PlanID,
+						ElasticityPolicy: nodePoolObject.ElasticityPolicy,
+						ScheduledPolicy:  nodePoolObject.ScheduledPolicy,
+						PolicyType:       nodePoolObject.PolicyType,
+						CustomParamName:  nodePoolObject.CustomParamName,
+						CustomParamValue: nodePoolObject.CustomParamValue,
+					}
+					_, _, err = goe2eClient.Kubernetes.UpdateNodePoolDetails(ctx, oldServiceID, updateReq)
 					if err != nil {
-						return diag.FromErr(err)
-					}
-					if _, codeOK := response["code"]; !codeOK {
-						return diag.Errorf("%s", response["message"].(string))
+						return diag.Errorf("Error updating node pool '%s' details in Kubernetes cluster (ID: %s), project (%s), region (%s): %s", newNPName, clusterID, projectIDStr, region, err)
 					}
 					break
 				}
@@ -602,22 +982,19 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			if !found {
 				var nodePoolList []interface{}
 				nodePoolList = append(nodePoolList, newNodePools[i])
-				nodePoolsDetail, err := ExpandNodePools(nodePoolList, apiClient, d.Get("project_id").(int), d.Get("location").(string))
+				nodePoolsDetail, err := ExpandNodePools(ctx, nodePoolList, goe2eClient, projectIDStr, region)
 				if err != nil {
-					return diag.FromErr(err)
+					return diag.Errorf("Error preparing new node pool '%s' for Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", newNPName, clusterID, projectIDStr, region, err)
 				}
-				kubernetesObj := models.NodePoolAdd{}
-				kubernetesObj.NodePools = nodePoolsDetail
+				addReq := &goe2e.NodePoolAddRequest{
+					NodePools: nodePoolsDetail,
+				}
 				log.Printf("----------------------ADDING A NEW NODE POOL-------------------")
-				response, err := apiClient.AddNodePool(&kubernetesObj, kubernetesId, d.Get("project_id").(int), d.Get("location").(string))
+				_, _, err = goe2eClient.Kubernetes.AddNodePool(ctx, clusterID, addReq)
 				if err != nil {
-					return diag.FromErr(err)
-				}
-				if _, codeOK := response["code"]; !codeOK {
-					return diag.Errorf("%s", response["message"].(string))
+					return diag.Errorf("Error adding node pool '%s' to Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", newNPName, clusterID, projectIDStr, region, err)
 				}
 				continue
-				// return nil
 			}
 		}
 	}
@@ -627,40 +1004,173 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 
 func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m interface{}) (map[string]interface{}, error) {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	log.Printf("[INFO] KUBERNETES CLUSTER NODE POOLS MAPPING STARTS")
 	clusterID := d.Id()
+
+	// Get project_id with provider default support
+	projectIDStr, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
+	if err != nil {
+		return nil, fmt.Errorf("error getting goe2e client for project (%s), region (%s): %s", projectIDStr, region, err)
+	}
+
 	// Initialize the map to store service_name and service_id mappings
 	serviceMapping := make(map[string]interface{})
-	nodePoolList, err := apiClient.GetKubernetesNodePools(clusterID, d.Get("project_id").(int), d.Get("location").(string))
+	nodePools, _, err := goe2eClient.Kubernetes.GetNodePools(ctx, clusterID)
 	if err != nil {
-		return serviceMapping, fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
+		return serviceMapping, fmt.Errorf("error retrieving node pool list for Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", clusterID, projectIDStr, region, err.Error())
 	}
-	if err != nil {
-		return serviceMapping, fmt.Errorf("error getting list of kluster's node pools list: %s", err.Error())
-	}
-	// Extract service_name and service_id from each item in the data array
-	for _, nodePool := range nodePoolList["data"].([]interface{}) {
-		nodePoolData := nodePool.(map[string]interface{})
-		serviceName := nodePoolData["service_name"].(string)
-		serviceID := nodePoolData["service_id"].(float64) // Assuming service_id is a number
-		serviceMapping[serviceName] = serviceID
+	// Extract service_name and service_id from each node pool
+	for _, nodePool := range nodePools {
+		serviceMapping[nodePool.ServiceName] = nodePool.ServiceID
 	}
 
 	return serviceMapping, nil
 }
 
-func IsNodePoolRunning(oldServiceID float64, nodePools []interface{}) bool {
-	var status string
+func IsNodePoolRunning(oldServiceID float64, nodePools []goe2e.NodePoolServiceInfo) bool {
 	for _, nodepool := range nodePools {
-		npdetail := nodepool.(map[string]interface{})
-		serviceID := npdetail["service_id"].(float64)
-		if serviceID == oldServiceID {
-			status = npdetail["state"].(string)
-			if status == "Running" {
+		if nodepool.ServiceID == oldServiceID {
+			if nodepool.State == "Running" {
 				return true
 			}
 		}
 	}
 	return false
 }
+
+// resourceKubernetesImport handles importing Kubernetes clusters
+// Supports two import formats:
+// 1. Simple: "cluster_id" (uses provider defaults for project_id and region)
+// 2. Full: "project_id:region:cluster_id"
+func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), ":")
+	var projectID, region, clusterID string
+
+	// Support two import formats:
+	// 1. Simple: cluster_id (uses provider defaults for project_id and region)
+	// 2. Full: project_id:region:cluster_id
+	if len(parts) == 1 {
+		// Simple format: just cluster ID
+		clusterID = parts[0]
+		cfg := m.(*config.Config)
+		var err error
+		region, err = cfg.GetRegionOrDefault(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting region: %w", err)
+		}
+		var projectIDStr string
+		projectIDStr, err = cfg.GetProjectIDOrDefault(d)
+		if err != nil {
+			return nil, fmt.Errorf("error getting project ID: %w", err)
+		}
+		projectID = projectIDStr
+	} else if len(parts) == 3 {
+		// Full format: project_id:region:cluster_id
+		projectID = parts[0]
+		region = parts[1]
+		clusterID = parts[2]
+	} else {
+		return nil, fmt.Errorf("invalid import ID format: expected 'cluster_id' or 'project_id:region:cluster_id', got '%s'", d.Id())
+	}
+
+	// Validate that clusterID is not empty
+	if clusterID == "" {
+		return nil, fmt.Errorf("cluster_id cannot be empty")
+	}
+
+	cfg := m.(*config.Config)
+
+	// Set project_id and region in resource data
+	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+		return nil, fmt.Errorf("error setting project_id: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+		return nil, fmt.Errorf("error setting region: %w", err)
+	}
+	// Also set location for backwards compatibility
+	if err := d.Set(e2econstants.AttrLocation, region); err != nil {
+		return nil, fmt.Errorf("error setting location: %w", err)
+	}
+
+	// Get goe2e client
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return nil, fmt.Errorf("error creating goe2e client during import: %w", err)
+	}
+
+	// Fetch cluster via goe2eClient.Kubernetes.Get(ctx, clusterID)
+	cluster, _, err := goe2eClient.Kubernetes.Get(ctx, clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving Kubernetes cluster (ID: %s) during import: %w", clusterID, err)
+	}
+
+	if cluster == nil {
+		return nil, fmt.Errorf("Kubernetes cluster (ID: %s) not found", clusterID)
+	}
+
+	// Fetch node pools via goe2eClient.Kubernetes.GetNodePools(ctx, clusterID)
+	nodePools, _, err := goe2eClient.Kubernetes.GetNodePools(ctx, clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving node pools for cluster (ID: %s) during import: %w", clusterID, err)
+	}
+
+	// Set cluster ID
+	d.SetId(clusterID)
+
+	// Populate V3 preferred fields (cluster_name, kubernetes_version, etc.)
+	if err := d.Set("cluster_name", cluster.ServiceName); err != nil {
+		return nil, fmt.Errorf("error setting cluster_name: %w", err)
+	}
+	if err := d.Set("kubernetes_version", cluster.Version); err != nil {
+		return nil, fmt.Errorf("error setting kubernetes_version: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrVPCID, cluster.VPCID); err != nil {
+		return nil, fmt.Errorf("error setting vpc_id: %w", err)
+	}
+
+	// Set computed fields
+	if err := d.Set(e2econstants.AttrStatus, cluster.State); err != nil {
+		return nil, fmt.Errorf("error setting status: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
+		return nil, fmt.Errorf("error setting created_at: %w", err)
+	}
+
+	// Initialize tags as empty map (state-only, not sent to API)
+	if err := d.Set("tags", make(map[string]interface{})); err != nil {
+		return nil, fmt.Errorf("error setting tags: %w", err)
+	}
+
+	// Use flattenNodePools() with V3 field names
+	if err := d.Set(e2econstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
+		return nil, fmt.Errorf("error setting node_pools: %w", err)
+	}
+
+	// Get security groups if attached
+	securityGroups, _, err := goe2eClient.Kubernetes.ListAttachedSecurityGroups(ctx, clusterID)
+	if err == nil && len(securityGroups) > 0 {
+		sgIDs := make([]int, len(securityGroups))
+		for i, sg := range securityGroups {
+			sgIDs[i] = sg.ID
+		}
+		if err := d.Set("security_group_ids", sgIDs); err != nil {
+			log.Printf("[WARN] Failed to set security_group_ids during import: %s", err)
+		}
+	}
+
+	return []*schema.ResourceData{d}, nil
+}
+
+// V0 schema and state upgrade functions are now in resource_kubernetes_state_upgrade.go

@@ -1,16 +1,16 @@
 package sfs_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -20,7 +20,7 @@ func TestAccE2ESFS_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESFSDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -31,8 +31,7 @@ func TestAccE2ESFS_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("e2e_sfs.test", "disk_size", "100"),
 					resource.TestCheckResourceAttr("e2e_sfs.test", "disk_iops", "1000"),
 					resource.TestCheckResourceAttr("e2e_sfs.test", "is_encryption_enabled", "false"),
-					resource.TestCheckResourceAttrSet("e2e_sfs.test", "status"),
-				),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "status")),
 			},
 		},
 	})
@@ -44,7 +43,7 @@ func TestAccE2ESFS_WithEncryption(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESFSDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -52,8 +51,7 @@ func TestAccE2ESFS_WithEncryption(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
 					resource.TestCheckResourceAttr("e2e_sfs.test", "is_encryption_enabled", "true"),
-					resource.TestCheckResourceAttr("e2e_sfs.test", "encryption_passphrase", "test-passphrase-123"),
-				),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "encryption_passphrase", "test-passphrase-123")),
 			},
 		},
 	})
@@ -62,7 +60,7 @@ func TestAccE2ESFS_WithEncryption(t *testing.T) {
 func TestAccE2ESFS_NameValidation(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2ESFSConfig_invalidName(),
@@ -75,7 +73,7 @@ func TestAccE2ESFS_NameValidation(t *testing.T) {
 func TestAccE2ESFS_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2ESFSConfig_missingName(),
@@ -115,14 +113,13 @@ func TestAccE2ESFS_Import(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESFSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2ESFSConfig_basic(sfsName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
-				),
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID)),
 			},
 			{
 				ResourceName:            "e2e_sfs.test",
@@ -134,39 +131,146 @@ func TestAccE2ESFS_Import(t *testing.T) {
 	})
 }
 
-// Helper functions
+// V3 Field Tests
 
-var testAccProvider *schema.Provider
+func TestAccE2ESFS_V3Fields(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
 
-func init() {
-	testAccProvider = e2e.Provider()
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_v3Fields(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "name", sfsName),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "size_gb", "100"),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "iops", "1000"),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "encryption_enabled", "false"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "status"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "state"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "mount_endpoint")),
+			},
+		},
+	})
 }
 
+func TestAccE2ESFS_V3FieldsWithEncryption(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_v3FieldsEncrypted(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "encryption_enabled", "true"),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "encryption_passphrase", "test-passphrase-v3")),
+			},
+		},
+	})
+}
+
+func TestAccE2ESFS_DeprecatedDiskSize(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_basic(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					// Verify both V2 and V3 field names work
+					resource.TestCheckResourceAttr("e2e_sfs.test", "disk_size", "100"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "size_gb")),
+			},
+		},
+	})
+}
+
+func TestAccE2ESFS_DeprecatedEncryptionFlag(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_withEncryption(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					// Verify both V2 and V3 flag names work
+					resource.TestCheckResourceAttr("e2e_sfs.test", "is_encryption_enabled", "true"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "encryption_enabled")),
+			},
+		},
+	})
+}
+
+func TestAccE2ESFS_Tags(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_withTags(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "tags.%", "2"),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "tags.Environment", "test"),
+					resource.TestCheckResourceAttr("e2e_sfs.test", "tags.Purpose", "testing")),
+			},
+		},
+	})
+}
+
+func TestAccE2ESFS_MountEndpoint(t *testing.T) {
+	var sfsID string
+	sfsName := fmt.Sprintf("test-sfs-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESFSDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESFSConfig_v3Fields(sfsName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESFSExists("e2e_sfs.test", &sfsID),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "mount_endpoint"),
+					resource.TestCheckResourceAttrSet("e2e_sfs.test", "private_endpoint")),
+			},
+		},
+	})
+}
+
+// Helper functions
+
 func testAccPreCheck(t *testing.T) {
-	if v := os.Getenv("SERVICE_API_KEY"); v == "" {
-		t.Fatal("SERVICE_API_KEY must be set for acceptance tests")
-	}
-	if v := os.Getenv("SERVICE_AUTH_TOKEN"); v == "" {
-		t.Fatal("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_PROJECT_ID"); v == "" {
-		t.Fatal("E2E_TEST_PROJECT_ID must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_REGION"); v == "" {
-		t.Fatal("E2E_TEST_REGION must be set for acceptance tests")
-	}
+	acceptance.TestAccPreCheck(t)
 	if v := os.Getenv("E2E_TEST_VPC_ID"); v == "" {
 		t.Fatal("E2E_TEST_VPC_ID must be set for acceptance tests")
 	}
 	if v := os.Getenv("E2E_TEST_SFS_PLAN"); v == "" {
 		t.Fatal("E2E_TEST_SFS_PLAN must be set for acceptance tests")
 	}
-}
-
-var testAccProviderFactories = map[string]func() (*schema.Provider, error){
-	"e2e": func() (*schema.Provider, error) {
-		return e2e.Provider(), nil
-	},
 }
 
 func testAccCheckE2ESFSExists(resourceName string, sfsID *string) resource.TestCheckFunc {
@@ -180,13 +284,16 @@ func testAccCheckE2ESFSExists(resourceName string, sfsID *string) resource.TestC
 			return fmt.Errorf("No SFS ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
-
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 		projectID := rs.Primary.Attributes["project_id"]
-		region := rs.Primary.Attributes["region"]
+		region := acceptance.GetRegionOrLocationFromState(rs)
 
-		sfs, err := client.GetSfs(rs.Primary.ID, projectID, region)
+		client, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf("error creating goe2e client: %w", err)
+		}
+
+		sfs, _, err := client.Sfs.GetSfs(context.Background(), rs.Primary.ID)
 		if err != nil {
 			return err
 		}
@@ -202,8 +309,7 @@ func testAccCheckE2ESFSExists(resourceName string, sfsID *string) resource.TestC
 }
 
 func testAccCheckE2ESFSDestroy(s *terraform.State) error {
-	cfg := testAccProvider.Meta().(*config.Config)
-	client := cfg.Client()
+	cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "e2e_sfs" {
@@ -211,9 +317,14 @@ func testAccCheckE2ESFSDestroy(s *terraform.State) error {
 		}
 
 		projectID := rs.Primary.Attributes["project_id"]
-		region := rs.Primary.Attributes["region"]
+		region := acceptance.GetRegionOrLocationFromState(rs)
 
-		_, err := client.GetSfs(rs.Primary.ID, projectID, region)
+		client, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf("error creating goe2e client: %w", err)
+		}
+
+		_, _, err = client.Sfs.GetSfs(context.Background(), rs.Primary.ID)
 		if err == nil {
 			return fmt.Errorf("SFS still exists: %s", rs.Primary.ID)
 		}
@@ -230,14 +341,9 @@ resource "e2e_sfs" "test" {
   name                    = "%s"
   plan                    = "%s"
   vpc_id                  = "%s"
-  disk_size               = 100
-  project_id              = "%s"
-  disk_iops               = 1000
-  region                  = "%s"
-  is_encryption_enabled   = false
+  disk_size               = 100  disk_iops               = 1000  is_encryption_enabled   = false
 }
-`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_withEncryption(name string) string {
@@ -246,15 +352,10 @@ resource "e2e_sfs" "test" {
   name                    = "%s"
   plan                    = "%s"
   vpc_id                  = "%s"
-  disk_size               = 100
-  project_id              = "%s"
-  disk_iops               = 1000
-  region                  = "%s"
-  is_encryption_enabled   = true
+  disk_size               = 100  disk_iops               = 1000  is_encryption_enabled   = true
   encryption_passphrase   = "test-passphrase-123"
 }
-`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_invalidName() string {
@@ -263,14 +364,9 @@ resource "e2e_sfs" "test" {
   name                    = "test sfs with spaces"
   plan                    = "%s"
   vpc_id                  = "%s"
-  disk_size               = 100
-  project_id              = "%s"
-  disk_iops               = 1000
-  region                  = "%s"
-  is_encryption_enabled   = false
+  disk_size               = 100  disk_iops               = 1000  is_encryption_enabled   = false
 }
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 // Missing required argument configurations
@@ -280,13 +376,8 @@ func testAccCheckE2ESFSConfig_missingName() string {
 resource "e2e_sfs" "test" {
   plan       = "%s"
   vpc_id     = "%s"
-  disk_size  = 100
-  project_id = "%s"
-  disk_iops  = 1000
-  region     = "%s"
-}
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+  disk_size  = 100  disk_iops  = 1000}
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_missingPlan() string {
@@ -294,12 +385,8 @@ func testAccCheckE2ESFSConfig_missingPlan() string {
 resource "e2e_sfs" "test" {
   name       = "test-sfs"
   vpc_id     = "%s"
-  disk_size  = 100
-  project_id = "%s"
-  disk_iops  = 1000
-  region     = "%s"
-}
-`, os.Getenv("E2E_TEST_VPC_ID"), os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+  disk_size  = 100  disk_iops  = 1000}
+`, os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_missingVpcID() string {
@@ -307,12 +394,8 @@ func testAccCheckE2ESFSConfig_missingVpcID() string {
 resource "e2e_sfs" "test" {
   name       = "test-sfs"
   plan       = "%s"
-  disk_size  = 100
-  project_id = "%s"
-  disk_iops  = 1000
-  region     = "%s"
-}
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+  disk_size  = 100  disk_iops  = 1000}
+`, os.Getenv("E2E_TEST_SFS_PLAN"))
 }
 
 func testAccCheckE2ESFSConfig_missingDiskSize() string {
@@ -320,13 +403,8 @@ func testAccCheckE2ESFSConfig_missingDiskSize() string {
 resource "e2e_sfs" "test" {
   name       = "test-sfs"
   plan       = "%s"
-  vpc_id     = "%s"
-  project_id = "%s"
-  disk_iops  = 1000
-  region     = "%s"
-}
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+  vpc_id     = "%s"  disk_iops  = 1000}
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_missingProjectID() string {
@@ -336,10 +414,8 @@ resource "e2e_sfs" "test" {
   plan      = "%s"
   vpc_id    = "%s"
   disk_size = 100
-  disk_iops = 1000
-  region    = "%s"
-}
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"), os.Getenv("E2E_TEST_REGION"))
+  disk_iops = 1000}
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_missingDiskIOPS() string {
@@ -348,12 +424,8 @@ resource "e2e_sfs" "test" {
   name       = "test-sfs"
   plan       = "%s"
   vpc_id     = "%s"
-  disk_size  = 100
-  project_id = "%s"
-  region     = "%s"
-}
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+  disk_size  = 100}
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }
 
 func testAccCheckE2ESFSConfig_missingRegion() string {
@@ -362,9 +434,53 @@ resource "e2e_sfs" "test" {
   name       = "test-sfs"
   plan       = "%s"
   vpc_id     = "%s"
-  disk_size  = 100
-  project_id = "%s"
-  disk_iops  = 1000
+  disk_size  = 100  disk_iops  = 1000
 }
-`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"), os.Getenv("E2E_TEST_PROJECT_ID"))
+`, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
+}
+
+// V3 Field Configuration Helpers
+
+func testAccCheckE2ESFSConfig_v3Fields(name string) string {
+	return fmt.Sprintf(`
+resource "e2e_sfs" "test" {
+  name                = "%s"
+  plan                = "%s"
+  vpc_id              = "%s"
+  size_gb             = 100
+  iops                = 1000
+  encryption_enabled  = false
+}
+`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
+}
+
+func testAccCheckE2ESFSConfig_v3FieldsEncrypted(name string) string {
+	return fmt.Sprintf(`
+resource "e2e_sfs" "test" {
+  name                = "%s"
+  plan                = "%s"
+  vpc_id              = "%s"
+  size_gb             = 100
+  iops                = 1000
+  encryption_enabled  = true
+  encryption_passphrase = "test-passphrase-v3"
+}
+`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
+}
+
+func testAccCheckE2ESFSConfig_withTags(name string) string {
+	return fmt.Sprintf(`
+resource "e2e_sfs" "test" {
+  name                = "%s"
+  plan                = "%s"
+  vpc_id              = "%s"
+  size_gb             = 100
+  iops                = 1000
+  encryption_enabled  = false
+  tags = {
+    Environment = "test"
+    Purpose     = "testing"
+  }
+}
+`, name, os.Getenv("E2E_TEST_SFS_PLAN"), os.Getenv("E2E_TEST_VPC_ID"))
 }

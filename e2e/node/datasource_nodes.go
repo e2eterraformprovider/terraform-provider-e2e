@@ -2,79 +2,73 @@ package node
 
 import (
 	"context"
-	//"encoding/json"
-	// "fmt"
 	"log"
-	// "math"
-	// "regexp"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-
-	// "github.com/hashicorp/terraform-plugin-log"
-	// "github.com/hashicorp/terraform-plugin-log/tflog"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func DataSourceNodes() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: dataSourceReadNodes,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 		Schema: map[string]*schema.Schema{
-			"region": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Region should specified",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The ID of the project associated with the node",
-			},
+			// Common fields
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// Resource-specific fields
 			"nodes_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
-				Description: "List of all the Nodes of your account . ",
+				Description: "list of all Nodes in your account",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": {
+						e2econstants.AttrID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
-							Description: "The id of the node",
+							Description: "id of the Node",
 						},
-						"name": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrName: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "name of the Node",
 						},
-						"is_locked": {
-							Type:     schema.TypeBool,
-							Computed: true,
+						e2econstants.AttrIsLocked: {
+							Type:        schema.TypeBool,
+							Computed:    true,
+							Description: "whether the Node is locked",
 						},
-						"status": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrStatus: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "state of the Node instance",
 						},
-						"private_ip_address": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrPrivateIPAddress: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the Nodes private ipv4 address",
 						},
-						"public_ip_address": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrPublicIPAddress: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the Nodes public ipv4 address",
 						},
 						"rescue_mode_status": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the rescue mode status of the Node",
 						},
 					},
 				},
 			},
-		},
-		ReadContext: dataSourceReadNodes,
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
@@ -83,34 +77,57 @@ func dataSourceReadNodes(ctx context.Context, d *schema.ResourceData, m interfac
 
 	var diags diag.Diagnostics
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	log.Printf("[INFO] Inside nodes data source ")
-	Response, err := apiClient.GetNodes(d.Get("region").(string), d.Get("project_id").(string))
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[INFO] %v", Response)
+
+	// Get project_id with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	nodes, _, err := goe2eClient.Nodes.ListNodes(ctx)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	log.Printf("[INFO] Found %d nodes", len(nodes))
 	log.Printf("[INFO] NODES DATA SOURCE | before setting")
-	d.Set("nodes_list", flattenNodes(&Response.Data))
+	d.Set("nodes_list", flattenNodes(nodes))
 	d.SetId("nodes_list")
 
 	return diags
 }
 
-func flattenNodes(nodes *[]models.Node) []interface{} {
+func flattenNodes(nodes []goe2e.Node) []interface{} {
 
 	if nodes != nil {
-		ois := make([]interface{}, len(*nodes))
+		ois := make([]interface{}, len(nodes))
 
-		for i, node := range *nodes {
+		for i, node := range nodes {
 			oi := make(map[string]interface{})
-			oi["id"] = node.ID
-			oi["name"] = node.Name
-			oi["is_locked"] = node.IsLocked
-			oi["private_ip_address"] = node.PrivateIPAddress
-			oi["public_ip_address"] = node.PublicIPAddress
-			oi["rescue_mode_status"] = node.RescueModeStatus
-			oi["status"] = node.Status
+			// Convert ID from string to float64 for compatibility
+			if id, err := strconv.ParseFloat(node.ID, 64); err == nil {
+				oi[e2econstants.AttrID] = id
+			} else {
+				oi[e2econstants.AttrID] = 0.0
+			}
+			oi[e2econstants.AttrName] = node.Name
+			oi[e2econstants.AttrIsLocked] = node.IsLocked
+			oi[e2econstants.AttrPrivateIPAddress] = node.PrivateIPAddress
+			oi[e2econstants.AttrPublicIPAddress] = node.PublicIPAddress
+			// RescueModeStatus is not available in goe2e.Node, set empty string
+			oi["rescue_mode_status"] = ""
+			oi[e2econstants.AttrStatus] = node.Status
 			ois[i] = oi
 		}
 

@@ -1,18 +1,29 @@
-# e2e\_security\_group (Resource)
+---
+page_title: "e2e_security_group Resource - terraform-provider-e2e"
+subcategory: "Networking"
+description: |-
+  Provides an E2E Cloud Security Group resource.
+---
+
+<!-- updated-for-3.0-migration: 2025-11-27 -->
+
+# e2e_security_group (Resource)
 
 The `e2e_security_group` resource allows you to provision and manage security groups within your E2E cloud environment. Security groups define inbound and outbound rules to control network traffic at the instance level.
 
 Creating this resource provisions a new security group with specified firewall rules. Destroying it deletes the group.
+
+~> **Migration Notice**: This resource has parameter changes in v3.0.0. See the [v3.0.0 Upgrade Guide](../guides/upgrade-to-v3.md#affected-resources) for migration instructions.
 
 ---
 
 ## Example Usage
 
 ```hcl
-resource "e2e_security_groups" "web_sg" {
+resource "e2e_security_group" "web_sg" {
   name        = "web-sg"
-  location    = "Delhi"
-  project_id  = "42914" 
+  region      = "Delhi"  # Use 'region' instead of deprecated 'location'
+  project_id  = "42914"
   description = "Web Tier Security Group"
   default     = false
 
@@ -33,30 +44,30 @@ resource "e2e_security_groups" "web_sg" {
       network       = "any"
       description   = "Allow all outbound"
     }
-  
+
 }
 ```
 
 ---
 
-
 ## Schema
 
 ### Required Attributes
 
-* **`name`** (String): Name of the security group.
-* **`project_id`** (String): The project ID associated with the security group.
-* **`rules`** (List of Rule Blocks): A list of rule blocks defining firewall rules.
-* **`location`** (String): The region in which to create the security group. 
+- **`name`** (String): Name of the security group.
+- **`project_id`** (String): The project ID associated with the security group.
+- **`rules`** (List of Rule Blocks): A list of rule blocks defining firewall rules.
+- **`region`** (String): The region in which to create the security group.
+- **`location`** (Optional, **Deprecated**): Use `region` instead. Will be removed in v3.0.0.
 
 ### Optional Attributes
 
-* **`description`** (String): Description of the security group.
-* **`default`** (Boolean): Whether this group is the default group. Defaults to `false`.
+- **`description`** (String): Description of the security group.
+- **`default`** (Boolean): Whether this group is the default group. Defaults to `false`.
 
 ### Read-Only Attributes
 
-* **`id`** (String): Unique ID of the security group.
+- **`id`** (String): Unique ID of the security group.
 
 ---
 
@@ -66,22 +77,22 @@ Each element in the `rules` list supports the following attributes:
 
 ### Required Fields
 
-* **`rule_type`** (String): Direction of traffic. Allowed values: `"Inbound"`, `"Outbound"`.
+- **`rule_type`** (String): Direction of traffic. Allowed values: `"Inbound"`, `"Outbound"`.
 
 ### Optional Fields
 
-* **`rule_id`** (Number): ID of the rule (computed).
-* **`protocol_name`** (String): Protocol to allow. Allowed values: `"All"`, `"All_TCP"`, `"All_UDP"`, `"ICMP"`, `"Custom_TCP"`, `"Custom_UDP"`. Defaults to `"All"`.
-* **`port_range`** (String): Port range to allow. Defaults to `"All"`.
-* **`network`** (String): Network type. Allowed values: `"myNetwork"`, `"manual"`, `"any"`. Defaults to `"any"`.
-* **`network_cidr`** (String): The CIDR block for the rule. If VPC network then format must be 'vpc_<`vpc_id`>'. For Manual network one may go for the IP address.
-* **`size`** (Number): Size of the network if `myNetwork` is used or manual CIDR provided.
-* **`description`** (String): Description of the rule.
+- **`rule_id`** (Number): ID of the rule (computed).
+- **`protocol_name`** (String): Protocol to allow. Allowed values: `"All"`, `"All_TCP"`, `"All_UDP"`, `"ICMP"`, `"Custom_TCP"`, `"Custom_UDP"`. Defaults to `"All"`.
+- **`port_range`** (String): Port range to allow. Defaults to `"All"`.
+- **`network`** (String): Network type. Allowed values: `"myNetwork"`, `"manual"`, `"any"`. Defaults to `"any"`.
+- **`network_cidr`** (String): The CIDR block for the rule. If VPC network then format must be 'vpc\_<`vpc_id`>'. For Manual network one may go for the IP address.
+- **`size`** (Number): Size of the network if `myNetwork` is used or manual CIDR provided.
+- **`description`** (String): Description of the rule.
 
 ---
 
 ## Notes
 
-* Rules with `network = "myNetwork"`, `size` is automatically set to `512` if not specified. `network_cidr` must be explicitly provided.
-* Rules with `network = "myNetwork"`  must provide `network_cidr` explicitly.
-* Rules with `network = "manual"` must provide `size` and `network_cidr` explicitly.
+- Rules with `network = "myNetwork"`, `size` is automatically set to `512` if not specified. `network_cidr` must be explicitly provided.
+- Rules with `network = "myNetwork"` must provide `network_cidr` explicitly.
+- Rules with `network = "manual"` must provide `size` and `network_cidr` explicitly.

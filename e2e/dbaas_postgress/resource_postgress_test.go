@@ -1,16 +1,15 @@
 package dbaas_postgress_test
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -23,7 +22,7 @@ func TestAccE2EPostgresDBaaS_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -43,8 +42,7 @@ func TestAccE2EPostgresDBaaS_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("e2e_dbaas_postgress.test", "status_title"),
 					resource.TestCheckResourceAttrSet("e2e_dbaas_postgress.test", "num_instances"),
 					resource.TestCheckResourceAttrSet("e2e_dbaas_postgress.test", "project_name"),
-					resource.TestCheckResourceAttrSet("e2e_dbaas_postgress.test", "connectivity_detail"),
-				),
+					resource.TestCheckResourceAttrSet("e2e_dbaas_postgress.test", "connectivity_detail")),
 			},
 		},
 	})
@@ -59,21 +57,19 @@ func TestAccE2EPostgresDBaaS_Update(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_basic(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-				),
+					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID)),
 			},
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_powerOff(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "stop"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "stop")),
 			},
 		},
 	})
@@ -88,28 +84,25 @@ func TestAccE2EPostgresDBaaS_PowerOperations(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_basic(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-				),
+					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID)),
 			},
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_powerOff(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "stop"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "stop")),
 			},
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_restart(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "restart"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "power_status", "restart")),
 			},
 		},
 	})
@@ -124,15 +117,14 @@ func TestAccE2EPostgresDBaaS_WithEncryption(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_withEncryption(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "is_encryption_enabled", "true"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "is_encryption_enabled", "true")),
 			},
 		},
 	})
@@ -147,15 +139,14 @@ func TestAccE2EPostgresDBaaS_WithoutPublicIP(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_withoutPublicIP(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "public_ip_required", "false"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "public_ip_required", "false")),
 			},
 		},
 	})
@@ -170,22 +161,20 @@ func TestAccE2EPostgresDBaaS_PlanUpgrade(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_basic(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "plan", "E2E-2C-4GB"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "plan", "E2E-2C-4GB")),
 			},
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_upgradedPlan(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "plan", "E2E-4C-8GB"),
-				),
+					resource.TestCheckResourceAttr("e2e_dbaas_postgress.test", "plan", "E2E-4C-8GB")),
 			},
 		},
 	})
@@ -194,7 +183,7 @@ func TestAccE2EPostgresDBaaS_PlanUpgrade(t *testing.T) {
 func TestAccE2EPostgresDBaaS_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EPostgresDBaaSConfig_missingName(),
@@ -232,7 +221,7 @@ func TestAccE2EPostgresDBaaS_InvalidPowerStatus(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EPostgresDBaaSConfig_invalidPowerStatus(dbaasName, dbUser, dbPassword, dbName),
@@ -251,14 +240,13 @@ func TestAccE2EPostgresDBaaS_Import(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EPostgresDBaaSConfig_basic(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID),
-				),
+					testAccCheckE2EPostgresDBaaSExists("e2e_dbaas_postgress.test", &dbaasID)),
 			},
 			{
 				ResourceName:            "e2e_dbaas_postgress.test",
@@ -273,31 +261,8 @@ func TestAccE2EPostgresDBaaS_Import(t *testing.T) {
 
 // Helper functions
 
-var testAccProvider *schema.Provider
-
-func init() {
-	testAccProvider = e2e.Provider()
-}
-
 func testAccPreCheck(t *testing.T) {
-	if v := os.Getenv("SERVICE_API_KEY"); v == "" {
-		t.Fatal("SERVICE_API_KEY must be set for acceptance tests")
-	}
-	if v := os.Getenv("SERVICE_AUTH_TOKEN"); v == "" {
-		t.Fatal("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_PROJECT_ID"); v == "" {
-		t.Fatal("E2E_TEST_PROJECT_ID must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_LOCATION"); v == "" {
-		t.Fatal("E2E_TEST_LOCATION must be set for acceptance tests")
-	}
-}
-
-var testAccProviderFactories = map[string]func() (*schema.Provider, error){
-	"e2e": func() (*schema.Provider, error) {
-		return e2e.Provider(), nil
-	},
+	acceptance.TestAccPreCheck(t)
 }
 
 func testAccCheckE2EPostgresDBaaSExists(resourceName string, dbaasID *string) resource.TestCheckFunc {
@@ -311,18 +276,22 @@ func testAccCheckE2EPostgresDBaaSExists(resourceName string, dbaasID *string) re
 			return fmt.Errorf("No Postgres DBaaS ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
-
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
+		region := acceptance.GetRegionOrLocationFromState(rs)
 
-		dbaas, err := client.GetPostgressDB(rs.Primary.ID, projectID, location)
+		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf("error creating goe2e client: %w", err)
+		}
+
+		ctx := context.Background()
+		cluster, _, err := goe2eClient.PostgreSQL.GetCluster(ctx, rs.Primary.ID)
 		if err != nil {
 			return err
 		}
 
-		if dbaas == nil {
+		if cluster == nil {
 			return fmt.Errorf("Postgres DBaaS not found")
 		}
 
@@ -332,8 +301,8 @@ func testAccCheckE2EPostgresDBaaSExists(resourceName string, dbaasID *string) re
 }
 
 func testAccCheckE2EPostgresDBaaSDestroy(s *terraform.State) error {
-	cfg := testAccProvider.Meta().(*config.Config)
-	client := cfg.Client()
+	cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+	ctx := context.Background()
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "e2e_dbaas_postgress" {
@@ -341,10 +310,15 @@ func testAccCheckE2EPostgresDBaaSDestroy(s *terraform.State) error {
 		}
 
 		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
+		region := acceptance.GetRegionOrLocationFromState(rs)
 
-		_, err := client.GetPostgressDB(rs.Primary.ID, projectID, location)
-		if err == nil {
+		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf("error creating goe2e client: %w", err)
+		}
+
+		cluster, _, err := goe2eClient.PostgreSQL.GetCluster(ctx, rs.Primary.ID)
+		if err == nil && cluster != nil {
 			return fmt.Errorf("Postgres DBaaS still exists: %s", rs.Primary.ID)
 		}
 	}
@@ -360,10 +334,10 @@ func testAccE2EPostgresDBaaSImportID(resourceName string) resource.ImportStateId
 		}
 
 		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
 		dbaasID := rs.Primary.ID
 
-		return fmt.Sprintf("%s/%s/%s", projectID, location, dbaasID), nil
+		// Import format: project_id:dbaas_id
+		return fmt.Sprintf("%s:%s", projectID, dbaasID), nil
 	}
 }
 
@@ -375,16 +349,13 @@ resource "e2e_dbaas_postgress" "test" {
   name       = "%s"
   version    = "15"
   plan       = "E2E-2C-4GB"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_powerOff(name, dbUser, dbPassword, dbName string) string {
@@ -394,16 +365,13 @@ resource "e2e_dbaas_postgress" "test" {
   version      = "15"
   plan         = "E2E-2C-4GB"
   power_status = "stop"
-  project_id   = "%s"
-  location     = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_restart(name, dbUser, dbPassword, dbName string) string {
@@ -413,16 +381,13 @@ resource "e2e_dbaas_postgress" "test" {
   version      = "15"
   plan         = "E2E-2C-4GB"
   power_status = "restart"
-  project_id   = "%s"
-  location     = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_withEncryption(name, dbUser, dbPassword, dbName string) string {
@@ -432,16 +397,13 @@ resource "e2e_dbaas_postgress" "test" {
   version                 = "15"
   plan                    = "E2E-2C-4GB"
   is_encryption_enabled   = true
-  project_id              = "%s"
-  location                = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_withoutPublicIP(name, dbUser, dbPassword, dbName string) string {
@@ -451,16 +413,13 @@ resource "e2e_dbaas_postgress" "test" {
   version            = "15"
   plan               = "E2E-2C-4GB"
   public_ip_required = false
-  project_id         = "%s"
-  location           = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_upgradedPlan(name, dbUser, dbPassword, dbName string) string {
@@ -469,115 +428,96 @@ resource "e2e_dbaas_postgress" "test" {
   name       = "%s"
   version    = "15"
   plan       = "E2E-4C-8GB"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }
 
 // Error case configurations
 
 func testAccCheckE2EPostgresDBaaSConfig_missingName() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   version    = "15"
   plan       = "E2E-2C-4GB"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "testuser"
     password = "testpassword"
     name     = "testdb"
   }
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_missingVersion() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   name       = "test-pg"
   plan       = "E2E-2C-4GB"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "testuser"
     password = "testpassword"
     name     = "testdb"
   }
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_missingPlan() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   name       = "test-pg"
   version    = "15"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "testuser"
     password = "testpassword"
     name     = "testdb"
   }
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_missingDatabase() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   name       = "test-pg"
   version    = "15"
-  plan       = "E2E-2C-4GB"
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  plan       = "E2E-2C-4GB"}
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   name     = "test-pg"
   version  = "15"
   plan     = "E2E-2C-4GB"
-  location = "%s"
-
   database {
     user     = "testuser"
     password = "testpassword"
     name     = "testdb"
   }
 }
-`, os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_dbaas_postgress" "test" {
   name       = "test-pg"
   version    = "15"
   plan       = "E2E-2C-4GB"
-  project_id = "%s"
-
   database {
     user     = "testuser"
     password = "testpassword"
     name     = "testdb"
   }
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+`
 }
 
 func testAccCheckE2EPostgresDBaaSConfig_invalidPowerStatus(name, dbUser, dbPassword, dbName string) string {
@@ -587,14 +527,11 @@ resource "e2e_dbaas_postgress" "test" {
   version      = "15"
   plan         = "E2E-2C-4GB"
   power_status = "invalid"
-  project_id   = "%s"
-  location     = "%s"
-
   database {
     user     = "%s"
     password = "%s"
     name     = "%s"
   }
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), dbUser, dbPassword, dbName)
+`, name, dbUser, dbPassword, dbName)
 }

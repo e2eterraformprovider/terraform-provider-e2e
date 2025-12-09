@@ -2,10 +2,10 @@ package ssh_key_test
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
@@ -15,7 +15,7 @@ func TestAccDataSourceE2ESshKey_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -23,13 +23,11 @@ func TestAccDataSourceE2ESshKey_Basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("data.e2e_ssh_key.test", "label", label),
 					resource.TestCheckResourceAttrSet("data.e2e_ssh_key.test", "ssh_key"),
-					resource.TestCheckResourceAttrSet("data.e2e_ssh_key.test", "timestamp"),
+					resource.TestCheckResourceAttrSet("data.e2e_ssh_key.test", "created_at"),
 					resource.TestCheckResourceAttrSet("data.e2e_ssh_key.test", "project_name"),
 					resource.TestCheckResourceAttrPair(
 						"data.e2e_ssh_key.test", "id",
-						"e2e_ssh_key.test", "id",
-					),
-				),
+						"e2e_ssh_key.test", "id")),
 			},
 		},
 	})
@@ -40,11 +38,11 @@ func TestAccDataSourceE2ESshKey_NonExistent(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckDataSourceE2ESshKeyConfig_nonExistent(label),
-				ExpectError: regexp.MustCompile(`error finding ssh key with label`),
+				ExpectError: regexp.MustCompile(`failed to find SSH key with label|not found`),
 			},
 		},
 	})
@@ -56,7 +54,7 @@ func TestAccDataSourceE2ESshKeys_List(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -66,8 +64,7 @@ func TestAccDataSourceE2ESshKeys_List(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.e2e_ssh_keys.test", "ssh_key_list.0.pk"),
 					resource.TestCheckResourceAttrSet("data.e2e_ssh_keys.test", "ssh_key_list.0.label"),
 					resource.TestCheckResourceAttrSet("data.e2e_ssh_keys.test", "ssh_key_list.0.ssh_key"),
-					resource.TestCheckResourceAttrSet("data.e2e_ssh_keys.test", "ssh_key_list.0.timestamp"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_ssh_keys.test", "ssh_key_list.0.created_at")),
 			},
 		},
 	})
@@ -76,7 +73,7 @@ func TestAccDataSourceE2ESshKeys_List(t *testing.T) {
 func TestAccDataSourceE2ESshKey_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckDataSourceE2ESshKeyConfig_missingLabel(),
@@ -102,28 +99,18 @@ func testAccCheckDataSourceE2ESshKeyConfig_basic(label string) string {
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
   label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  ssh_key    = "%s"}
 
 data "e2e_ssh_key" "test" {
-  label      = e2e_ssh_key.test.label
-  project_id = "%s"
-  location   = "%s"
-}
-`, label, publicKey, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  label      = e2e_ssh_key.test.label}
+`, label, publicKey)
 }
 
 func testAccCheckDataSourceE2ESshKeyConfig_nonExistent(label string) string {
 	return fmt.Sprintf(`
 data "e2e_ssh_key" "test" {
-  label      = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
-`, label, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  label      = "%s"}
+`, label)
 }
 
 func testAccCheckDataSourceE2ESshKeysConfig_list(label1, label2 string) string {
@@ -133,51 +120,34 @@ func testAccCheckDataSourceE2ESshKeysConfig_list(label1, label2 string) string {
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test1" {
   label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  ssh_key    = "%s"}
 
 resource "e2e_ssh_key" "test2" {
   label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  ssh_key    = "%s"}
 
-data "e2e_ssh_keys" "test" {
-  project_id = "%s"
-  location   = "%s"
-  depends_on = [e2e_ssh_key.test1, e2e_ssh_key.test2]
+data "e2e_ssh_keys" "test" {  depends_on = [e2e_ssh_key.test1, e2e_ssh_key.test2]
 }
-`, label1, publicKey1, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		label2, publicKey2, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, label1, publicKey1,
+		label2, publicKey2)
 }
 
 func testAccCheckDataSourceE2ESshKeyConfig_missingLabel() string {
-	return fmt.Sprintf(`
-data "e2e_ssh_key" "test" {
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+	return `
+data "e2e_ssh_key" "test" {}
+`
 }
 
 func testAccCheckDataSourceE2ESshKeyConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_ssh_key" "test" {
-  label    = "test-label"
-  location = "%s"
-}
-`, os.Getenv("E2E_TEST_LOCATION"))
+  label    = "test-label"}
+`
 }
 
 func testAccCheckDataSourceE2ESshKeyConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_ssh_key" "test" {
-  label      = "test-label"
-  project_id = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+  label      = "test-label"}
+`
 }

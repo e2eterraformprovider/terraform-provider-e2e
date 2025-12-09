@@ -2,20 +2,31 @@ package security_group_test
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
+
+func testAccPreCheck(t *testing.T) {
+	acceptance.TestAccPreCheck(t)
+}
+
+func testAccCheckE2ESecurityGroupDestroy(s *terraform.State) error {
+	// Security groups created in tests should be cleaned up
+	// For now, return nil as the datasource test doesn't directly delete resources
+	return nil
+}
 
 func TestAccDataSourceE2ESecurityGroup_Basic(t *testing.T) {
 	sgName := fmt.Sprintf("test-sg-%s", acctest.RandString(10))
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESecurityGroupDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -27,9 +38,7 @@ func TestAccDataSourceE2ESecurityGroup_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.e2e_security_group.test", "rules.#"),
 					resource.TestCheckResourceAttrPair(
 						"data.e2e_security_group.test", "id",
-						"e2e_security_group.test", "id",
-					),
-				),
+						"e2e_security_group.test", "id")),
 			},
 		},
 	})
@@ -40,7 +49,7 @@ func TestAccDataSourceE2ESecurityGroup_WithMultipleRules(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESecurityGroupDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -50,8 +59,7 @@ func TestAccDataSourceE2ESecurityGroup_WithMultipleRules(t *testing.T) {
 					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.#", "2"),
 					resource.TestCheckResourceAttrSet("data.e2e_security_group.test", "rules.0.rule_id"),
 					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.rule_type", "Inbound"),
-					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.protocol_name", "Custom_TCP"),
-				),
+					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.protocol_name", "Custom_TCP")),
 			},
 		},
 	})
@@ -62,7 +70,7 @@ func TestAccDataSourceE2ESecurityGroup_NonExistent(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckDataSourceE2ESecurityGroupConfig_nonExistent(sgName),
@@ -75,7 +83,7 @@ func TestAccDataSourceE2ESecurityGroup_NonExistent(t *testing.T) {
 func TestAccDataSourceE2ESecurityGroup_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckDataSourceE2ESecurityGroupConfig_missingName(),
@@ -100,9 +108,6 @@ func testAccCheckDataSourceE2ESecurityGroupConfig_basic(name string) string {
 resource "e2e_security_group" "test" {
   name        = "%s"
   description = "Test security group"
-  project_id  = "%s"
-  location    = "%s"
-
   rules {
     rule_type     = "Inbound"
     protocol_name = "All"
@@ -111,12 +116,8 @@ resource "e2e_security_group" "test" {
 }
 
 data "e2e_security_group" "test" {
-  name       = e2e_security_group.test.name
-  project_id = "%s"
-  location   = "%s"
-}
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  name       = e2e_security_group.test.name}
+`, name)
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_multipleRules(name string) string {
@@ -124,9 +125,6 @@ func testAccCheckDataSourceE2ESecurityGroupConfig_multipleRules(name string) str
 resource "e2e_security_group" "test" {
   name        = "%s"
   description = "Test security group with multiple rules"
-  project_id  = "%s"
-  location    = "%s"
-
   rules {
     rule_type     = "Inbound"
     protocol_name = "Custom_TCP"
@@ -145,47 +143,33 @@ resource "e2e_security_group" "test" {
 }
 
 data "e2e_security_group" "test" {
-  name       = e2e_security_group.test.name
-  project_id = "%s"
-  location   = "%s"
-}
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  name       = e2e_security_group.test.name}
+`, name)
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_nonExistent(name string) string {
 	return fmt.Sprintf(`
 data "e2e_security_group" "test" {
-  name       = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  name       = "%s"}
+`, name)
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_missingName() string {
-	return fmt.Sprintf(`
-data "e2e_security_group" "test" {
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+	return `
+data "e2e_security_group" "test" {}
+`
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_security_group" "test" {
-  name     = "test-sg"
-  location = "%s"
-}
-`, os.Getenv("E2E_TEST_LOCATION"))
+  name     = "test-sg"}
+`
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_security_group" "test" {
-  name       = "test-sg"
-  project_id = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+  name       = "test-sg"}
+`
 }

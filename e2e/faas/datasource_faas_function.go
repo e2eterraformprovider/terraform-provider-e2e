@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -15,81 +15,77 @@ func DataSourceFaasFunction() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceFaasFunctionRead,
 		Schema: map[string]*schema.Schema{
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// FaaS-specific fields
 			"function_id": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The ID of the FaaS function",
+				Description: "id of the FaaS function",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The ID of the project",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The location/region of the function",
-			},
-			"name": {
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The name of the FaaS function",
+				Description: "name of the FaaS function",
 			},
 			"namespace": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The namespace for the FaaS function",
+				Description: "the namespace for the FaaS function",
 			},
 			"runtime": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The runtime for the function",
+				Description: "the runtime for the function",
 			},
 			"memory_mb": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Memory allocation in MB",
+				Description: "memory allocation in megabytes",
 			},
 			"timeout_seconds": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Function timeout in seconds",
+				Description: "function timeout in seconds",
 			},
 			"min_replicas": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Minimum number of replicas",
+				Description: "the minimum number of replicas",
 			},
 			"max_replicas": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Maximum number of replicas",
+				Description: "the maximum number of replicas",
 			},
 			"environment": {
 				Type:        schema.TypeMap,
 				Computed:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
-				Description: "Environment variables for the function",
+				Description: "environment variables for the function",
 			},
 			"endpoint_url": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The endpoint URL of the function",
+				Description: "the endpoint URL of the function",
 			},
-			"status": {
+			e2econstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The status of the function",
+				Description: "state of the FaaS function instance",
 			},
-			"created_at": {
+			e2econstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Timestamp when the function was created",
+				Description: "the creation date for the FaaS function",
 			},
-			"updated_at": {
+			e2econstants.AttrUpdatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Timestamp when the function was last updated",
+				Description: "the last update date for the FaaS function",
 			},
 		},
 	}
@@ -101,14 +97,10 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	var diags diag.Diagnostics
 
 	functionID := d.Get("function_id").(string)
-	opts := &goe2e.RequestOptions{
-		ProjectID: d.Get("project_id").(string),
-		Location:  d.Get("location").(string),
-	}
 
 	log.Printf("[INFO] DATASOURCE FAAS FUNCTION READ | ID: %s", functionID)
 
-	fn, _, err := client.FaaS.GetFunction(ctx, functionID, opts)
+	fn, _, err := client.FaaS.GetFunction(ctx, functionID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -126,9 +118,9 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	d.Set("min_replicas", fn.MinReplicas)
 	d.Set("max_replicas", fn.MaxReplicas)
 	d.Set("endpoint_url", fn.EndpointURL)
-	d.Set("status", fn.Status)
+	d.Set(e2econstants.AttrStatus, fn.Status)
 	d.Set("created_at", fn.CreatedAt)
-	d.Set("updated_at", fn.UpdatedAt)
+	d.Set(e2econstants.AttrUpdatedAt, fn.UpdatedAt)
 
 	if fn.Environment != nil {
 		d.Set("environment", fn.Environment)

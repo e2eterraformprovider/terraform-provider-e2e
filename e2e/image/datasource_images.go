@@ -2,130 +2,132 @@ package image
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	"log"
-	// "math"
-	// "regexp"
-	//"strings"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-
-	// "github.com/hashicorp/terraform-plugin-log"
-	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func DataSourceImages() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: dataSourceReadImages,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 		Schema: map[string]*schema.Schema{
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
-			"region": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Mention the region of the images you want to list",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "project id associated to images",
-			},
+			// Image-specific fields
 			"image_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
-				Description: "List of all the saved images",
+				Description: "list of all saved Images",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"template_id": {
+						e2econstants.AttrTemplateID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
-							Description: "This id is used to create a node using the image",
+							Description: "id of the template used to create a Node from the Image",
 						},
 						"image_type": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Type of the image",
+							Description: "the type of the Image",
 						},
 						"os_distribution": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the OS distribution of the Image",
 						},
 						"name": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Name of the image",
+							Description: "name of the Image",
 						},
 						"image_id": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "The id of the image",
+							Description: "id of the Image",
 						},
 						"distro": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "type of distro used",
+							Description: "the distribution type of the Image",
 						},
 						"sku_type": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the SKU type of the Image",
 						},
 						"image_state": {
 							Type:        schema.TypeString,
 							Computed:    true,
-							Description: "Current state of the image",
+							Description: "state of the Image instance",
 						},
 					},
 				},
 			},
 		},
-
-		ReadContext: dataSourceReadImages,
-
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
-		},
 	}
 }
 
 func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	log.Printf("[INFO] Inside images data source ")
-	Response, err := apiClient.GetSavedImages(d.Get("region").(string), d.Get("project_id").(string))
+	log.Printf("[INFO] Inside images data source")
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		return diag.Errorf("error finding saved images")
+		return diag.FromErr(err)
 	}
 
-	d.Set("image_list", flattenImages(&Response.Data))
+	// Get project_id with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Create GoE2E client for this project/region
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))
+	}
+
+	images, _, err := goe2eClient.Images.GetSavedImages(ctx)
+	if err != nil {
+		return diag.Errorf("error finding saved images: %v", err)
+	}
+
+	d.Set("image_list", flattenSavedImages(images))
 	d.SetId("saved_image_list")
-	var diags diag.Diagnostics
-	return diags
+	return nil
 }
-func flattenImages(imageList *[]models.Image) []interface{} {
 
-	if imageList != nil {
-
-		ois := make([]interface{}, len(*imageList))
-
-		for i, image := range *imageList {
-
-			oi := make(map[string]interface{})
-			oi["template_id"] = image.Template_id
-			oi["distro"] = image.Distro
-			oi["image_id"] = image.Image_id
-			oi["image_state"] = image.Image_state
-			oi["image_type"] = image.Image_type
-			oi["name"] = image.Name
-			oi["sku_type"] = image.Sku_type
-			oi["os_distribution"] = image.Os_distribution
-			ois[i] = oi
-		}
-
-		return ois
+func flattenSavedImages(images []goe2e.SavedImage) []interface{} {
+	if images == nil {
+		return make([]interface{}, 0)
 	}
-	return make([]interface{}, 0)
+
+	ois := make([]interface{}, len(images))
+	for i, image := range images {
+		oi := make(map[string]interface{})
+		oi[e2econstants.AttrTemplateID] = image.TemplateID
+		oi["distro"] = image.Distro
+		oi["image_id"] = image.ImageID
+		oi["image_state"] = image.ImageState
+		oi["image_type"] = image.ImageType
+		oi["name"] = image.Name
+		oi["sku_type"] = image.SKUType
+		oi["os_distribution"] = image.OSDistribution
+		ois[i] = oi
+	}
+
+	return ois
 }

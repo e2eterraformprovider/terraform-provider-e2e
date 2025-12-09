@@ -17,17 +17,17 @@ const (
 // of the E2E Networks API.
 type FaasService interface {
 	// Namespace operations
-	CreateNamespace(context.Context, string, *RequestOptions) (*FaasNamespace, *Response, error)
-	DeleteNamespace(context.Context, string, *RequestOptions) (*Response, error)
+	CreateNamespace(context.Context, string) (*FaasNamespace, *Response, error)
+	DeleteNamespace(context.Context, string) (*Response, error)
 
 	// Function operations
-	CreateFunction(context.Context, *FaasFunctionCreateRequest, *RequestOptions) (*FaasFunction, *Response, error)
-	GetFunction(context.Context, string, *RequestOptions) (*FaasFunction, *Response, error)
-	UpdateFunction(context.Context, string, *FaasFunctionUpdateRequest, *RequestOptions) (*FaasFunction, *Response, error)
-	DeleteFunction(context.Context, string, *RequestOptions) (*Response, error)
+	CreateFunction(context.Context, *FaasFunctionCreateRequest) (*FaasFunction, *Response, error)
+	GetFunction(context.Context, string) (*FaasFunction, *Response, error)
+	UpdateFunction(context.Context, string, *FaasFunctionUpdateRequest) (*FaasFunction, *Response, error)
+	DeleteFunction(context.Context, string) (*Response, error)
 
 	// Logs
-	GetLogs(context.Context, string, *RequestOptions) (*FaasLogs, *Response, error)
+	GetLogs(context.Context, string) (*FaasLogs, *Response, error)
 }
 
 // FaasServiceOp handles communication with FaaS related methods of the
@@ -114,114 +114,82 @@ type faasLogsRoot struct {
 }
 
 // CreateNamespace creates a new FaaS namespace.
-func (s *FaasServiceOp) CreateNamespace(ctx context.Context, namespace string, opts *RequestOptions) (*FaasNamespace, *Response, error) {
+func (s *FaasServiceOp) CreateNamespace(ctx context.Context, namespace string) (*FaasNamespace, *Response, error) {
 	if namespace == "" {
 		return nil, nil, NewArgError("namespace", "cannot be empty")
-	}
-	if opts == nil {
-		return nil, nil, NewArgError("opts", "cannot be nil")
 	}
 
 	namespaceReq := map[string]string{"name": namespace}
 
 	req, err := s.client.NewRequest(ctx, http.MethodPost, faasNamespacePath, namespaceReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create request for FaaS namespace (%s): %w", namespace, err)
 	}
-
-	// Add E2E required query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
 
 	root := new(faasNamespaceRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
-		return nil, resp, err
+		return nil, resp, fmt.Errorf("failed to create FaaS namespace (%s): %w", namespace, err)
 	}
 
 	return &root.Data, resp, nil
 }
 
 // DeleteNamespace deletes a FaaS namespace.
-func (s *FaasServiceOp) DeleteNamespace(ctx context.Context, namespace string, opts *RequestOptions) (*Response, error) {
+func (s *FaasServiceOp) DeleteNamespace(ctx context.Context, namespace string) (*Response, error) {
 	if namespace == "" {
 		return nil, NewArgError("namespace", "cannot be empty")
-	}
-	if opts == nil {
-		return nil, NewArgError("opts", "cannot be nil")
 	}
 
 	req, err := s.client.NewRequest(ctx, http.MethodDelete, faasNamespacePath, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request for deleting FaaS namespace (%s): %w", namespace, err)
 	}
 
-	// Add E2E query parameters
+	// Add additional query parameter
 	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
 	q.Add("namespace", namespace)
 	req.URL.RawQuery = q.Encode()
 
-	return s.client.Do(ctx, req, nil)
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, fmt.Errorf("failed to delete FaaS namespace (%s): %w", namespace, err)
+	}
+	return resp, nil
 }
 
 // CreateFunction creates a new FaaS function.
-func (s *FaasServiceOp) CreateFunction(ctx context.Context, createReq *FaasFunctionCreateRequest, opts *RequestOptions) (*FaasFunction, *Response, error) {
+func (s *FaasServiceOp) CreateFunction(ctx context.Context, createReq *FaasFunctionCreateRequest) (*FaasFunction, *Response, error) {
 	if createReq == nil {
 		return nil, nil, NewArgError("createReq", "cannot be nil")
-	}
-	if opts == nil {
-		return nil, nil, NewArgError("opts", "cannot be nil")
 	}
 
 	req, err := s.client.NewRequest(ctx, http.MethodPost, faasFunctionsPath, createReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create request for FaaS function (%s) in namespace (%s): %w", createReq.Name, createReq.Namespace, err)
 	}
-
-	// Add E2E query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
 
 	root := new(faasFunctionRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
-		return nil, resp, err
+		return nil, resp, fmt.Errorf("failed to create FaaS function (%s) in namespace (%s): %w", createReq.Name, createReq.Namespace, err)
 	}
 
 	return &root.Data, resp, nil
 }
 
 // GetFunction retrieves a FaaS function by ID.
-func (s *FaasServiceOp) GetFunction(ctx context.Context, functionID string, opts *RequestOptions) (*FaasFunction, *Response, error) {
+func (s *FaasServiceOp) GetFunction(ctx context.Context, functionID string) (*FaasFunction, *Response, error) {
 	if functionID == "" {
 		return nil, nil, NewArgError("functionID", "cannot be empty")
-	}
-	if opts == nil {
-		return nil, nil, NewArgError("opts", "cannot be nil")
 	}
 
 	path := fmt.Sprintf("%s/%s/", faasFunctionPath, functionID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create request for FaaS function (ID: %s): %w", functionID, err)
 	}
-
-	// Add E2E query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
 
 	root := new(faasFunctionRoot)
 	resp, err := s.client.Do(ctx, req, root)
@@ -230,100 +198,74 @@ func (s *FaasServiceOp) GetFunction(ctx context.Context, functionID string, opts
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, resp, nil
 		}
-		return nil, resp, err
+		return nil, resp, fmt.Errorf("failed to retrieve FaaS function (ID: %s): %w", functionID, err)
 	}
 
 	return &root.Data, resp, nil
 }
 
 // UpdateFunction updates a FaaS function.
-func (s *FaasServiceOp) UpdateFunction(ctx context.Context, functionID string, updateReq *FaasFunctionUpdateRequest, opts *RequestOptions) (*FaasFunction, *Response, error) {
+func (s *FaasServiceOp) UpdateFunction(ctx context.Context, functionID string, updateReq *FaasFunctionUpdateRequest) (*FaasFunction, *Response, error) {
 	if functionID == "" {
 		return nil, nil, NewArgError("functionID", "cannot be empty")
 	}
 	if updateReq == nil {
 		return nil, nil, NewArgError("updateReq", "cannot be nil")
 	}
-	if opts == nil {
-		return nil, nil, NewArgError("opts", "cannot be nil")
-	}
 
 	path := fmt.Sprintf("%s/%s/", faasFunctionPath, functionID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, updateReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create request for updating FaaS function (ID: %s): %w", functionID, err)
 	}
-
-	// Add E2E query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
 
 	root := new(faasFunctionRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
-		return nil, resp, err
+		return nil, resp, fmt.Errorf("failed to update FaaS function (ID: %s): %w", functionID, err)
 	}
 
 	return &root.Data, resp, nil
 }
 
 // DeleteFunction deletes a FaaS function.
-func (s *FaasServiceOp) DeleteFunction(ctx context.Context, functionID string, opts *RequestOptions) (*Response, error) {
+func (s *FaasServiceOp) DeleteFunction(ctx context.Context, functionID string) (*Response, error) {
 	if functionID == "" {
 		return nil, NewArgError("functionID", "cannot be empty")
-	}
-	if opts == nil {
-		return nil, NewArgError("opts", "cannot be nil")
 	}
 
 	path := fmt.Sprintf("%s/%s/", faasFunctionPath, functionID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request for deleting FaaS function (ID: %s): %w", functionID, err)
 	}
 
-	// Add E2E query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
-
-	return s.client.Do(ctx, req, nil)
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, fmt.Errorf("failed to delete FaaS function (ID: %s): %w", functionID, err)
+	}
+	return resp, nil
 }
 
 // GetLogs retrieves logs for a FaaS function.
-func (s *FaasServiceOp) GetLogs(ctx context.Context, functionID string, opts *RequestOptions) (*FaasLogs, *Response, error) {
+func (s *FaasServiceOp) GetLogs(ctx context.Context, functionID string) (*FaasLogs, *Response, error) {
 	if functionID == "" {
 		return nil, nil, NewArgError("functionID", "cannot be empty")
-	}
-	if opts == nil {
-		return nil, nil, NewArgError("opts", "cannot be nil")
 	}
 
 	path := fmt.Sprintf("%s/%s/", faasLogsPath, functionID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create request for FaaS function (ID: %s) logs: %w", functionID, err)
 	}
-
-	// Add E2E query parameters
-	q := req.URL.Query()
-	q.Add("apikey", s.client.apiKey)
-	q.Add("project_id", opts.ProjectID)
-	q.Add("location", opts.Location)
-	req.URL.RawQuery = q.Encode()
 
 	root := new(faasLogsRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
-		return nil, resp, err
+		return nil, resp, fmt.Errorf("failed to retrieve logs for FaaS function (ID: %s): %w", functionID, err)
 	}
 
 	logs := &FaasLogs{Logs: root.Data}

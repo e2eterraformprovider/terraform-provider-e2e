@@ -2,93 +2,122 @@ package vpc
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	"log"
-
-	// "regexp"
-
 	"strconv"
-	//"strings"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-
-	// "github.com/hashicorp/terraform-plugin-log"
-	// "github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func ResouceVpc() *schema.Resource {
+func ResourceVpc() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			"location": {
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED INPUT FIELDS (Immutable)
+			// ============================================
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "location should specified",
+				Description: "name of the VPC",
 			},
-			"vpc_name": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"project_id": {
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS (Immutable)
+			// ============================================
+			"ipv4": {
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
+				Default:     "",
 				ForceNew:    true,
-				Description: "ID of the project. It should be unique",
-			},
-			"network_id": {
-				Type:        schema.TypeFloat,
-				Computed:    true,
-				Description: "The id of network",
-			},
-			"pool_size": {
-				Type:     schema.TypeFloat,
-				Computed: true,
-			},
-			"created_at": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"state": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"ipv4_cidr": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Description: "the IPv4 CIDR block for custom VPC (leave empty for E2E-managed VPC)",
 			},
 			"is_e2e_vpc": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
-				Description: "true for provider-managed VPC (send ipv4 as empty string), false for custom VPC (ipv4 must be a CIDR).",
+				ForceNew:    true,
+				Description: "whether this is an E2E-managed VPC (true: auto-allocated CIDR, false: requires ipv4 CIDR)",
 			},
-			"gateway_ip": {
-				Type:     schema.TypeString,
-				Computed: true,
+
+			// ============================================
+			// COMPUTED FIELDS - IDENTIFIERS
+			// ============================================
+			"network_id": {
+				Type:        schema.TypeFloat,
+				Computed:    true,
+				Description: "id of the VPC network",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the creation date for the VPC",
+			},
+			e2econstants.AttrStatus: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "state of the VPC instance",
 			},
 			"is_active": {
-				Type:     schema.TypeBool,
-				Computed: true,
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether the VPC is active",
 			},
-			"ipv4": {
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			"ipv4_cidr": {
 				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "",
-				Description: "IPv4 CIDR block of the VPC",
+				Computed:    true,
+				Description: "the IPv4 CIDR block of the VPC",
+			},
+			"gateway_ip": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the gateway IP address of the VPC",
+			},
+			"pool_size": {
+				Type:        schema.TypeFloat,
+				Computed:    true,
+				Description: "the IP pool size of the VPC",
 			},
 		},
-
 		ReadContext:   ResourceReadVpc,
 		CreateContext: ResourceCreateVpc,
-		UpdateContext: ResourceUpdateVpc,
 		DeleteContext: ResourceDeleteVpc,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: func(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+				// Support both "vpc_id" and "project_id:vpc_id" formats
+				parts := strings.Split(d.Id(), ":")
+
+				if len(parts) == 2 {
+					// Format: project_id:vpc_id
+					d.Set("project_id", parts[0])
+					d.SetId(parts[1])
+				} else if len(parts) != 1 {
+					return nil, fmt.Errorf("invalid import format: expected 'vpc_id' or 'project_id:vpc_id', got '%s'", d.Id())
+				}
+				// For single vpc_id, provider default project_id will be used
+
+				return []*schema.ResourceData{d}, nil
+			},
 		},
 	}
 }
@@ -97,86 +126,97 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 
 	var diags diag.Diagnostics
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	log.Printf("[INFO] Inside vpcs  resourcsource | read ")
-	Response, err := apiClient.GetVpc(d.Id(), d.Get("project_id").(string), d.Get("location").(string))
-	if err != nil {
-		return diag.Errorf("error finding vpcs ")
-	}
+	goe2eClient := cfg.Goe2eClient()
+	vpcId := d.Id()
 
-	data := Response.Data
-	d.Set("created_at", data.Created_at)
-	d.Set("state", data.State)
-	d.Set("ipv4_cidr", data.Ipv4_cidr)
-	d.Set("gateway_ip", data.Gateway_ip)
-	d.Set("is_active", data.Is_active)
-	d.Set("pool_size", data.Pool_size)
-
-	return diags
-}
-func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	log.Printf("[INFO] Inside vpcs  resource | create ")
-
-	newvpc := models.VpcCreate{
-		IsE2EVpc: d.Get("is_e2e_vpc").(bool),
-		VpcName:  d.Get("vpc_name").(string),
-		IPv4:     d.Get("ipv4").(string),
-	}
-	resvpc, err := apiClient.CreateVpc(d.Get("location").(string), &newvpc, d.Get("project_id").(string))
+	// Get project_id with provider default support
+	project_id, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	data := resvpc["data"].(map[string]interface{})
-	log.Printf("[INFO] vpc creation | before setting fields")
-
-	var vpcID int
-
-	if networkID, ok := data["network_id"].(float64); ok {
-		vpcID = int(networkID)
-		log.Printf("[INFO] vpc creation | network_id: %d", vpcID)
-	} else {
-		log.Printf("[ERROR] vpc creation | unable to extract network_id from data")
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	d.SetId(strconv.Itoa(vpcID))
+	log.Printf("[INFO] Inside vpcs resource | read ")
+	vpc, _, err := goe2eClient.Vpcs.GetVPC(ctx, vpcId)
+	if err != nil {
+		return diag.Errorf("Error retrieving VPC (ID: %s) in project (%s), region (%s): %s", vpcId, project_id, region, err)
+	}
+
+	d.Set(e2econstants.AttrName, vpc.Name)
+	d.Set("network_id", vpc.ID)
+	d.Set(e2econstants.AttrCreatedAt, vpc.CreatedAt)
+	d.Set(e2econstants.AttrStatus, vpc.State)
+	d.Set("ipv4_cidr", vpc.IPv4CIDR)
+	d.Set("gateway_ip", vpc.GatewayIP)
+	d.Set("is_active", vpc.IsActive)
+	d.Set("pool_size", vpc.PoolSize)
 
 	return diags
 }
+func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	cfg := m.(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
 
-func ResourceUpdateVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	if d.HasChange("vpc_name") {
-		prevName, currName := d.GetChange("vpc_name")
-		log.Printf("[INFO] prev_vpc_name %s, curr_vpc_name %s", prevName.(string), currName.(string))
-		d.Set("vpc_name", prevName)
-		return diag.Errorf("vpc_name cannot be updated once you create the vpc.")
+	// Get project_id with provider default support
+	project_id, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	if d.HasChange("network_size") {
-		prevNetworkSize, currNetworkSize := d.GetChange("network_size")
-		log.Printf("[INFO] prev_network_size %v, curr_network_size %v", prevNetworkSize, currNetworkSize)
-		d.Set("network_size", prevNetworkSize)
-		return diag.Errorf("network size cannot be updated once you create the vpc.")
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	return diags
+	log.Printf("[INFO] Inside vpcs resource | create ")
+
+	createReq := &goe2e.VpcCreateRequest{
+		VpcName:  d.Get(e2econstants.AttrName).(string),
+		IPv4:     d.Get("ipv4").(string),
+		IsE2EVpc: d.Get("is_e2e_vpc").(bool),
+	}
+	vpc, _, err := goe2eClient.Vpcs.CreateVPC(ctx, createReq)
+	if err != nil {
+		return diag.Errorf("Error creating VPC (name: %s) in project (%s), region (%s): %s", createReq.VpcName, project_id, region, err)
+	}
+
+	log.Printf("[INFO] vpc creation | before setting fields")
+	vpcID := int(vpc.ID)
+	log.Printf("[INFO] vpc creation | network_id: %d", vpcID)
+
+	d.SetId(strconv.Itoa(vpcID))
+
+	return ResourceReadVpc(ctx, d, m)
 }
 
 func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 	vpcId := d.Id()
 
-	_, err := apiClient.DeleteVpc(vpcId, d.Get("project_id").(string), d.Get("location").(string))
+	// Get project_id with provider default support
+	project_id, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	_, err = goe2eClient.Vpcs.DeleteVPC(ctx, vpcId)
+	if err != nil {
+		return diag.Errorf("Error deleting VPC (ID: %s) in project (%s), region (%s): %s", vpcId, project_id, region, err)
 	}
 
 	d.SetId("")

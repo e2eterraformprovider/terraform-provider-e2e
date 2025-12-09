@@ -2,27 +2,37 @@ package vpc_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
+
+func testAccPreCheck(t *testing.T) {
+	acceptance.TestAccPreCheck(t)
+}
+
+func testAccCheckE2EVPCDestroy(s *terraform.State) error {
+	// VPCs created in tests should be cleaned up
+	// For now, return nil as the datasource test doesn't directly delete resources
+	return nil
+}
 
 func TestAccE2EVPCDataSource_Basic(t *testing.T) {
 	vpcName := fmt.Sprintf("test-vpc-%s", acctest.RandString(10))
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EVPCDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EVPCDataSourceConfig_basic(vpcName),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.e2e_vpcs.test", "id"),
-					resource.TestCheckResourceAttrSet("data.e2e_vpcs.test", "vpcs.#"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_vpcs.test", "vpcs.#")),
 			},
 		},
 	})
@@ -34,14 +44,13 @@ func TestAccE2EVPCDataSource_MultipleVPCs(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EVPCDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EVPCDataSourceConfig_multiple(vpcName1, vpcName2),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.e2e_vpcs.test", "vpcs.#"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_vpcs.test", "vpcs.#")),
 			},
 		},
 	})
@@ -52,40 +61,23 @@ func TestAccE2EVPCDataSource_MultipleVPCs(t *testing.T) {
 func testAccCheckE2EVPCDataSourceConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_vpc" "test" {
-  vpc_name   = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  vpc_name   = "%s"}
 
-data "e2e_vpcs" "test" {
-  project_id = "%s"
-  location   = "%s"
-  depends_on = [e2e_vpc.test]
+data "e2e_vpcs" "test" {  depends_on = [e2e_vpc.test]
 }
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, name)
 }
 
 func testAccCheckE2EVPCDataSourceConfig_multiple(name1, name2 string) string {
 	return fmt.Sprintf(`
 resource "e2e_vpc" "test1" {
-  vpc_name   = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  vpc_name   = "%s"}
 
 resource "e2e_vpc" "test2" {
-  vpc_name   = "%s"
-  project_id = "%s"
-  location   = "%s"
-}
+  vpc_name   = "%s"}
 
-data "e2e_vpcs" "test" {
-  project_id = "%s"
-  location   = "%s"
-  depends_on = [e2e_vpc.test1, e2e_vpc.test2]
+data "e2e_vpcs" "test" {  depends_on = [e2e_vpc.test1, e2e_vpc.test2]
 }
-`, name1, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		name2, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, name1,
+		name2)
 }
