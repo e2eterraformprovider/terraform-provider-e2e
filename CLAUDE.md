@@ -296,7 +296,7 @@ Optional:
 
 ## Current Branch Context
 
-**Main branch for PRs**: `develop`
+**Main branch for PRs**: `master`
 
 This branch contains:
 
