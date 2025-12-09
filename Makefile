@@ -109,8 +109,10 @@ changelog:  ## Update CHANGELOG.md with new version entry from git commits
 	echo "$(BLUE)📦 Backup saved as CHANGELOG.md.bak$(NC)"
 
 _upgrade_goe2e:
- 	go get -u github.com/e2enetworks/goe2e
+	@echo "==> upgrading goe2e"
+	@go get -u github.com/e2enetworks/goe2e
 	@echo "==> upgraded goe2e"
+	@echo ""
 
 upgrade_goe2e: _upgrade_goe2e vendor
 	@echo "==> upgrade the goe2e version"
