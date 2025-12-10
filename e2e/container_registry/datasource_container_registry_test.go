@@ -1,11 +1,13 @@
 package container_registry_test
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"regexp"
+	"strconv"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -17,7 +19,7 @@ func TestAccDataSourceE2EContainerRegistry_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -28,8 +30,7 @@ func TestAccDataSourceE2EContainerRegistry_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrPair("data.e2e_container_registry.test", "project_name", "e2e_container_registry.test", "project_name"),
 					resource.TestCheckResourceAttrPair("data.e2e_container_registry.test", "setup_status", "e2e_container_registry.test", "setup_status"),
 					resource.TestCheckResourceAttrSet("data.e2e_container_registry.test", "severity"),
-					resource.TestCheckResourceAttrSet("data.e2e_container_registry.test", "prevent_vul"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_container_registry.test", "prevent_vul")),
 			},
 		},
 	})
@@ -40,7 +41,7 @@ func TestAccDataSourceE2EContainerRegistry_WithSeverity(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -48,8 +49,7 @@ func TestAccDataSourceE2EContainerRegistry_WithSeverity(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EContainerRegistryExists("data.e2e_container_registry.test"),
 					resource.TestCheckResourceAttr("data.e2e_container_registry.test", "severity", "critical"),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical")),
 			},
 		},
 	})
@@ -60,7 +60,7 @@ func TestAccDataSourceE2EContainerRegistry_WithPreventVul(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -68,8 +68,7 @@ func TestAccDataSourceE2EContainerRegistry_WithPreventVul(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EContainerRegistryExists("data.e2e_container_registry.test"),
 					resource.TestCheckResourceAttr("data.e2e_container_registry.test", "prevent_vul", "true"),
-					resource.TestCheckResourceAttr("data.e2e_container_registry.test", "severity", "high"),
-				),
+					resource.TestCheckResourceAttr("data.e2e_container_registry.test", "severity", "high")),
 			},
 		},
 	})
@@ -78,7 +77,7 @@ func TestAccDataSourceE2EContainerRegistry_WithPreventVul(t *testing.T) {
 func TestAccDataSourceE2EContainerRegistry_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EContainerRegistryConfig_missingID(),
@@ -99,7 +98,7 @@ func TestAccDataSourceE2EContainerRegistry_MissingRequiredArguments(t *testing.T
 func TestAccDataSourceE2EContainerRegistry_NotFound(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EContainerRegistryConfig_notFound(),
@@ -122,27 +121,22 @@ func testAccCheckDataSourceE2EContainerRegistryExists(resourceName string) resou
 			return fmt.Errorf("No Container Registry ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		client := cfg.Goe2eClient()
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
 		id := rs.Primary.Attributes["id"]
+		registryID, err := strconv.Atoi(id)
+		if err != nil {
+			return fmt.Errorf("invalid registry ID: %w", err)
+		}
 
-		registries, err := client.GetContainerRegistryProjects(projectID, location)
+		ctx := context.Background()
+		registry, _, err := client.ContainerRegistry.GetContainerRegistry(ctx, registryID)
 		if err != nil {
 			return err
 		}
 
-		found := false
-		for _, registry := range registries {
-			if fmt.Sprintf("%d", registry.ID) == id {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if registry == nil {
 			return fmt.Errorf("Container Registry not found in datasource: %s", id)
 		}
 
@@ -154,10 +148,7 @@ func testAccCheckDataSourceE2EContainerRegistryExists(resourceName string) resou
 
 func testAccDataSourceE2EContainerRegistryConfig_basic(projectName string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
 }
 
 data "e2e_container_registry" "test" {
@@ -165,15 +156,12 @@ data "e2e_container_registry" "test" {
   project_id = e2e_container_registry.test.project_id
   location   = e2e_container_registry.test.location
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName)
+`, projectName)
 }
 
 func testAccDataSourceE2EContainerRegistryConfig_withSeverity(projectName, severity string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   severity     = "%s"
 }
 
@@ -182,15 +170,12 @@ data "e2e_container_registry" "test" {
   project_id = e2e_container_registry.test.project_id
   location   = e2e_container_registry.test.location
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName, severity)
+`, projectName, severity)
 }
 
 func testAccDataSourceE2EContainerRegistryConfig_withPreventVul(projectName string, preventVul bool, severity string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   prevent_vul  = %t
   severity     = "%s"
 }
@@ -200,44 +185,34 @@ data "e2e_container_registry" "test" {
   project_id = e2e_container_registry.test.project_id
   location   = e2e_container_registry.test.location
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName, preventVul, severity)
+`, projectName, preventVul, severity)
 }
 
 // Error case configurations
 
 func testAccDataSourceE2EContainerRegistryConfig_missingID() string {
-	return fmt.Sprintf(`
-data "e2e_container_registry" "test" {
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+	return `
+data "e2e_container_registry" "test" {}
+`
 }
 
 func testAccDataSourceE2EContainerRegistryConfig_missingProjectID() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_container_registry" "test" {
-  id       = "12345"
-  location = "%s"
-}
-`, os.Getenv("E2E_TEST_LOCATION"))
+  id       = "12345"}
+`
 }
 
 func testAccDataSourceE2EContainerRegistryConfig_missingLocation() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_container_registry" "test" {
-  id         = "12345"
-  project_id = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+  id         = "12345"}
+`
 }
 
 func testAccDataSourceE2EContainerRegistryConfig_notFound() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_container_registry" "test" {
-  id         = "999999999"
-  project_id = "%s"
-  location   = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  id         = "999999999"}
+`
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -46,6 +47,14 @@ type Client struct {
 	apiKey    string
 	authToken string
 
+	// Required parameters for all API calls
+	projectID string
+	region    string
+
+	// Optional parameters for ai cloud API calls. They may get nuked later.
+	workspaceID string
+	teamID      string
+
 	// Retry configuration
 	RetryConfig RetryConfig
 
@@ -53,8 +62,29 @@ type Client struct {
 	headers map[string]string
 
 	// Services used for talking to different parts of the E2E API
-	// Phase 1: Only FaaS
-	FaaS FaasService
+	FaaS              FaasService
+	Tags              TagService
+	VolumeAttachment  VolumeAttachmentService
+	Nodes             NodeService
+	SSHKeys           SSHKeyService
+	Vpcs              VpcService
+	VPCTunnels        VPCTunnelService
+	SecurityGroups    SecurityGroupService
+	Autoscaling       AutoscalingService
+	DBaaSMySQL        DBaaSMySQLService
+	MariaDB           MariaDBService
+	PostgreSQL        PostgreSQLService
+	BlockStorage      BlockStorageService
+	ContainerRegistry ContainerRegistryService
+	LoadBalancer      LoadBalancerService
+	ObjectStorage     ObjectStorageService
+	Kubernetes        KubernetesService
+	Sfs               SfsService
+	ReserveIP         ReserveIPService
+	Images            ImageService
+	CDN               CDNService
+	Backup            BackupService
+	Firewall          FirewallService
 }
 
 // RetryConfig holds retry-specific configuration
@@ -64,9 +94,38 @@ type RetryConfig struct {
 	RetryWaitMax *time.Duration
 }
 
-// NewClient returns a new E2E API client with credentials and retry support.
+// NewClient returns a new E2E API client with required parameters.
 // This is the primary constructor for the client.
-func NewClient(apiKey, authToken string, opts ...ClientOpt) (*Client, error) {
+//
+// All four parameters are required for every API call:
+//   - apiKey: Your E2E API key
+//   - authToken: Your E2E authentication token
+//   - projectID: The project ID for API calls
+//   - region: The region for API calls (e.g., "Mumbai", "Delhi", "Chennai")
+//
+// Example:
+//
+//	client, err := goe2e.NewClient("api-key", "auth-token", "project-123", "Mumbai")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	function, _, err := client.FaaS.GetFunction(ctx, "func-123")
+func NewClient(apiKey, authToken, projectID, region string, opts ...ClientOpt) (*Client, error) {
+	// Validate required parameters
+	if apiKey == "" {
+		return nil, NewArgError("apiKey", "cannot be empty")
+	}
+	if authToken == "" {
+		return nil, NewArgError("authToken", "cannot be empty")
+	}
+	if projectID == "" {
+		return nil, NewArgError("projectID", "cannot be empty")
+	}
+	if region == "" {
+		return nil, NewArgError("region", "cannot be empty")
+	}
+
 	// Set up default retry configuration
 	retryConfig := RetryConfig{
 		RetryMax:     defaultRetryMax,
@@ -74,17 +133,29 @@ func NewClient(apiKey, authToken string, opts ...ClientOpt) (*Client, error) {
 		RetryWaitMax: PtrTo(time.Duration(defaultRetryWaitMax) * time.Second),
 	}
 
-	// Prepend credentials and retry config to options
-	opts = append([]ClientOpt{
-		SetAPIKey(apiKey),
-		SetAuthToken(authToken),
-		WithRetryAndBackoffs(retryConfig),
-	}, opts...)
+	// Build options in order: required params, user options, then default retry config
+	// This allows user to override default retry configuration
+	fullOpts := []ClientOpt{
+		setAPIKey(apiKey),
+		setAuthToken(authToken),
+		setProjectID(projectID),
+		setRegion(region),
+	}
+
+	// Add user options
+	fullOpts = append(fullOpts, opts...)
+
+	// Add default retry config (allows user to override if they provided their own)
+	fullOpts = append(fullOpts, WithRetryAndBackoffs(retryConfig))
+
+	opts = fullOpts
 
 	return New(nil, opts...)
 }
 
-// New returns a new E2E API client instance.
+// New returns a new E2E API client instance with full control.
+// Use this for advanced scenarios where you need a custom HTTP client.
+// For normal usage, use NewClient instead.
 func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
@@ -97,6 +168,9 @@ func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 		BaseURL:   baseURL,
 		UserAgent: userAgent,
 		headers:   make(map[string]string),
+		RetryConfig: RetryConfig{
+			RetryMax: -1, // Sentinel: not yet configured
+		},
 	}
 
 	// Apply all options
@@ -106,8 +180,35 @@ func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 		}
 	}
 
-	// Initialize services - Phase 1: only FaaS
+	// Validate required fields were set via options
+	if c.apiKey == "" || c.authToken == "" || c.projectID == "" || c.region == "" {
+		return nil, fmt.Errorf("apiKey, authToken, projectID, and region are required (use NewClient or provide via options)")
+	}
+
+	// Initialize services
 	c.FaaS = &FaasServiceOp{client: c}
+	c.Tags = &TagServiceOp{client: c}
+	c.VolumeAttachment = &VolumeAttachmentServiceOp{client: c}
+	c.Nodes = &NodeServiceOp{client: c}
+	c.SSHKeys = &SSHKeyServiceOp{client: c}
+	c.Vpcs = &VpcServiceOp{client: c}
+	c.VPCTunnels = &VPCTunnelServiceOp{client: c}
+	c.SecurityGroups = &SecurityGroupServiceOp{client: c}
+	c.Autoscaling = &AutoscalingServiceOp{client: c}
+	c.DBaaSMySQL = &DBaaSMySQLServiceOp{client: c}
+	c.MariaDB = &MariaDBServiceOp{client: c}
+	c.PostgreSQL = &PostgreSQLServiceOp{client: c}
+	c.BlockStorage = &BlockStorageServiceOp{client: c}
+	c.ContainerRegistry = &ContainerRegistryServiceOp{client: c}
+	c.LoadBalancer = &LoadBalancerServiceOp{client: c}
+	c.Kubernetes = &KubernetesServiceOp{client: c}
+	c.ObjectStorage = &ObjectStorageServiceOp{client: c}
+	c.Sfs = &SfsServiceOp{client: c}
+	c.ReserveIP = &ReserveIPServiceOp{client: c}
+	c.Images = &ImageServiceOp{client: c}
+	c.CDN = &CDNServiceOp{client: c}
+	c.Backup = &BackupServiceOp{client: c}
+	c.Firewall = &FirewallServiceOp{client: c}
 
 	return c, nil
 }
@@ -115,18 +216,51 @@ func New(httpClient *http.Client, opts ...ClientOpt) (*Client, error) {
 // ClientOpt are options for New.
 type ClientOpt func(*Client) error
 
-// SetAPIKey sets the API key for authentication
-func SetAPIKey(apiKey string) ClientOpt {
+// Internal setters (not exported - used by NewClient)
+func setAPIKey(apiKey string) ClientOpt {
 	return func(c *Client) error {
 		c.apiKey = apiKey
 		return nil
 	}
 }
 
-// SetAuthToken sets the authentication token
-func SetAuthToken(token string) ClientOpt {
+func setAuthToken(token string) ClientOpt {
 	return func(c *Client) error {
 		c.authToken = token
+		return nil
+	}
+}
+
+func setProjectID(projectID string) ClientOpt {
+	return func(c *Client) error {
+		c.projectID = projectID
+		return nil
+	}
+}
+
+func setRegion(region string) ClientOpt {
+	return func(c *Client) error {
+		c.region = region
+		return nil
+	}
+}
+
+// Public options (exported - users can use these for advanced scenarios)
+
+// WithWorkspace sets the workspace ID (optional, for multi-tenant scenarios).
+// When set, the workspace_id query parameter will be added to all API calls.
+func WithWorkspace(workspaceID string) ClientOpt {
+	return func(c *Client) error {
+		c.workspaceID = workspaceID
+		return nil
+	}
+}
+
+// WithTeam sets the team ID (optional, for team-based scenarios).
+// When set, the team_id query parameter will be added to all API calls.
+func WithTeam(teamID string) ClientOpt {
+	return func(c *Client) error {
+		c.teamID = teamID
 		return nil
 	}
 }
@@ -155,8 +289,15 @@ func SetUserAgent(ua string) ClientOpt {
 // WithRetryAndBackoffs sets the retry policy with exponential backoff.
 // When RetryMax is greater than 0, the client will automatically retry
 // failed requests with exponential backoff.
+// If retry config is already set (RetryMax != -1), this will be skipped to respect
+// user configuration that explicitly sets retry behavior (including disabling).
 func WithRetryAndBackoffs(retryConfig RetryConfig) ClientOpt {
 	return func(c *Client) error {
+		// Don't override if retry config is already explicitly set by user
+		if c.RetryConfig.RetryMax != -1 {
+			return nil
+		}
+
 		c.RetryConfig = retryConfig
 
 		if retryConfig.RetryMax > 0 {
@@ -197,11 +338,30 @@ func SetStaticRateLimit(rps float64) ClientOpt {
 // which will be resolved to the BaseURL of the Client. Relative URLs should
 // always be specified without a preceding slash. If specified, the value
 // pointed to by body is JSON encoded and included as the request body.
+//
+// Standard query parameters (apikey, project_id, location) are automatically
+// added from the client configuration.
 func (c *Client) NewRequest(ctx context.Context, method, urlStr string, body interface{}) (*http.Request, error) {
 	u, err := c.BaseURL.Parse(urlStr)
 	if err != nil {
 		return nil, err
 	}
+
+	// Add standard E2E query parameters from client
+	q := u.Query()
+	q.Add("apikey", c.apiKey)
+	q.Add("project_id", c.projectID)
+	q.Add("location", c.region) // API uses 'location' parameter
+
+	// Add optional parameters if set
+	if c.workspaceID != "" {
+		q.Add("workspace_id", c.workspaceID)
+	}
+	if c.teamID != "" {
+		q.Add("team_id", c.teamID)
+	}
+
+	u.RawQuery = q.Encode()
 
 	var buf io.ReadWriter
 	if body != nil {
@@ -304,9 +464,11 @@ func CheckResponse(r *http.Response) error {
 	return errorResponse
 }
 
-// RequestOptions contains the common parameters required for E2E API requests.
-// These parameters (ProjectID and Location) are required for every API call.
+// RequestOptions is deprecated and will be removed in v2.0.
+// Use the client-level configuration instead (projectID and region are set at client creation).
+//
+// Deprecated: Parameters are now set at client creation time via NewClient.
 type RequestOptions struct {
-	ProjectID string // The project ID
-	Location  string // The region/location (e.g., "Chennai", "Delhi", "Mumbai")
+	ProjectID string // Deprecated: Set via NewClient projectID parameter
+	Region    string // Deprecated: Set via NewClient region parameter
 }

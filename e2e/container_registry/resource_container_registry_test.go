@@ -1,16 +1,16 @@
 package container_registry_test
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"regexp"
+	"strconv"
 	"testing"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -20,7 +20,7 @@ func TestAccE2EContainerRegistry_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -30,8 +30,7 @@ func TestAccE2EContainerRegistry_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "project_name", projectName),
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "prevent_vul", "false"),
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "low"),
-					resource.TestCheckResourceAttrSet("e2e_container_registry.test", "setup_status"),
-				),
+					resource.TestCheckResourceAttrSet("e2e_container_registry.test", "setup_status")),
 			},
 		},
 	})
@@ -43,7 +42,7 @@ func TestAccE2EContainerRegistry_Update(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -51,16 +50,14 @@ func TestAccE2EContainerRegistry_Update(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "prevent_vul", "false"),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "low"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "low")),
 			},
 			{
 				Config: testAccCheckE2EContainerRegistryConfig_updated(projectName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "prevent_vul", "true"),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "high"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "high")),
 			},
 		},
 	})
@@ -75,14 +72,13 @@ func TestAccE2EContainerRegistry_WithSeverityLevels(t *testing.T) {
 		t.Run(fmt.Sprintf("severity_%s", severity), func(t *testing.T) {
 			resource.ParallelTest(t, resource.TestCase{
 				PreCheck:          func() { testAccPreCheck(t) },
-				ProviderFactories: testAccProviderFactories,
+				ProviderFactories: acceptance.TestAccProviderFactories,
 				CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 				Steps: []resource.TestStep{
 					{
 						Config: testAccCheckE2EContainerRegistryConfig_withSeverity(projectName, severity),
 						Check: resource.ComposeTestCheckFunc(
-							resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", severity),
-						),
+							resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", severity)),
 					},
 				},
 			})
@@ -96,7 +92,7 @@ func TestAccE2EContainerRegistry_WithPreventVulnerability(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -104,8 +100,7 @@ func TestAccE2EContainerRegistry_WithPreventVulnerability(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
 					resource.TestCheckResourceAttr("e2e_container_registry.test", "prevent_vul", "true"),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical")),
 			},
 		},
 	})
@@ -114,7 +109,7 @@ func TestAccE2EContainerRegistry_WithPreventVulnerability(t *testing.T) {
 func TestAccE2EContainerRegistry_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EContainerRegistryConfig_missingProjectID(),
@@ -138,14 +133,13 @@ func TestAccE2EContainerRegistry_Import(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EContainerRegistryConfig_basic(projectName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
-				),
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID)),
 			},
 			{
 				ResourceName:      "e2e_container_registry.test",
@@ -162,22 +156,144 @@ func TestAccE2EContainerRegistry_UpdateSeverityOnly(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCheckE2EContainerRegistryConfig_withSeverity(projectName, "low"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "low"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "low")),
 			},
 			{
 				Config: testAccCheckE2EContainerRegistryConfig_withSeverity(projectName, "critical"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
-					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical"),
-				),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "severity", "critical")),
+			},
+		},
+	})
+}
+
+func TestAccE2EContainerRegistry_Tags(t *testing.T) {
+	var registryID string
+	projectName := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2EContainerRegistryConfig_withTags(projectName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "tags.Environment", "test"),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "tags.ManagedBy", "terraform")),
+			},
+			{
+				Config: testAccCheckE2EContainerRegistryConfig_withTagsUpdated(projectName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "tags.Environment", "production"),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "tags.ManagedBy", "terraform"),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "tags.Owner", "devops")),
+			},
+		},
+	})
+}
+
+func TestAccE2EContainerRegistry_SeverityValidation(t *testing.T) {
+	projectName := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccCheckE2EContainerRegistryConfig_invalidSeverity(projectName),
+				ExpectError: regexp.MustCompile(`expected severity to be one of`),
+			},
+		},
+	})
+}
+
+func TestAccE2EContainerRegistry_ForceNew(t *testing.T) {
+	var registryID1, registryID2 string
+	projectName1 := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+	projectName2 := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2EContainerRegistryConfig_basic(projectName1),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID1),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "project_name", projectName1)),
+			},
+			{
+				Config: testAccCheckE2EContainerRegistryConfig_basic(projectName2),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID2),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "project_name", projectName2),
+					testAccCheckE2EContainerRegistryRecreated(&registryID1, &registryID2)),
+			},
+		},
+	})
+}
+
+func TestAccE2EContainerRegistry_DeprecatedSetupStatus(t *testing.T) {
+	var registryID string
+	projectName := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2EContainerRegistryConfig_basic(projectName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
+					resource.TestCheckResourceAttrSet("e2e_container_registry.test", "status"),
+					resource.TestCheckResourceAttrSet("e2e_container_registry.test", "setup_status"),
+					// Verify both status and setup_status have the same value (backward compatibility)
+					resource.TestCheckResourceAttrPair("e2e_container_registry.test", "status", "e2e_container_registry.test", "setup_status")),
+			},
+		},
+	})
+}
+
+func TestAccE2EContainerRegistry_V2Compatibility(t *testing.T) {
+	var registryID string
+	projectName := fmt.Sprintf("test-cr-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EContainerRegistryDestroy,
+		Steps: []resource.TestStep{
+			{
+				// Test that location (deprecated) still works for backward compatibility
+				Config: testAccCheckE2EContainerRegistryConfig_withLocation(projectName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "project_name", projectName)),
+			},
+			{
+				// Test that region (new) works
+				Config: testAccCheckE2EContainerRegistryConfig_withRegion(projectName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EContainerRegistryExists("e2e_container_registry.test", &registryID),
+					resource.TestCheckResourceAttr("e2e_container_registry.test", "project_name", projectName)),
+			},
+			{
+				// Test that using both location and region causes conflict
+				Config:      testAccCheckE2EContainerRegistryConfig_locationAndRegion(projectName),
+				ExpectError: regexp.MustCompile(`.*conflicts with.*`),
 			},
 		},
 	})
@@ -185,31 +301,8 @@ func TestAccE2EContainerRegistry_UpdateSeverityOnly(t *testing.T) {
 
 // Helper functions
 
-var testAccProvider *schema.Provider
-
-func init() {
-	testAccProvider = e2e.Provider()
-}
-
 func testAccPreCheck(t *testing.T) {
-	if v := os.Getenv("SERVICE_API_KEY"); v == "" {
-		t.Fatal("SERVICE_API_KEY must be set for acceptance tests")
-	}
-	if v := os.Getenv("SERVICE_AUTH_TOKEN"); v == "" {
-		t.Fatal("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_PROJECT_ID"); v == "" {
-		t.Fatal("E2E_TEST_PROJECT_ID must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_LOCATION"); v == "" {
-		t.Fatal("E2E_TEST_LOCATION must be set for acceptance tests")
-	}
-}
-
-var testAccProviderFactories = map[string]func() (*schema.Provider, error){
-	"e2e": func() (*schema.Provider, error) {
-		return e2e.Provider(), nil
-	},
+	acceptance.TestAccPreCheck(t)
 }
 
 func testAccCheckE2EContainerRegistryExists(resourceName string, registryID *string) resource.TestCheckFunc {
@@ -223,135 +316,188 @@ func testAccCheckE2EContainerRegistryExists(resourceName string, registryID *str
 			return fmt.Errorf("No Container Registry ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		client := cfg.Goe2eClient()
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
+		id, err := strconv.Atoi(rs.Primary.ID)
+		if err != nil {
+			return fmt.Errorf("invalid registry ID: %w", err)
+		}
 
-		registries, err := client.GetContainerRegistryProjects(projectID, location)
+		ctx := context.Background()
+		registry, _, err := client.ContainerRegistry.GetContainerRegistry(ctx, id)
 		if err != nil {
 			return err
 		}
 
-		found := false
-		for _, registry := range registries {
-			if fmt.Sprintf("%d", registry.ID) == rs.Primary.ID {
-				found = true
-				*registryID = rs.Primary.ID
-				break
-			}
-		}
-
-		if !found {
+		if registry == nil {
 			return fmt.Errorf("Container Registry not found: %s", rs.Primary.ID)
 		}
 
+		*registryID = rs.Primary.ID
 		return nil
 	}
 }
 
 func testAccCheckE2EContainerRegistryDestroy(s *terraform.State) error {
-	cfg := testAccProvider.Meta().(*config.Config)
-	client := cfg.Client()
+	cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+	client := cfg.Goe2eClient()
+
+	ctx := context.Background()
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "e2e_container_registry" {
 			continue
 		}
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
-
-		registries, err := client.GetContainerRegistryProjects(projectID, location)
+		id, err := strconv.Atoi(rs.Primary.ID)
 		if err != nil {
+			// If we can't parse the ID, skip (it was likely already destroyed)
 			continue
 		}
 
-		for _, registry := range registries {
-			if fmt.Sprintf("%d", registry.ID) == rs.Primary.ID {
-				return fmt.Errorf("Container Registry still exists: %s", rs.Primary.ID)
-			}
+		registry, _, err := client.ContainerRegistry.GetContainerRegistry(ctx, id)
+		if err != nil {
+			// If we get an error, the registry is likely already deleted
+			continue
+		}
+
+		if registry != nil {
+			return fmt.Errorf("Container Registry still exists: %s", rs.Primary.ID)
 		}
 	}
 
 	return nil
 }
 
+func testAccCheckE2EContainerRegistryRecreated(oldID, newID *string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		if *oldID == *newID {
+			return fmt.Errorf("Expected container registry to be recreated, but IDs are the same: %s", *oldID)
+		}
+		return nil
+	}
+}
+
 // Configuration helpers
 
 func testAccCheckE2EContainerRegistryConfig_basic(projectName string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   prevent_vul  = false
   severity     = "low"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName)
+`, projectName)
 }
 
 func testAccCheckE2EContainerRegistryConfig_updated(projectName string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   prevent_vul  = true
   severity     = "high"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName)
+`, projectName)
 }
 
 func testAccCheckE2EContainerRegistryConfig_withSeverity(projectName, severity string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   severity     = "%s"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName, severity)
+`, projectName, severity)
 }
 
 func testAccCheckE2EContainerRegistryConfig_withPreventVul(projectName string, preventVul bool, severity string) string {
 	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  location     = "%s"
-  project_name = "%s"
+resource "e2e_container_registry" "test" {  project_name = "%s"
   prevent_vul  = %t
   severity     = "%s"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"), projectName, preventVul, severity)
+`, projectName, preventVul, severity)
+}
+
+func testAccCheckE2EContainerRegistryConfig_withTags(projectName string) string {
+	return fmt.Sprintf(`
+resource "e2e_container_registry" "test" {
+  project_name = "%s"
+
+  tags = {
+    Environment = "test"
+    ManagedBy   = "terraform"
+  }
+}
+`, projectName)
+}
+
+func testAccCheckE2EContainerRegistryConfig_withTagsUpdated(projectName string) string {
+	return fmt.Sprintf(`
+resource "e2e_container_registry" "test" {
+  project_name = "%s"
+
+  tags = {
+    Environment = "production"
+    ManagedBy   = "terraform"
+    Owner       = "devops"
+  }
+}
+`, projectName)
 }
 
 // Error case configurations
 
 func testAccCheckE2EContainerRegistryConfig_missingProjectID() string {
-	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  location     = "%s"
-  project_name = "test-project"
+	return `
+resource "e2e_container_registry" "test" {  project_name = "test-project"
 }
-`, os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
 func testAccCheckE2EContainerRegistryConfig_missingLocation() string {
-	return fmt.Sprintf(`
-resource "e2e_container_registry" "test" {
-  project_id   = "%s"
-  project_name = "test-project"
+	return `
+resource "e2e_container_registry" "test" {  project_name = "test-project"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+`
 }
 
 func testAccCheckE2EContainerRegistryConfig_missingProjectName() string {
+	return `
+resource "e2e_container_registry" "test" {}
+`
+}
+
+func testAccCheckE2EContainerRegistryConfig_invalidSeverity(projectName string) string {
 	return fmt.Sprintf(`
 resource "e2e_container_registry" "test" {
-  project_id = "%s"
-  location   = "%s"
+  project_name = "%s"
+  severity     = "invalid-severity"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, projectName)
+}
+
+func testAccCheckE2EContainerRegistryConfig_withLocation(projectName string) string {
+	return fmt.Sprintf(`
+resource "e2e_container_registry" "test" {
+  project_name = "%s"
+  location     = "us-east-1"
+}
+`, projectName)
+}
+
+func testAccCheckE2EContainerRegistryConfig_withRegion(projectName string) string {
+	return fmt.Sprintf(`
+resource "e2e_container_registry" "test" {
+  project_name = "%s"
+  region       = "us-east-1"
+}
+`, projectName)
+}
+
+func testAccCheckE2EContainerRegistryConfig_locationAndRegion(projectName string) string {
+	return fmt.Sprintf(`
+resource "e2e_container_registry" "test" {
+  project_name = "%s"
+  location     = "us-east-1"
+  region       = "us-west-1"
+}
+`, projectName)
 }

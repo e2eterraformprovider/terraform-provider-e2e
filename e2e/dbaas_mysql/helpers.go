@@ -1,59 +1,109 @@
 package dbaas_mysql
 
 import (
+	"context"
 	"fmt"
 	"strconv"
-	"time"
+	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func ExpandVpcList(d *schema.ResourceData, vpc_list []interface{}, apiClient *client.Client) ([]models.VPC, error) {
-	var vpc_details []models.VPC
-
-	for _, id := range vpc_list {
-		vpc_detail, err := apiClient.GetVpc(strconv.Itoa(id.(int)), d.Get("project_id").(string), d.Get("location").(string))
-		if err != nil {
-			return nil, fmt.Errorf("error while fetching vpc: %s", err)
-		}
-		data := vpc_detail.Data
-		if data.State != "Active" {
-			return nil, fmt.Errorf("Can not attach vpc currently, vpc is in %s state", data.State)
-		}
-		r := models.VPC{
-			Network_id: data.Network_id,
-			VpcName:    data.Name,
-			Ipv4_cidr:  data.Ipv4_cidr,
-		}
-
-		vpc_details = append(vpc_details, r)
+// expandVPCList converts a set of VPC IDs (integers) to VPC metadata for attach/detach operations
+func expandVPCList(ctx context.Context, goe2eClient *goe2e.Client, vpcIDs []interface{}) ([]goe2e.VPCMetadata, error) {
+	if len(vpcIDs) == 0 {
+		return []goe2e.VPCMetadata{}, nil
 	}
-	return vpc_details, nil
+
+	// Convert integer IDs to strings
+	var vpcIDStrings []string
+	for _, id := range vpcIDs {
+		vpcIDStrings = append(vpcIDStrings, strconv.Itoa(id.(int)))
+	}
+
+	// Use goe2e client to expand VPC list
+	vpcMetaList, err := goe2eClient.DBaaSMySQL.ExpandVPCList(ctx, vpcIDStrings)
+	if err != nil {
+		return nil, err
+	}
+
+	return vpcMetaList, nil
 }
 
-func WaitForPoweringOffOnDBaaS(m interface{}, dbaasID string, project_id string, location string) error {
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+// buildMySQLCreateRequest builds the create request from schema data
+func buildMySQLCreateRequest(ctx context.Context, d *schema.ResourceData, goe2eClient *goe2e.Client, softwareID, templateID int) (*goe2e.MySQLClusterCreateRequest, error) {
+	// Extract database configuration
+	dbList := d.Get("database").([]interface{})
+	if len(dbList) == 0 {
+		return nil, fmt.Errorf("database configuration is required")
+	}
+	dbMap := dbList[0].(map[string]interface{})
 
-	maxRetries := 30
-	for i := 0; i < maxRetries; i++ {
-		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
+	// Build database config
+	dbConfig := goe2e.DBConfig{
+		User:        dbMap["user"].(string),
+		Password:    dbMap["password"].(string),
+		Name:        dbMap["name"].(string),
+		DBaaSNumber: dbMap["dbaas_number"].(int),
+	}
 
-		dbaasInfo, err := apiClient.GetMySqlDbaas(dbaasID, project_id, location)
+	// Build VPC list if provided
+	var vpcList []goe2e.VPCMetadata
+	if vpcSet, ok := d.GetOk("vpcs"); ok {
+		vpcIDs := vpcSet.(*schema.Set).List()
+		var err error
+		vpcList, err = expandVPCList(ctx, goe2eClient, vpcIDs)
 		if err != nil {
-			return fmt.Errorf("error while fetching dbaas instance details: %s", err)
-		}
-
-		status := dbaasInfo.Data.Status
-
-		if status == "SUSPENDED" {
-			return nil
+			return nil, fmt.Errorf("failed to expand VPC list: %w", err)
 		}
 	}
 
-	return fmt.Errorf("timeout: MySQL DBaaS did not reach SUSPENDED state in time, please wait for some more time and then hit TERRAFORM APPLY again")
+	createReq := &goe2e.MySQLClusterCreateRequest{
+		Name:             d.Get("dbaas_name").(string),
+		SoftwareID:       softwareID,
+		TemplateID:       templateID,
+		Group:            d.Get("group").(string),
+		Database:         dbConfig,
+		PublicIPRequired: d.Get("public_ip_required").(bool),
+		Vpcs:             vpcList,
+	}
+
+	// Add parameter group if specified
+	if pgID, ok := d.GetOk("parameter_group_id"); ok {
+		createReq.ParameterGroupId = pgID.(int)
+	}
+
+	// Note: Encryption settings are handled by the API based on schema values
+	// but are not part of the MySQLClusterCreateRequest struct
+
+	return createReq, nil
+}
+
+// normalizeStatus converts API status values to user-friendly values
+// For MySQL, we keep the API values as-is (SUSPENDED, RUNNING, etc.)
+func normalizeStatus(apiStatus string) string {
+	return apiStatus
+}
+
+// customImportStateFunc handles the import of MySQL DBaaS resources
+// Format: project_id:dbaas_id
+func customImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), ":")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid ID format: expected project_id:dbaas_id, got: %s", d.Id())
+	}
+
+	projectID := parts[0]
+	dbaasID := parts[1]
+
+	// Set the project_id in the resource data
+	if err := d.Set("project_id", projectID); err != nil {
+		return nil, fmt.Errorf("failed to set project_id: %w", err)
+	}
+
+	// Set the resource ID to the dbaas_id
+	d.SetId(dbaasID)
+
+	return []*schema.ResourceData{d}, nil
 }

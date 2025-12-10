@@ -1,8 +1,19 @@
-# e2e\_dbaas\_postgres (Resource)
+---
+page_title: "e2e_dbaas_postgresql Resource - terraform-provider-e2e"
+subcategory: "Databases"
+description: |-
+  Provides an E2E Cloud PostgreSQL DBaaS resource.
+---
+
+<!-- updated-for-3.0-migration: 2025-11-27 -->
+
+# e2e_dbaas_postgres (Resource)
 
 The `e2e_dbaas_postgresql` resource allows you to provision and manage PostgreSQL-based DBaaS (Database as a Service) clusters within your E2E cloud environment.
 
 Applying this resource creates a new PostgreSQL DBaaS instance. Destroying it removes the instance.
+
+~> **Migration Notice**: This resource has parameter changes in v3.0.0. See the [v3.0.0 Upgrade Guide](../guides/upgrade-to-v3.md#affected-resources) for migration instructions.
 
 ---
 
@@ -10,7 +21,7 @@ Applying this resource creates a new PostgreSQL DBaaS instance. Destroying it re
 
 ```hcl
 resource "e2e_dbaas_postgresql" "db1" {
-  location     = "Delhi"
+  region       = "Delhi NCR"  # Use 'region' instead of deprecated 'location'
   project_id   = 12345
   plan         = "DBS.32GB"
   version      = "15.0"
@@ -28,9 +39,9 @@ resource "e2e_dbaas_postgresql" "db1" {
 
 resource "e2e_vpc" "vpc1" {
     vpc_name            = "vpc_name"
-    location            = "Delhi"
-    project_id          = "12345"            # Replace with your actual project ID
-    is_e2e_vpc          = false              # Optional, set false for custom vpc
+    region              = "Delhi NCR"  # Use 'region' instead of deprecated 'location'
+    project_id          = "12345"      # Replace with your actual project ID
+    is_e2e_vpc          = false        # Optional, set false for custom vpc
     ipv4                = "192.168.1.0/24"   # Optional ,replace this with ipv4 cidr block you want to add
  }
 ```
@@ -41,7 +52,8 @@ resource "e2e_vpc" "vpc1" {
 
 ### Required Attributes
 
-- **`location`** (String): Region in which the DBaaS instance will be deployed.
+- **`region`** (String): Region where the DBaaS instance will be deployed. This is the standard parameter name for specifying the deployment location.
+- **`location`** (Optional, **Deprecated**) (String): **DEPRECATED**: Use 'region' instead. This parameter will be removed in version 3.0.0. Region in which the DBaaS instance will be deployed.
 - **`project_id`** (String): The project ID associated with the DBaaS.
 - **`plan`** (String): The DBaaS plan (e.g., `"DBS.16GB"`).
 - **`version`** (String): Desired PostgreSQL version (e.g., `"15.0"`).

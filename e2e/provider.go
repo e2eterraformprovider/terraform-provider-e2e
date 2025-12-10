@@ -11,6 +11,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_mysql"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/dbaas_postgress"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/faas"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/floating_ip_attachment"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/image"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/kubernetes"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/loadbalancer"
@@ -20,6 +21,8 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sfs"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/ssh_key"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/tag"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/volume_attachment"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/vpc"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -31,41 +34,56 @@ func Provider() *schema.Provider {
 			"api_key": {
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_KEY", ""),
+				DefaultFunc: schema.EnvDefaultFunc("E2E_API_KEY", ""),
 				Description: "valied api key required ",
 			},
 			"auth_token": {
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_AUTH_TOKEN", ""),
+				DefaultFunc: schema.EnvDefaultFunc("E2E_AUTH_TOKEN", ""),
 				Description: "Valied authentication Bearer token required",
 			},
 			"api_endpoint": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "https://api.e2enetworks.com/myaccount/api/v1/",
-				DefaultFunc: schema.EnvDefaultFunc("SERVICE_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
+				DefaultFunc: schema.EnvDefaultFunc("E2E_API_ENDPOINT", "https://api.e2enetworks.com/myaccount/api/v1"),
 				Description: "specify the endpoint , default endpoint is https://api.e2enetworks.com/myaccount/api/v1/",
+			},
+			"default_region": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("E2E_REGION", nil),
+				Description: "Default region for all resources. Can be overridden per-resource. Can also be set via E2E_REGION environment variable.",
+			},
+			"default_project_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("E2E_PROJECT_ID", nil),
+				Description: "Default project ID for all resources. Can be overridden per-resource. Can also be set via E2E_PROJECT_ID environment variable.",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"e2e_node":               node.ResourceNode(),
-			"e2e_image":              image.ResourceImage(),
-			"e2e_loadbalancer":       loadbalancer.ResourceLoadBalancer(),
-			"e2e_vpc":                vpc.ResouceVpc(),
-			"e2e_reserved_ip":        reserve_ip.ResourceReserveIP(),
-			"e2e_security_groups":    security_group.ResourceSecurityGroup(),
-			"e2e_blockstorage":       blockstorage.ResourceBlockStorage(),
-			"e2e_sfs":                sfs.ResourceSfs(),
-			"e2e_objectstore":        objectstore.ResourceObjectStore(),
-			"e2e_ssh_key":            ssh_key.ResourceSshKey(),
-			"e2e_kubernetes":         kubernetes.ResourceKubernetesService(),
-			"e2e_dbaas_postgresql":   dbaas_postgress.ResourcePostgresDBaaS(),
-			"e2e_dbaas_mysql":        dbaas_mysql.ResourceMySql(),
-			"e2e_dbaas_mariadb":      dbaas_mariadb.ResourceMariaDB(),
-			"e2e_container_registry": container_registry.ResourceContainerRegistry(),
-			"e2e_scaler_group":       autoscaling.ResourceScalerGroup(),
-			"e2e_faas_function":      faas.ResourceFaasFunction(),
+			"e2e_node":                   node.ResourceNode(),
+			"e2e_image":                  image.ResourceImage(),
+			"e2e_loadbalancer":           loadbalancer.ResourceLoadBalancer(),
+			"e2e_vpc":                    vpc.ResourceVpc(),
+			"e2e_reserved_ip":            reserve_ip.ResourceReserveIP(),
+			"e2e_floating_ip_attachment": floating_ip_attachment.ResourceFloatingIPAttachment(),
+			"e2e_security_groups":        security_group.ResourceSecurityGroup(),
+			"e2e_blockstorage":           blockstorage.ResourceBlockStorage(),
+			"e2e_volume_attachment":      volume_attachment.ResourceVolumeAttachment(),
+			"e2e_sfs":                    sfs.ResourceSfs(),
+			"e2e_objectstore":            objectstore.ResourceObjectStore(),
+			"e2e_ssh_key":                ssh_key.ResourceSshKey(),
+			"e2e_kubernetes":             kubernetes.ResourceKubernetesService(),
+			"e2e_dbaas_postgresql":       dbaas_postgress.ResourcePostgresDBaaS(),
+			"e2e_dbaas_mysql":            dbaas_mysql.ResourceMySql(),
+			"e2e_dbaas_mariadb":          dbaas_mariadb.ResourceMariaDB(),
+			"e2e_container_registry":     container_registry.ResourceContainerRegistry(),
+			"e2e_scaler_group":           autoscaling.ResourceScalerGroup(),
+			"e2e_faas_function":          faas.ResourceFaasFunction(),
+			"e2e_tag":                    tag.ResourceTag(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"e2e_node":               node.DataSourceNode(),
@@ -96,11 +114,26 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	authToken := d.Get("auth_token").(string)
 	apiEndpoint := d.Get("api_endpoint").(string)
 
+	// Read provider-level defaults
+	defaultRegion := ""
+	if v, ok := d.GetOk("default_region"); ok {
+		defaultRegion = v.(string)
+	}
+
+	defaultProjectID := ""
+	if v, ok := d.GetOk("default_project_id"); ok {
+		defaultProjectID = v.(string)
+	}
+
 	// Create config with both clients using the new Config pattern
 	cfg, err := config.NewConfig(apiKey, authToken, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("error creating provider config: %s", err)
 	}
+
+	// Set provider defaults
+	cfg.DefaultRegion = defaultRegion
+	cfg.DefaultProjectID = defaultProjectID
 
 	return cfg, nil
 }

@@ -1,27 +1,18 @@
 package node
 
 import (
-	// "context"
-
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
-	//"time"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-
-	// "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-
-	// "github.com/hashicorp/terraform-plugin-log"
-	// "github.com/hashicorp/terraform-plugin-log/tflog"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/util"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -31,209 +22,464 @@ import (
 func ResourceNode() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
-			"name": {
+			// ============================================
+			// REQUIRED INPUT FIELDS
+			// ============================================
+			e2econstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
-				Description:  "The name of the resource, also acts as it's unique ID",
+				Description:  "name of the Node",
 				ValidateFunc: ValidateName,
 			},
-			"label": {
+			e2econstants.AttrLabel: {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "The name of the group",
+				Description: "the label of the Node",
 				Default:     "default",
 			},
-			"plan": {
+			e2econstants.AttrPlan: {
 				Type:         schema.TypeString,
 				Required:     true,
-				Description:  "name of the Plan",
+				ForceNew:     true,
+				Description:  "the plan of the Node",
 				ValidateFunc: ValidatePlanName,
 			},
+			e2econstants.AttrImage: {
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				Description:  "the image id or slug of the Node (format: os-version)",
+				ValidateFunc: ValidateBlank,
+			},
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - CREATION
+			// ============================================
 			"backup": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "Tells you the state of your backups",
+				Description: "whether the Node has backups enabled",
 				Default:     false,
-			},
-
-			"image": {
-				Type:         schema.TypeString,
-				Required:     true,
-				Description:  "The name of the image you have selected format :- ( os-version )",
-				ValidateFunc: ValidateBlank,
 			},
 			"default_public_ip": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "Tells us the state of default public ip",
+				Description: "whether the Node has default public IP enabled",
 				Default:     false,
 			},
 			"disable_password": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "can disable password as per requirement",
+				Description: "whether to disable password authentication",
 				Default:     false,
 			},
 			"enable_bitninja": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "enable bitnija as per requirement",
+				Description: "whether to enable BitNinja security",
 				Default:     false,
 			},
 			"is_ipv6_availed": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "",
+				Description: "whether the Node has IPv6 available",
 				Default:     false,
 			},
 			"is_saved_image": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "used when Creating node from a saved image",
+				ForceNew:    true,
+				Description: "whether to create the Node from a saved image",
 				Default:     false,
 			},
 			"start_script": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "The script to be run on the node first created",
+				ForceNew:    true,
+				Description: "the script to be run when the Node is first created",
 			},
-			"reserve_ip": {
+			e2econstants.AttrReserveIP: {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Deprecated:    "Use reserve_ip_id instead. This field will be removed in v4.0",
+				Description:   "id of the reserved IP to attach to the Node (DEPRECATED: use reserve_ip_id)",
+				ConflictsWith: []string{e2econstants.AttrReserveIPID},
+			},
+			e2econstants.AttrReserveIPID: {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   "id of the reserved IP to attach to the Node",
+				ConflictsWith: []string{e2econstants.AttrReserveIP},
+			},
+			e2econstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Attach reserve ip as per requirement",
-			},
-			"vpc_id": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Vpc id as per requirement",
+				Description: "id of the VPC for the Node",
 			},
 			"saved_image_template_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true",
+				ForceNew:    true,
+				Description: "the template id of the saved image (required when is_saved_image is true)",
 				Default:     nil,
 			},
-			"security_group_ids": {
+			e2econstants.AttrSecurityGroupIDs: {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Specify the security group. Checkout security_groups datasource listing security groups",
+				Description: "list of security group ids to attach to the Node",
 				Elem: &schema.Schema{
 					Type:        schema.TypeInt,
-					Description: "ID of the security group",
+					Description: "id of the security group",
 				},
 			},
-			"default_sg": {
-				Type:        schema.TypeInt,
-				Computed:    true,
-				Description: "Default Security Group",
-			},
 			"ssh_keys": {
+				Type:          schema.TypeList,
+				Optional:      true,
+				Deprecated:    "Use ssh_key_ids instead. This field will be removed in v4.0",
+				Description:   "list of SSH key labels to attach to the Node (DEPRECATED: use ssh_key_ids)",
+				Elem:          &schema.Schema{Type: schema.TypeString},
+				ConflictsWith: []string{"ssh_key_ids"},
+			},
+			"ssh_key_ids": {
+				Type:          schema.TypeList,
+				Optional:      true,
+				Description:   "list of SSH key resource IDs to attach to the Node",
+				Elem:          &schema.Schema{Type: schema.TypeString},
+				ConflictsWith: []string{"ssh_keys"},
+			},
+			"block_storage_ids": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Specify the label of ssh keys if required. Checkout ssh_keys datasource for listing ssh keys",
-				Elem:        &schema.Schema{Type: schema.TypeString},
+				Deprecated:  "Use e2e_volume_attachment resource instead. This field will be removed in v4.0",
+				Description: "list of block storage ids to attach to the Node (DEPRECATED: use e2e_volume_attachment)",
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					Description:  "id of the block storage",
+					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
+				},
 			},
-			"is_active": {
-				Type:     schema.TypeBool,
-				Computed: true,
+			"tag_ids": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "list of tag IDs to attach to the Node (uses label API)",
+				Elem: &schema.Schema{
+					Type:        schema.TypeInt,
+					Description: "id of the tag",
+				},
 			},
-			"created_at": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Creation time of the node",
+
+			// ============================================
+			// OPTIONAL STRUCTURED BLOCKS - V3
+			// ============================================
+			"network_interface": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				MaxItems:    1,
+				Description: "structured network configuration for the Node",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						e2econstants.AttrVPCID: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "id of the VPC for the Node",
+						},
+						"assign_public_ip": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether to assign a public IP to the Node",
+						},
+						"enable_ipv6": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether to enable IPv6 for the Node",
+						},
+						e2econstants.AttrSecurityGroupIDs: {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: "list of security group IDs",
+							Elem: &schema.Schema{
+								Type:        schema.TypeInt,
+								Description: "id of the security group",
+							},
+						},
+					},
+				},
 			},
-			"memory": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Amount of RAM assigned to the node",
+
+			e2econstants.AttrRootDisk: {
+				Type:        schema.TypeList,
+				Optional:    true,
+				MaxItems:    1,
+				Description: "structured root disk configuration",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						e2econstants.AttrSizeGB: {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Description: "the size of the root disk in gigabytes (sent to API as 'disk' field)",
+						},
+						e2econstants.AttrDiskType: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Computed:    true,
+							Default:     "standard",
+							Description: "the type of the root disk",
+						},
+					},
+				},
 			},
-			"status": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Status of the node",
-			},
-			"disk": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Disc info of the node",
-			},
-			"price": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "price details of the node",
-			},
-			"public_ip_address": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Public ip address alloted to node",
-			},
-			"private_ip_address": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Private ip address alloted to node if any",
-			},
-			"is_bitninja_license_active": {
-				Type:        schema.TypeBool,
-				Computed:    true,
-				Description: "Can check if the bitninja license is active or not",
-			},
-			"power_status": {
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - MANAGEMENT
+			// ============================================
+			e2econstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "power_on",
-				Description: "power_on to start the node and power_off to power off the node",
+				Default:     goe2econstants.NodePowerStatusOn,
+				Description: "the power status of the Node (power_on to start, power_off to power off)",
 				ValidateFunc: validation.StringInSlice([]string{
-					"power_off",
-					"power_on",
+					goe2econstants.NodePowerStatusOff,
+					goe2econstants.NodePowerStatusOn,
 				}, false),
 			},
-			"lock_node": {
+			e2econstants.AttrLockNode: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "Node is locked when set true .Can specify wheather to lock the node or not",
+				Description: "whether to lock the Node",
 			},
-			"reboot_node": {
+
+			// ============================================
+			// ACTION FIELDS
+			// ============================================
+			e2econstants.AttrRebootNode: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "When set true node will be rebooted. Node should be in running state to perform rebooting.Alaways check the field. If you have an active disk-intensive process such as database, backups running, then a rebooting may lead to data corruption and data loss (best option is to reboot the machine from within Operating System). ",
+				Description: "whether to reboot the Node (Node must be in running state; may cause data loss if disk-intensive processes are running)",
 			},
 			"reinstall_node": {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "for reinstalling the node. Node should be in running state to perform this action. Always check this field as it will delete all your data permenantly when set true.",
+				Description: "whether to reinstall the Node (Node must be in running state; this will permanently delete all data)",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The ID of the project associated with the node",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location where you want to create node.(ex - Delhi, Chennai)",
-			},
-			"vm_id": {
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			"default_sg": {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "The id of the VM.",
+				Description: "id of the default security group",
 			},
-			"block_storage_ids": {
+			"is_active": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether the Node is active",
+			},
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the creation date for the Node",
+			},
+			e2econstants.AttrStatus: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "state of the Node instance",
+			},
+			"price": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the price details of the Node",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			e2econstants.AttrPublicIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the Nodes public ipv4 address",
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the Nodes private ipv4 address",
+			},
+			"ipv6_address": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the Nodes IPv6 address (if IPv6 is enabled)",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - RESOURCES
+			// ============================================
+			e2econstants.AttrVMID: {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "id of the VM",
+			},
+			e2econstants.AttrMemory: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "memory of the Node in megabytes",
+			},
+			e2econstants.AttrDisk: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the disk information of the Node",
+			},
+			"is_bitninja_license_active": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether the Node has BitNinja license active",
+			},
+
+			// ============================================
+			// OPTIONAL STRUCTURED BLOCKS - BACKUP
+			// ============================================
+			e2econstants.AttrBackupConfig: {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "The id of the block storage to be attached to the node",
-				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					Description:  "ID of the block storage",
-					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
+				MaxItems:    1,
+				Description: "structured backup configuration for the Node",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enabled": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether backup is enabled",
+						},
+						e2econstants.AttrBackupPlanID: {
+							Type:        schema.TypeInt,
+							Required:    true,
+							Description: "id of the backup plan",
+						},
+						e2econstants.AttrBackupType: {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "backup frequency type (HOURLY, DAILY, WEEKLY, MONTHLY)",
+							ValidateFunc: validation.StringInSlice([]string{
+								"HOURLY", "DAILY", "WEEKLY", "MONTHLY",
+							}, false),
+						},
+						e2econstants.AttrBackupExcludePaths: {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: "list of paths to exclude from backup",
+							Elem:        &schema.Schema{Type: schema.TypeString},
+						},
+						e2econstants.AttrBackupNow: {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether to take a backup immediately",
+						},
+						e2econstants.AttrCompressionType: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "compression type for backup (ZLib, GZip, None)",
+							ValidateFunc: validation.StringInSlice([]string{
+								"ZLib", "GZip", "None",
+							}, false),
+						},
+						e2econstants.AttrCompressionLevel: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "compression level (Low, Medium, High)",
+							ValidateFunc: validation.StringInSlice([]string{
+								"Low", "Medium", "High",
+							}, false),
+						},
+						e2econstants.AttrEncryptionEnabled: {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether to encrypt backups",
+						},
+						e2econstants.AttrEncryptionKey: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Sensitive:   true,
+							Description: "encryption passphrase for backups",
+						},
+						e2econstants.AttrHoursOfDay: {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: "hours of day to run backups (0-23)",
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+								ValidateFunc: validation.StringInSlice(
+									[]string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+										"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+										"20", "21", "22", "23"}, false),
+							},
+						},
+						e2econstants.AttrStartingMinute: {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							Description:  "starting minute of the hour (0-59)",
+							ValidateFunc: validation.IntBetween(0, 59),
+						},
+						e2econstants.AttrDBEnabled: {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Default:     false,
+							Description: "whether to enable database backup",
+						},
+						e2econstants.AttrDBUsername: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "database username for backup",
+						},
+						e2econstants.AttrDBPassword: {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Sensitive:   true,
+							Description: "database password for backup",
+						},
+					},
+				},
+			},
+
+			e2econstants.AttrBackupStatus: {
+				Type:        schema.TypeList,
+				Computed:    true,
+				MaxItems:    1,
+				Description: "current backup status of the Node",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						e2econstants.AttrStatus: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "current backup status",
+						},
+						e2econstants.AttrBackupStatusDetail: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "detailed status message",
+						},
+						e2econstants.AttrLastRecoveryPoint: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "timestamp of last recovery point",
+						},
+					},
 				},
 			},
 		},
-
 		CreateContext: resourceCreateNode,
 		ReadContext:   resourceReadNode,
 		UpdateContext: resourceUpdateNode,
@@ -242,6 +488,7 @@ func ResourceNode() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			State: CustomImportStateFunc,
 		},
+		CustomizeDiff: resourceNodeCustomizeDiff,
 	}
 }
 
@@ -266,173 +513,363 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 	return warns, errs
 }
 
+func resourceNodeCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
+	// Emit warnings for deprecated fields
+	if _, ok := d.GetOk(e2econstants.AttrSSHKeys); ok {
+		log.Printf("[WARN] The ssh_keys field is deprecated and will be removed in v4.0. Please use ssh_key_ids instead.")
+	}
+
+	if _, ok := d.GetOk(e2econstants.AttrReserveIP); ok {
+		log.Printf("[WARN] The reserve_ip field is deprecated and will be removed in v4.0. Please use reserve_ip_id instead.")
+	}
+
+	if blockStorageIDs, ok := d.GetOk("block_storage_ids"); ok {
+		if len(blockStorageIDs.([]interface{})) > 0 {
+			log.Printf("[WARN] The block_storage_ids field is deprecated and will be removed in v4.0. Please use the e2e_volume_attachment resource instead.")
+		}
+	}
+
+	// Validate C2 plan restrictions at plan time
+	if plan, ok := d.GetOk(e2econstants.AttrPlan); ok {
+		planStr := plan.(string)
+		if len(planStr) >= 2 && planStr[0:2] == e2econstants.PREFIX_C2_NODE {
+			// Check if trying to attach block storage to C2 node
+			if blockStorageIDs, ok := d.GetOk("block_storage_ids"); ok {
+				if len(blockStorageIDs.([]interface{})) > 0 {
+					return fmt.Errorf("cannot attach block storage to C2 plan nodes: C2 plans do not support block storage attachment")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
-	copy_ssh_keys := d.Get("ssh_keys")
 
-	new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), d.Get("project_id").(string), d.Get("location").(string))
-
-	if Err != nil {
-		return Err
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
-	d.Set("ssh_keys", new_SSH_keys)
 
-	if len(d.Get("block_storage_ids").([]interface{})) > 1 {
-		return diag.Errorf("Can only attach a single block storage while node creation.")
+	// Get projectID with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Handle SSH keys - support both old (ssh_keys) and new (ssh_key_ids) fields
+	var sshKeysForAPI []interface{}
+	var originalSSHKeys interface{} // Store original for state restore
+
+	if sshKeyIDs, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
+		// New way: using ssh_key_ids (direct resource IDs)
+		// IMPORTANT: API expects actual SSH key content strings, not IDs!
+		originalSSHKeys = sshKeyIDs
+		log.Printf("[INFO] Using ssh_key_ids: %v", sshKeyIDs)
+
+		// Convert resource IDs to actual SSH key content
+		sshKeyContents, Err := convertIDsToSshKeyContent(m, sshKeyIDs.([]interface{}), projectID, region)
+		if Err != nil {
+			return Err
+		}
+		sshKeysForAPI = sshKeyContents
+		log.Printf("[INFO] Converted %d ssh_key_ids to key content for API", len(sshKeysForAPI))
+	} else if sshKeyLabels, ok := d.GetOk(e2econstants.AttrSSHKeys); ok {
+		// Old way: using ssh_keys (labels) - DEPRECATED
+		log.Printf("[WARN] ssh_keys field is deprecated. Use ssh_key_ids instead. This field will be removed in v4.0")
+		originalSSHKeys = sshKeyLabels
+
+		new_SSH_keys, Err := convertLabelToSshKey(m, sshKeyLabels.([]interface{}), projectID, region)
+		if Err != nil {
+			return Err
+		}
+		d.Set(e2econstants.AttrSSHKeys, new_SSH_keys)
+		sshKeysForAPI = new_SSH_keys
+	}
+
+	// Handle block storage - DEPRECATED field
+	blockStorageIDs := d.Get("block_storage_ids").([]interface{})
+	if len(blockStorageIDs) > 0 {
+		log.Printf("[WARN] block_storage_ids field is deprecated. Use e2e_volume_attachment resource instead. This field will be removed in v4.0")
+	}
+
+	if len(blockStorageIDs) > 1 {
+		return diag.Errorf("Only one block storage volume can be attached during node creation")
 	}
 	image_id := 0
-	if len(d.Get("block_storage_ids").([]interface{})) == 1 {
-		if d.Get("plan").(string)[0:2] == constants.PREFIX_C2_NODE {
-			return diag.Errorf("Block storage can not be attached to C2 plan")
-		}
-		image_id_string := d.Get("block_storage_ids").([]interface{})[0].(string)
+	if len(blockStorageIDs) == 1 {
+		// C2 plan check is now in CustomizeDiff for better UX
+		image_id_string := blockStorageIDs[0].(string)
 
 		image_id_temp, err := convertStringToInt(image_id_string)
 		if err != nil {
-			return diag.FromErr(err)
+			return diag.Errorf("Error converting block storage ID to integer: %s", err)
 		}
 		image_id = image_id_temp
-		Error := checkBlockStorage(m, image_id_string, d.Get("project_id").(string), d.Get("location").(string))
+		Error := checkBlockStorage(m, image_id_string, projectID, region)
 		if Error != nil {
 			return Error
 		}
 	}
 
 	log.Printf("[INFO] NODE CREATE STARTS ")
-	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
-	log.Printf("[INFO] GET Security groups | RESPONSE BODY | %+v", response)
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	securityGroups, _, err := goe2eClient.Nodes.GetSecurityGroupList(ctx)
+	log.Printf("[INFO] GET Security groups | RESPONSE BODY | %+v", securityGroups)
 	if err != nil {
 		log.Printf("[ERROR] Error getting Security Group List inside Node Create. Error : %s", err)
-		return diag.Errorf("please confirm the project_id or location that you defined.")
+		return diag.Errorf("Error retrieving security groups for projectID (%s) and region (%s): %s. Please verify that projectID and region are correct", projectID, region, err)
 	}
-	defaultSG := getDefaultSG(response)
+	defaultSG := getDefaultSGFromList(securityGroups)
 	d.Set("default_sg", defaultSG)
 
 	security_group := defaultSG
-	if securityGroupsList, ok := d.GetOk("security_group_ids"); ok {
+	if securityGroupsList, ok := d.GetOk(e2econstants.AttrSecurityGroupIDs); ok {
 		if securityGroupsList != nil {
 			if securityGroups, ok := securityGroupsList.([]interface{}); ok && len(securityGroups) > 0 {
 				security_group = securityGroups[0].(int)
 				if len(securityGroups) > 1 {
 					log.Printf("Can only attach a single security group while node creation. Only the first Security Group will be attached")
-					d.Set("security_group_ids", []int{security_group})
+					d.Set(e2econstants.AttrSecurityGroupIDs, []int{security_group})
 				}
 			}
 		}
 	}
 
-	node := models.NodeCreate{
-		Name:                    d.Get("name").(string),
-		Label:                   d.Get("label").(string),
-		Plan:                    d.Get("plan").(string),
-		Backup:                  d.Get("backup").(bool),
-		Image:                   d.Get("image").(string),
-		Default_public_ip:       d.Get("default_public_ip").(bool),
-		Disable_password:        d.Get("disable_password").(bool),
-		Enable_bitninja:         d.Get("enable_bitninja").(bool),
-		Is_ipv6_availed:         d.Get("is_ipv6_availed").(bool),
-		Is_saved_image:          d.Get("is_saved_image").(bool),
-		Reserve_ip:              d.Get("reserve_ip").(string),
-		Vpc_id:                  d.Get("vpc_id").(string),
-		Saved_image_template_id: d.Get("saved_image_template_id").(int),
-		Security_group_id:       security_group,
-		SSH_keys:                d.Get("ssh_keys").([]interface{}),
-		Start_scripts:           GetStartScripts(d.Get("start_script").(string)),
-		Image_id:                image_id,
+	// Handle reserve_ip - support both old and new fields
+	reserveIP := ""
+	if reserveIPID, ok := d.GetOk(e2econstants.AttrReserveIPID); ok {
+		// New way: using reserve_ip_id
+		reserveIP = reserveIPID.(string)
+	} else if oldReserveIP, ok := d.GetOk(e2econstants.AttrReserveIP); ok {
+		// Old way: using reserve_ip - DEPRECATED
+		log.Printf("[WARN] reserve_ip field is deprecated. Use reserve_ip_id instead. This field will be removed in v4.0")
+		reserveIP = oldReserveIP.(string)
 	}
 
-	if node.Vpc_id != "" {
-		vpc_details, err := apiClient.GetVpc(node.Vpc_id, d.Get("project_id").(string), d.Get("location").(string))
+	// Parse network_interface block if provided (V3 structured config)
+	// This can override individual fields like vpc_id, security_group_ids, etc.
+	var niVPCID string
+	var niAssignPublicIP, niEnableIPv6 bool
+	var niSecurityGroupIDs []int
+	if niList, ok := d.GetOk(e2econstants.AttrNetworkInterface); ok {
+		niVPCID, niAssignPublicIP, niEnableIPv6, niSecurityGroupIDs = expandNetworkInterface(niList.([]interface{}))
+		log.Printf("[INFO] Using network_interface block: vpc_id=%s, assign_public_ip=%v, enable_ipv6=%v, security_groups=%v",
+			niVPCID, niAssignPublicIP, niEnableIPv6, niSecurityGroupIDs)
+
+		// Override individual fields if network_interface is provided
+		// niVPCID will be used below in node struct
+		// niEnableIPv6 will override is_ipv6_availed below
+		// Security groups handled separately below
+	}
+
+	// Parse root_disk block if provided (V3 structured config - maps to API 'disk' field)
+	var rootDiskSize int
+	if rdList, ok := d.GetOk(e2econstants.AttrRootDisk); ok {
+		sizeGB, diskType := expandRootDisk(rdList.([]interface{}))
+		if sizeGB > 0 {
+			rootDiskSize = sizeGB
+			log.Printf("[INFO] Using root_disk block: size_gb=%d, disk_type=%s", sizeGB, diskType)
+		}
+	}
+
+	// Use network_interface values if provided, otherwise use individual fields
+	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+	if niVPCID != "" {
+		vpcID = niVPCID
+	}
+
+	enableIPv6 := d.Get("is_ipv6_availed").(bool)
+	if niEnableIPv6 {
+		enableIPv6 = niEnableIPv6
+	}
+
+	// Convert SSH keys from []interface{} to []string
+	sshKeysStr := make([]string, 0, len(sshKeysForAPI))
+	for _, key := range sshKeysForAPI {
+		if keyStr, ok := key.(string); ok {
+			sshKeysStr = append(sshKeysStr, keyStr)
+		}
+	}
+
+	// Convert start_scripts to single string (goe2e expects string, not array)
+	startScript := ""
+	if startScripts := GetStartScripts(d.Get("start_script").(string)); len(startScripts) > 0 {
+		if scriptStr, ok := startScripts[0].(string); ok {
+			startScript = scriptStr
+		}
+	}
+
+	// Convert models.NodeCreate to goe2e.NodeCreateRequest
+	createReq := &goe2e.NodeCreateRequest{
+		Name:                 d.Get("name").(string),
+		Label:                d.Get(e2econstants.AttrLabel).(string),
+		Plan:                 d.Get("plan").(string),
+		Image:                d.Get(e2econstants.AttrImage).(string),
+		Backup:               d.Get("backup").(bool),
+		DefaultPublicIP:      d.Get("default_public_ip").(bool),
+		DisablePassword:      d.Get("disable_password").(bool),
+		EnableBitNinja:       d.Get("enable_bitninja").(bool),
+		EnableIPv6:           enableIPv6,
+		IsSavedImage:         d.Get("is_saved_image").(bool),
+		ReserveIP:            reserveIP,
+		VPCID:                vpcID,
+		SavedImageTemplateID: d.Get("saved_image_template_id").(int),
+		SecurityGroupID:      security_group,
+		SSHKeys:              sshKeysStr,
+		StartScript:          startScript,
+		ImageID:              image_id,
+		Disk:                 rootDiskSize,
+	}
+
+	if vpcID != "" {
+		vpc, _, err := goe2eClient.Vpcs.GetVPC(ctx, vpcID)
 		if err != nil {
-			return diag.FromErr(err)
+			return diag.Errorf("Error retrieving VPC (ID: %s) in project (%s), region (%s): %s", vpcID, projectID, region, err)
 		}
-		data := vpc_details.Data
-		if data.State != "Active" {
-			return diag.Errorf("Can not create node resource, vpc is in %s state", data.State)
+		if vpc.State != "Active" {
+			return diag.Errorf("Cannot create node: VPC (ID: %s) is in %s state in project (%s), region (%s) (expected: Active)", vpcID, vpc.State, projectID, region)
 		}
 	}
-	project_id := d.Get("project_id").(string)
-	resnode, err := apiClient.NewNode(&node, project_id, d.Get("location").(string))
+
+	createdNode, resp, err := goe2eClient.Nodes.CreateNode(ctx, createReq)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.Errorf("Error creating node (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
 	}
 
-	log.Printf("[INFO] NODE CREATE | RESPONSE BODY | %+v", resnode)
-	if _, codeok := resnode["code"]; !codeok {
-		return diag.Errorf("%s", resnode["message"].(string))
+	log.Printf("[INFO] NODE CREATE | RESPONSE | %+v", resp)
+
+	// Note: goe2e client doesn't expose is_credit_sufficient in the response struct
+	// The API will return an error if credits are insufficient, so we rely on error handling above
+
+	// Get the created node to populate all fields
+	// The CreateNode response might not have all fields, so we fetch it
+	if createdNode != nil && createdNode.ID != "" {
+		d.SetId(createdNode.ID)
+		// Fetch full node details
+		fullNode, _, err := goe2eClient.Nodes.GetNode(ctx, createdNode.ID)
+		if err == nil && fullNode != nil {
+			d.Set("is_active", fullNode.IsActive)
+			d.Set(e2econstants.AttrCreatedAt, fullNode.CreatedAt)
+			d.Set(e2econstants.AttrMemory, fullNode.Memory)
+			d.Set(e2econstants.AttrStatus, fullNode.Status)
+			d.Set(e2econstants.AttrDisk, fullNode.Disk)
+			d.Set("price", fullNode.Price)
+			if fullNode.VMID > 0 {
+				d.Set(e2econstants.AttrVMID, fullNode.VMID)
+			}
+		}
+	} else {
+		// Fallback: try to extract ID from response if available
+		// This is a workaround if CreateNode doesn't return the ID
+		return diag.Errorf("Error creating node: did not receive node ID in response")
 	}
 
-	data := resnode["data"].(map[string]interface{})
-	if data["is_credit_sufficient"] == false {
-		return diag.Errorf("%s", resnode["message"].(string))
+	// Restore original SSH keys to state (either ssh_keys or ssh_key_ids)
+	if originalSSHKeys != nil {
+		if _, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
+			d.Set(e2econstants.AttrSSHKeyIDs, originalSSHKeys)
+		} else {
+			d.Set(e2econstants.AttrSSHKeys, originalSSHKeys)
+		}
 	}
-	log.Printf("[INFO] node creation | before setting fields")
-	nodeId := data["id"].(float64)
-	nodeId = math.Round(nodeId)
-	d.SetId(strconv.Itoa(int(math.Round(nodeId))))
-	d.Set("ssh_keys", copy_ssh_keys)
-	d.Set("is_active", data["is_active"].(bool))
-	d.Set("created_at", data["created_at"].(string))
-	d.Set("memory", data["memory"].(string))
-	d.Set("status", data["status"].(string))
-	d.Set("disk", data["disk"].(string))
-	d.Set("price", data["price"].(string))
-	d.Set("vm_id", int(data["vm_id"].(float64)))
 	return diags
 }
 
 func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	copy_ssh_keys := d.Get("ssh_keys")
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
-	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	node, err := apiClient.GetNode(nodeId, project_id, location)
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Get projectID with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	node, _, err := goe2eClient.Nodes.GetNode(ctx, nodeId)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			d.SetId("")
+			return diags
 		} else {
-			return diag.Errorf("error finding Item with ID %s", nodeId)
-
+			return diag.Errorf("Error retrieving node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
+	if node == nil {
+		d.SetId("")
+		return diags
+	}
 	log.Printf("[info] node Resource read | before setting data")
-	data := node["data"].(map[string]interface{})
-	log.Printf("[info] node Resource read | data = %+v", data)
-	d.Set("name", data["name"].(string))
-	d.Set("label", data["label"].(string))
-	d.Set("plan", data["plan"].(string))
-	d.Set("created_at", data["created_at"].(string))
-	d.Set("memory", data["memory"].(string))
-	d.Set("status", data["status"].(string))
-	d.Set("disk", data["disk"].(string))
-	d.Set("price", data["price"].(string))
-	d.Set("lock_node", data["is_locked"].(bool))
-	d.Set("public_ip_address", data["public_ip_address"].(string))
-	d.Set("private_ip_address", data["private_ip_address"].(string))
-	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
-	d.Set("ssh_keys", copy_ssh_keys)
-	d.Set("vm_id", int(data["vm_id"].(float64)))
+	log.Printf("[info] node Resource read | data = %+v", node)
+	d.Set("name", node.Name)
+	d.Set(e2econstants.AttrLabel, node.Label)
+	d.Set(e2econstants.AttrPlan, node.Plan)
+	d.Set(e2econstants.AttrCreatedAt, node.CreatedAt)
+	d.Set(e2econstants.AttrMemory, node.Memory)
+	d.Set(e2econstants.AttrStatus, node.Status)
+	d.Set(e2econstants.AttrDisk, node.Disk)
+	d.Set("price", node.Price)
+	d.Set(e2econstants.AttrLockNode, node.IsLocked)
+	d.Set(e2econstants.AttrPublicIPAddress, node.PublicIPAddress)
+	d.Set(e2econstants.AttrPrivateIPAddress, node.PrivateIPAddress)
+
+	// Set IPv6 address if available
+	if node.IPv6Address != "" {
+		d.Set(e2econstants.AttrIPv6Address, node.IPv6Address)
+	}
+
+	d.Set("is_bitninja_license_active", node.BitNinjaLicenseActive)
+
+	// Preserve SSH keys in state (don't overwrite with API response)
+	// The API returns the actual keys, but we want to keep the original reference (labels or IDs)
+	if _, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
+		// Using ssh_key_ids - keep as-is
+	} else {
+		// Using ssh_keys - keep original labels
+		d.Set(e2econstants.AttrSSHKeys, copy_ssh_keys)
+	}
+
+	// Convert VMID from string to int if needed
+	if node.VMID > 0 {
+		d.Set(e2econstants.AttrVMID, node.VMID)
+	}
 
 	log.Printf("[info] node Resource read | after setting data")
-	if d.Get("status").(string) == "Running" || d.Get("status").(string) == "Creating" {
-		d.Set("power_status", "power_on")
+	if node.Status == goe2econstants.NodeStatusRunning || node.Status == goe2econstants.NodeStatusCreating {
+		d.Set(e2econstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn)
 	}
-	if d.Get("status").(string) == "Powered off" {
-		d.Set("power_status", "power_off")
+	if node.Status == goe2econstants.NodeStatusPoweredOff {
+		d.Set(e2econstants.AttrPowerStatus, goe2econstants.NodePowerStatusOff)
 	}
-	response, err := apiClient.GetSecurityGroupList(d.Get("project_id").(string), d.Get("location").(string))
+	securityGroups, _, err := goe2eClient.Nodes.GetSecurityGroupList(ctx)
 	if err != nil {
 		log.Printf("[ERROR] Error getting Security Group List inside Node Read. Error : %s", err)
-		return diag.Errorf("please confirm the project_id or location that you defined.")
+		return diag.Errorf("Error retrieving security groups for projectID (%s) and region (%s): %s. Please verify these values are correct", projectID, region, err)
 	}
-	defaultSG := getDefaultSG(response)
+	defaultSG := getDefaultSGFromList(securityGroups)
 	d.Set("default_sg", defaultSG)
 
 	return diags
@@ -442,106 +879,133 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-
 	nodeId := d.Id()
-	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	status := d.Get("status").(string)
-	if status == constants.NODE_STATUS["FAILED"] {
-		rollbackChanges(d)
-		return diag.Errorf("node in failed state. please reach out to us at cloud-platform@e2enetworks.com")
-	}
-	_, err := apiClient.GetNode(nodeId, project_id, location)
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		return diag.Errorf("error finding Item with ID %s", nodeId)
+		return diag.FromErr(err)
+	}
+
+	// Get projectID with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	status := d.Get(e2econstants.AttrStatus).(string)
+	if status == goe2econstants.NodeStatusFailed {
+		rollbackChanges(d)
+		return diag.Errorf("Cannot update node (ID: %s): node is in %s state in project (%s), region (%s). Please contact support at cloud-platform@e2enetworks.com", nodeId, status, projectID, region)
+	}
+	_, _, err = goe2eClient.Nodes.GetNode(ctx, nodeId)
+	if err != nil {
+		return diag.Errorf("Error retrieving node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 	}
 
 	if d.HasChange("start_script") {
 		start_script, _ := d.GetChange("start_script")
-		d.Set("location", start_script)
-		return diag.Errorf("start_script cannot be updated once you create the node.")
+		d.Set("region", start_script)
+		return diag.Errorf("Cannot update start_script: this field is immutable after node creation")
 	}
 
 	if d.HasChange("name") {
-		log.Printf("[INFO] ndoeId = %v, name = %s ", d.Id(), d.Get("name").(string))
-		_, err := apiClient.UpdateNode(nodeId, "rename", d.Get("name").(string), project_id, location)
+		log.Printf("[INFO] nodeId = %v, name = %s ", d.Id(), d.Get("name").(string))
+		updateReq := &goe2e.NodeUpdateRequest{
+			Name: d.Get("name").(string),
+		}
+		_, _, err := goe2eClient.Nodes.UpdateNode(ctx, nodeId, updateReq)
 		if err != nil {
-			return diag.FromErr(err)
+			return diag.Errorf("Error renaming node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
 
-	if d.HasChange("power_status") {
-		nodestatus := d.Get("status").(string)
-		if nodestatus == constants.NODE_STATUS["CREATING"] || nodestatus == constants.NODE_STATUS["REINSTALLING"] {
+	if d.HasChange(e2econstants.AttrPowerStatus) {
+		nodestatus := d.Get(e2econstants.AttrStatus).(string)
+		if nodestatus == goe2econstants.NodeStatusCreating || nodestatus == goe2econstants.NodeStatusReinstalling {
 			prevBlockIDArray, _ := d.GetChange("block_storage_ids")
 			d.Set("block_storage_ids", prevBlockIDArray)
-			return diag.Errorf("Node is in %s state", d.Get("status").(string))
+			return diag.Errorf("Cannot change power status for node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, nodestatus, projectID, region)
 		}
-		if d.Get("lock_node").(bool) {
-			return diag.Errorf("cannot change the power status as the node is locked")
+		if d.Get(e2econstants.AttrLockNode).(bool) {
+			return diag.Errorf("Cannot change power status for node (ID: %s): node is locked", nodeId)
 		}
-		log.Printf("[INFO] %s ", d.Get("power_status").(string))
-		_, err := apiClient.UpdateNode(nodeId, d.Get("power_status").(string), d.Get("name").(string), project_id, location)
+		log.Printf("[INFO] %s ", d.Get(e2econstants.AttrPowerStatus).(string))
+		powerStatus := d.Get(e2econstants.AttrPowerStatus).(string)
+		if powerStatus == goe2econstants.NodePowerStatusOn {
+			_, err = goe2eClient.Nodes.PowerOn(ctx, nodeId)
+		} else if powerStatus == goe2econstants.NodePowerStatusOff {
+			_, err = goe2eClient.Nodes.PowerOff(ctx, nodeId)
+		} else {
+			return diag.Errorf("Invalid power status: %s", powerStatus)
+		}
 		if err != nil {
-			return diag.FromErr(err)
+			return diag.Errorf("Error changing power status for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
 
-	if d.HasChange("lock_node") {
-		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
-			return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
+	if d.HasChange(e2econstants.AttrLockNode) {
+		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+			return diag.Errorf("Cannot update node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(e2econstants.AttrStatus).(string), projectID, region)
 		}
-		if d.Get("lock_node").(bool) {
-			_, err := apiClient.UpdateNode(nodeId, "lock_vm", d.Get("name").(string), project_id, location)
+		if d.Get(e2econstants.AttrLockNode).(bool) {
+			_, err := goe2eClient.Nodes.LockNode(ctx, nodeId)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error locking node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
-		if !d.Get("lock_node").(bool) {
-			_, err := apiClient.UpdateNode(nodeId, "unlock_vm", d.Get("name").(string), project_id, location)
+		if !d.Get(e2econstants.AttrLockNode).(bool) {
+			_, err := goe2eClient.Nodes.UnlockNode(ctx, nodeId)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error unlocking node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 	}
 
-	if d.HasChange("reboot_node") {
+	if d.HasChange(e2econstants.AttrRebootNode) {
 
-		if d.Get("reboot_node").(bool) {
-			d.Set("reboot_node", false)
-			if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] || d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
-				return diag.Errorf("Cannot update as the node is in %s state", d.Get("status").(string))
+		if d.Get(e2econstants.AttrRebootNode).(bool) {
+			d.Set(e2econstants.AttrRebootNode, false)
+			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+				return diag.Errorf("Cannot reboot node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(e2econstants.AttrStatus).(string), projectID, region)
 			}
-			if d.Get("status").(string) == constants.NODE_STATUS["POWERED_OFF"] {
-				return diag.Errorf("cannot reboot as the node is powered off")
+			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
+				return diag.Errorf("Cannot reboot node (ID: %s): node must be powered on (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reboot", d.Get("name").(string), project_id, location)
+			_, err := goe2eClient.Nodes.Reboot(ctx, nodeId)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error rebooting node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 	}
 	if d.HasChange("reinstall_node") {
-		if d.Get("status").(string) == constants.NODE_STATUS["CREATING"] {
-			return diag.Errorf("Node is in creating state")
+		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating {
+			return diag.Errorf("Cannot reinstall node (ID: %s): node is in creating state", nodeId)
 		}
-		if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
-			return diag.Errorf("Node already in Reinstalling state")
+		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+			return diag.Errorf("Cannot reinstall node (ID: %s): node is already being reinstalled", nodeId)
 		}
 		if d.Get("reinstall_node").(bool) {
-			if d.Get("status").(string) == "Powered off" {
+			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
 				d.Set("reinstall_node", false)
-				return diag.Errorf("cannot reinstall as the node is powered off")
+				return diag.Errorf("Cannot reinstall node (ID: %s): node must be powered on (current state: %s)", nodeId, goe2econstants.NodeStatusPoweredOff)
 			}
-			if d.Get("status").(string) == constants.NODE_STATUS["REINSTALLING"] {
+			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
 				d.Set("reinstall_node", false)
-				return diag.Errorf("Node already in Reinstalling state")
+				return diag.Errorf("Cannot reinstall node (ID: %s): node is already being reinstalled", nodeId)
 			}
-			_, err := apiClient.UpdateNode(nodeId, "reinstall", d.Get("name").(string), project_id, location)
+			reinstallReq := &goe2e.NodeReinstallRequest{
+				Image: d.Get(e2econstants.AttrImage).(string),
+			}
+			_, err := goe2eClient.Nodes.Reinstall(ctx, nodeId, reinstallReq)
 			d.Set("reinstall_node", false)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error reinstalling node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 	}
@@ -550,28 +1014,31 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if d.Get("save_image") == true {
 			d.Set("save_image", false)
 			if d.Get("save_image_name").(string) == "" {
-				return diag.Errorf("save_image_name empty")
+				return diag.Errorf("save_image_name is required when save_image is enabled")
 			}
 
-			_, err := apiClient.UpdateNode(nodeId, "save_images", d.Get("save_image_name").(string), project_id, location)
+			saveReq := &goe2e.NodeSaveImageRequest{
+				ActionType: "save_images",
+				Name:       d.Get("save_image_name").(string),
+			}
+			_, _, err := goe2eClient.Nodes.SaveImage(ctx, nodeId, saveReq)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error saving image for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 	}
 
-	if d.HasChange("security_group_ids") {
-		oldSGData, newSGData := d.GetChange("security_group_ids")
-		if d.Get("status").(string) != "Running" {
-			d.Set("security_group_ids", oldSGData)
-			return diag.Errorf("Can only update security groups once the node comes to the running state")
+	if d.HasChange(e2econstants.AttrSecurityGroupIDs) {
+		oldSGData, newSGData := d.GetChange(e2econstants.AttrSecurityGroupIDs)
+		if d.Get(e2econstants.AttrStatus).(string) != goe2econstants.NodeStatusRunning {
+			d.Set(e2econstants.AttrSecurityGroupIDs, oldSGData)
+			return diag.Errorf("Cannot update security groups for node (ID: %s): node must be in running state (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
 		}
-		vm_id := d.Get("vm_id").(int)
-		security_groups_list := d.Get("security_group_ids").([]interface{})
+		security_groups_list := d.Get(e2econstants.AttrSecurityGroupIDs).([]interface{})
 
 		if len(security_groups_list) <= 0 {
-			d.Set("security_group_ids", oldSGData)
-			return diag.Errorf("Atleast one security groups must be attached to a node!")
+			d.Set(e2econstants.AttrSecurityGroupIDs, oldSGData)
+			return diag.Errorf("At least one security group must be attached to node (ID: %s)", nodeId)
 		}
 		oldSGList := oldSGData.([]interface{})
 		newSGList := newSGData.([]interface{})
@@ -590,16 +1057,12 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		for key, value := range sgMap {
 			if value == -1 {
 				log.Printf("----------HAVE TO DETACH THE SECURITY GROUP WITH ID %+v ------------------", key)
-				payload := models.UpdateSecurityGroups{
+				sgReq := &goe2e.SecurityGroupRequest{
 					SecurityGroupList: []int{key},
 				}
-
-				response, err := apiClient.DetachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
+				_, err := goe2eClient.Nodes.DetachSecurityGroup(ctx, nodeId, sgReq)
 				if err != nil {
-					return diag.FromErr(err)
-				}
-				if _, codeOK := response["code"]; !codeOK {
-					return diag.Errorf("%s", response["message"].(string))
+					return diag.Errorf("Error detaching security group (ID: %d) from node (ID: %s) in project (%s), region (%s): %s", key, nodeId, projectID, region, err)
 				}
 				continue
 			}
@@ -608,24 +1071,24 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 			}
 		}
 		if len(toBeAttached) >= 1 {
-			payload := models.UpdateSecurityGroups{
+			sgReq := &goe2e.SecurityGroupRequest{
 				SecurityGroupList: toBeAttached,
 			}
-			response, err := apiClient.AttachSecurityGroup(&payload, vm_id, d.Get("project_id").(string), d.Get("location").(string))
+			_, err := goe2eClient.Nodes.AttachSecurityGroup(ctx, nodeId, sgReq)
 			if err != nil {
-				return diag.FromErr(err)
-			}
-			if _, codeOK := response["code"]; !codeOK {
-				return diag.Errorf("%s", response["message"].(string))
+				return diag.Errorf("Error attaching security groups to node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 	}
 
-	if d.HasChange("label") {
-		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get("label").(string))
-		_, err = apiClient.UpdateNode(nodeId, "label_rename", d.Get("label").(string), project_id, location)
+	if d.HasChange(e2econstants.AttrLabel) {
+		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get(e2econstants.AttrLabel).(string))
+		updateReq := &goe2e.NodeUpdateRequest{
+			Label: d.Get(e2econstants.AttrLabel).(string),
+		}
+		_, _, err = goe2eClient.Nodes.UpdateNode(ctx, nodeId, updateReq)
 		if err != nil {
-			return diag.FromErr(err)
+			return diag.Errorf("Error updating label for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
 
@@ -635,68 +1098,78 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		log.Printf("[INFO] nodeId = %v changed ssh_keys = %s ", d.Id(), d.Get("ssh_keys"))
 		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
 
-		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
+		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), projectID, d.Get("region").(string))
 		if Err != nil {
 			d.Set("ssh_keys", prevSshKeys)
 			return Err
 		}
 		d.Set("ssh_keys", new_SSH_keys)
-		_, err = apiClient.UpdateNodeSSH(nodeId, "add_ssh_keys", d.Get("ssh_keys").([]interface{}), project_id, d.Get("location").(string))
+		// Use goe2e client for SSH key updates
+		sshKeys := goe2e.GenerateSSHKeyMap(d.Get("ssh_keys").([]interface{}))
+		sshReq := &goe2e.SSHUpdateRequest{
+			Action:  "add_ssh_keys",
+			SSHKeys: sshKeys,
+		}
+		_, err = goe2eClient.Nodes.UpdateSSH(ctx, nodeId, sshReq)
 		d.Set("ssh_keys", currSshKeys)
 		if err != nil {
 			d.Set("ssh_keys", prevSshKeys)
-			return diag.FromErr(err)
+			return diag.Errorf("Error updating SSH keys for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 
 	}
-	if d.HasChange("location") {
-		prevLocation, currLocation := d.GetChange("location")
+	if d.HasChange("region") {
+		prevLocation, currLocation := d.GetChange("region")
 		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
-		d.Set("location", prevLocation)
-		return diag.Errorf("location cannot be updated once you create the node.")
+		d.Set("region", prevLocation)
+		return diag.Errorf("Cannot update region: this field is immutable after node creation")
 	}
-	if d.HasChange("image") {
-		prevImage, currImage := d.GetChange("image")
+	if d.HasChange(e2econstants.AttrImage) {
+		prevImage, currImage := d.GetChange(e2econstants.AttrImage)
 		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
-		d.Set("image", prevImage.(string))
-		return diag.Errorf("Image cannot be updated once you create the node.")
+		d.Set(e2econstants.AttrImage, prevImage.(string))
+		return diag.Errorf("Cannot update image: this field is immutable after node creation")
 	}
-	if d.HasChange("plan") {
-		prevPlan, currPlan := d.GetChange("plan")
+	if d.HasChange(e2econstants.AttrPlan) {
+		prevPlan, currPlan := d.GetChange(e2econstants.AttrPlan)
 
-		if d.HasChange("power_status") {
-			_ = waitForPoweringOffOn(m, nodeId, project_id, location)
+		if d.HasChange(e2econstants.AttrPowerStatus) {
+			_ = util.WaitForNodePowerState(m, nodeId, projectID, region)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
-		if d.Get("status").(string) != constants.NODE_STATUS["POWERED_OFF"] {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("cannot Upgrade as the node is not powered off")
+		if d.Get(e2econstants.AttrStatus).(string) != goe2econstants.NodeStatusPoweredOff {
+			d.Set(e2econstants.AttrPlan, prevPlan)
+			return diag.Errorf("Cannot upgrade plan for node (ID: %s): node must be powered off (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
 		}
-		_, err = apiClient.UpgradeNodePlan(nodeId, d.Get("plan").(string), d.Get("image").(string), project_id, location)
+		upgradeReq := &goe2e.NodePlanUpgradeRequest{
+			Plan:  d.Get(e2econstants.AttrPlan).(string),
+			Image: d.Get(e2econstants.AttrImage).(string),
+		}
+		_, err = goe2eClient.Nodes.UpgradePlan(ctx, nodeId, upgradeReq)
 
 		if err != nil {
-			d.Set("plan", prevPlan)
-			return diag.FromErr(err)
+			d.Set(e2econstants.AttrPlan, prevPlan)
+			return diag.Errorf("Error upgrading plan for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
 
 	if d.HasChange("block_storage_ids") {
 
-		log.Printf("[INFO] Power_status changeing is = %v", d.HasChange("power_status"))
-		if d.HasChange("power_status") {
-			err := waitForPoweringOffOn(m, nodeId, project_id, location)
+		log.Printf("[INFO] Power_status changing is = %v", d.HasChange(e2econstants.AttrPowerStatus))
+		if d.HasChange(e2econstants.AttrPowerStatus) {
+			err := util.WaitForNodePowerState(m, nodeId, projectID, region)
 			if err != nil {
-				return diag.FromErr(err)
+				return diag.Errorf("Error waiting for node (ID: %s) power state change in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
 
 		prevBlockIDArray, currBlockIDArray := d.GetChange("block_storage_ids")
 
-		if d.Get("plan").(string)[0:2] == constants.PREFIX_C2_NODE {
+		if d.Get(e2econstants.AttrPlan).(string)[0:2] == e2econstants.PREFIX_C2_NODE {
 			d.Set("block_storage_ids", prevBlockIDArray)
-			return diag.Errorf("Block storage can not be attached to C2 plan")
+			return diag.Errorf("Cannot attach block storage to node (ID: %s): C2 plan nodes do not support block storage attachment", nodeId)
 		}
 
 		detachingIDs := UniqueArrayElements(prevBlockIDArray.([]interface{}), currBlockIDArray.([]interface{}))
@@ -705,51 +1178,105 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		log.Printf("[INFO] detachingIDs %+v, attachingIDs %+v, CommonIDs %+v", detachingIDs, attachingIDs, CommonIDs)
 		log.Printf("[INFO] prevIDArray %v, currIDArray %v", prevBlockIDArray, currBlockIDArray)
 
-		blockStorage := models.BlockStorageAttach{
-			VM_ID: d.Get("vm_id").(int),
-		}
-		project_id_int, Err := strconv.Atoi(project_id)
-		if Err != nil {
+		// Get goe2e client for volume attachment operations
+		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
 			d.Set("block_storage_ids", prevBlockIDArray)
-			return diag.FromErr(Err)
+			return diag.Errorf("Error creating goe2e client: %s", err)
 		}
 
 		for i, detachingID := range detachingIDs {
-
 			blockStorageID := detachingID.(string)
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["DETACH"], blockStorageID, project_id_int, location)
+			detachReq := &goe2e.VolumeDetachmentRequest{
+				NodeID:   nodeId,
+				VolumeID: blockStorageID,
+			}
+			_, err := goe2eClient.VolumeAttachment.DetachVolume(ctx, detachReq)
 			if err != nil {
 				d.Set("block_storage_ids", CommonIDs)
-				return diag.FromErr(err)
+				return diag.Errorf("Error detaching block storage (ID: %s) from node (ID: %s) in project (%s), region (%s): %s", blockStorageID, nodeId, projectID, region, err)
 			}
 			CommonIDs = removeArrayElement(CommonIDs, detachingID)
 			// Wait for some time before detaching the next block storage
-			WaitForDesiredState(apiClient, nodeId, project_id, location)
+			if err := util.WaitForNodeLCMState(m, nodeId, projectID, region); err != nil {
+				return diag.FromErr(err)
+			}
 			if i == len(detachingIDs)-1 {
 				break
 			}
 		}
 		for i, attachingID := range attachingIDs {
 			blockStorageID := attachingID.(string)
-			Error := checkBlockStorage(m, blockStorageID, d.Get("project_id").(string), d.Get("location").(string))
+			Error := checkBlockStorage(m, blockStorageID, projectID, region)
 			if Error != nil {
 				d.Set("block_storage_ids", CommonIDs)
 				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
 				return Error
 			}
-			_, err := apiClient.AttachOrDetachBlockStorage(&blockStorage, constants.BLOCK_STORAGE_ACTION["ATTACH"], blockStorageID, project_id_int, location)
+			attachReq := &goe2e.VolumeAttachmentRequest{
+				NodeID:   nodeId,
+				VolumeID: blockStorageID,
+			}
+			_, _, err := goe2eClient.VolumeAttachment.AttachVolume(ctx, attachReq)
 			if err != nil {
 				d.Set("block_storage_ids", CommonIDs)
 				log.Printf("[ERROR] Error attaching block storage CommonIDs = %+v", CommonIDs)
-				return diag.FromErr(err)
+				return diag.Errorf("Error attaching block storage (ID: %s) to node (ID: %s) in project (%s), region (%s): %s", blockStorageID, nodeId, projectID, region, err)
 			}
 			CommonIDs = append(CommonIDs, attachingID)
 			// Wait for some time before attaching the next block storage
-			// waitForPoweringOffOn(m, nodeId, project_id)
 			if i == len(attachingIDs)-1 {
 				break
 			}
-			WaitForDesiredState(apiClient, nodeId, project_id, location)
+			if err := util.WaitForNodeLCMState(m, nodeId, projectID, region); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
+	// Handle tag_ids changes (attach/detach tags via label API)
+	if d.HasChange(e2econstants.AttrTagIDs) {
+		oldTagIDs, newTagIDs := d.GetChange(e2econstants.AttrTagIDs)
+		oldList := oldTagIDs.([]interface{})
+		newList := newTagIDs.([]interface{})
+
+		// Calculate tags to attach and detach
+		var toAttach, toDetach []int
+		oldMap := make(map[int]bool)
+		newMap := make(map[int]bool)
+
+		for _, id := range oldList {
+			oldMap[id.(int)] = true
+		}
+		for _, id := range newList {
+			newMap[id.(int)] = true
+		}
+
+		// Find tags to detach (in old but not in new)
+		for _, id := range oldList {
+			tagID := id.(int)
+			if !newMap[tagID] {
+				toDetach = append(toDetach, tagID)
+			}
+		}
+
+		// Find tags to attach (in new but not in old)
+		for _, id := range newList {
+			tagID := id.(int)
+			if !oldMap[tagID] {
+				toAttach = append(toAttach, tagID)
+			}
+		}
+
+		log.Printf("[INFO] Tag changes for node (ID: %s): attaching %v, detaching %v", nodeId, toAttach, toDetach)
+
+		// TODO: Implement tag attach/detach API calls
+		// This will be implemented when e2e_tag resource is created
+		// API endpoint: PUT /label/mapping/nodes/{node_id}/
+		// Payload: {"attach": [tag_ids], "detach": [tag_ids]}
+		if len(toAttach) > 0 || len(toDetach) > 0 {
+			log.Printf("[WARN] Tag management API not yet implemented. Tags to attach: %v, detach: %v", toAttach, toDetach)
+			// When implemented, call: apiClient.UpdateNodeTags(nodeId, toAttach, toDetach, projectID, region)
 		}
 	}
 
@@ -759,17 +1286,34 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
 	var diags diag.Diagnostics
 	nodeId := d.Id()
-	project_id := d.Get("project_id").(string)
-	node_status := d.Get("status").(string)
-	if node_status == constants.NODE_STATUS["SAVING"] || node_status == constants.NODE_STATUS["CREATING"] {
-		return diag.Errorf("Node in %s state", node_status)
-	}
-	err := apiClient.DeleteNode(nodeId, project_id, d.Get("location").(string))
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	// Get projectID with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	node_status := d.Get(e2econstants.AttrStatus).(string)
+	if node_status == goe2econstants.NodeStatusSaving || node_status == goe2econstants.NodeStatusCreating {
+		return diag.Errorf("Cannot delete node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, node_status, projectID, region)
+	}
+
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return diag.Errorf("Error creating goe2e client: %s", err)
+	}
+
+	_, err = goe2eClient.Nodes.DeleteNode(ctx, nodeId)
+	if err != nil {
+		return diag.Errorf("Error deleting node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 	}
 	d.SetId("")
 	return diags
@@ -777,12 +1321,27 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-
 	nodeId := d.Id()
-	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	_, err := apiClient.GetNode(nodeId, project_id, location)
+
+	// Get region with provider default support
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return false, err
+	}
+
+	// Get projectID with provider default support
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return false, err
+	}
+
+	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+	if err != nil {
+		return false, err
+	}
+
+	ctx := context.Background()
+	_, _, err = goe2eClient.Nodes.GetNode(ctx, nodeId)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -797,17 +1356,16 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.Split(d.Id(), "/")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid ID format: expected project_id/location/resource_id")
+		return nil, fmt.Errorf("invalid ID format: expected projectID/region/resource_id")
 	}
 
 	projectID := parts[0]
-	location := parts[1]
+	region := parts[1]
 	nodeID := parts[2]
 
 	// Set the individual fields
-	d.Set("project_id", projectID)
-	d.Set("location", location)
-	d.Set("node_id", nodeID)
+	d.Set(e2econstants.AttrProjectID, projectID)
+	d.Set("region", region)
 
 	// Use node ID as actual Terraform resource ID
 	d.SetId(nodeID)
@@ -823,43 +1381,14 @@ func convertStringToInt(str string) (int, error) {
 	return i, nil
 }
 
-func waitForPoweringOffOn(m interface{}, nodeId string, project_id string, location string) error {
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-
-	for {
-		// Wait for some time before checking the status again (is Node powered on or off?)
-		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
-
-		nodeInfo, err := apiClient.GetNode(nodeId, project_id, location)
-		if err != nil {
-			log.Printf("[ERROR] Error getting Node Info inside Plan Upgrade. Error : %s", err)
-			return err
+func getDefaultSGFromList(securityGroups []goe2e.SecurityGroupInfo) int {
+	for _, sg := range securityGroups {
+		if sg.IsDefault {
+			log.Printf("------------Default security group is: %+v -------------", sg.ID)
+			return sg.ID
 		}
-		data := nodeInfo["data"].(map[string]interface{})
-		log.Printf("[INFO] Node Status : %s", data["status"])
-		if data["status"] == constants.NODE_STATUS["RUNNING"] || data["status"] == constants.NODE_STATUS["POWERED_OFF"] {
-			break
-		}
-		log.Printf("[INFO] Waiting for Node to power off/on before upgrading the plan")
 	}
-	return nil
-}
-
-func getDefaultSG(response map[string]interface{}) int {
-	var res int
-	data := response["data"].([]interface{})
-	for _, sg := range data {
-		sgMap := sg.(map[string]interface{})
-		defaultStatus := sgMap["is_default"].(bool)
-		if defaultStatus {
-			res = int(sgMap["id"].(float64))
-			break
-		}
-
-	}
-	log.Printf("------------Default security group is: %+v -------------", res)
-	return res
+	return 0
 }
 
 func UniqueArrayElements(arr1 []interface{}, arr2 []interface{}) []interface{} {
@@ -899,25 +1428,6 @@ func removeArrayElement(arr []interface{}, val interface{}) []interface{} {
 		}
 	}
 	return res
-}
-
-func WaitForDesiredState(apiClient *client.Client, nodeId string, project_id string, location string) diag.Diagnostics {
-	for {
-		// Wait for some time before checking the status again (is Volume Detached?)
-		time.Sleep(constants.WAIT_TIMEOUT * time.Second)
-
-		response, err := apiClient.CheckNodeLCMState(nodeId, project_id, location)
-		if err != nil {
-			log.Printf("[ERROR] Error getting lcm_state %s", err)
-			return diag.FromErr(err)
-		}
-		data := response["data"].(map[string]interface{})
-		log.Printf("[INFO] waitForDesiredState data : %+v", data)
-		if !(data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_PROLOG_POWEROFF"] || data["lcm_state"].(string) == constants.NODE_LCM_STATE["HOTPLUG_EPILOG_POWEROFF"]) {
-			break
-		}
-	}
-	return nil
 }
 
 func ValidatePlanName(v interface{}, k string) (ws []string, es []error) {
@@ -978,13 +1488,13 @@ func ValidateInteger(v interface{}, k string) (ws []string, es []error) {
 }
 
 func rollbackChanges(d *schema.ResourceData) {
-	prevImage, _ := d.GetChange("image")
-	prevName, _ := d.GetChange("name")
-	prevPlan, _ := d.GetChange("plan")
-	prevLocation, _ := d.GetChange("location")
-	prevProjectId, _ := d.GetChange("project_id")
-	prevRegion, _ := d.GetChange("region")
-	prevLabel, _ := d.GetChange("label")
+	prevImage, _ := d.GetChange(e2econstants.AttrImage)
+	prevName, _ := d.GetChange(e2econstants.AttrName)
+	prevPlan, _ := d.GetChange(e2econstants.AttrPlan)
+	prevLocation, _ := d.GetChange(e2econstants.AttrLocation)
+	prevProjectId, _ := d.GetChange(e2econstants.AttrProjectID)
+	prevRegion, _ := d.GetChange(e2econstants.AttrRegion)
+	prevLabel, _ := d.GetChange(e2econstants.AttrLabel)
 	prevBackup, _ := d.GetChange("backup")
 	prevDefaultPublicIp, _ := d.GetChange("default_public_ip")
 	prevDisablePassword, _ := d.GetChange("disable_password")
@@ -994,21 +1504,21 @@ func rollbackChanges(d *schema.ResourceData) {
 	prevReserveIp, _ := d.GetChange("reserve_ip")
 	prevSavedImageTemplateId, _ := d.GetChange("saved_image_template_id")
 	prevSshKey, _ := d.GetChange("ssh_keys")
-	prevVpcId, _ := d.GetChange("vpc_id")
+	prevVpcId, _ := d.GetChange(e2econstants.AttrVPCID)
 	prevBlockStorageIds, _ := d.GetChange("block_storage_ids")
-	prevSecurityGroupIds, _ := d.GetChange("security_groups_ids")
-	prevLockNode, _ := d.GetChange("lock_node")
-	prevPowerStatus, _ := d.GetChange("power_status")
-	prevRebootNode, _ := d.GetChange("reboot_node")
+	prevSecurityGroupIds, _ := d.GetChange(e2econstants.AttrSecurityGroupIDs)
+	prevLockNode, _ := d.GetChange(e2econstants.AttrLockNode)
+	prevPowerStatus, _ := d.GetChange(e2econstants.AttrPowerStatus)
+	prevRebootNode, _ := d.GetChange(e2econstants.AttrRebootNode)
 	prevReinstallNode, _ := d.GetChange("reinstall_node")
 
-	d.Set("image", prevImage)
-	d.Set("name", prevName)
-	d.Set("plan", prevPlan)
-	d.Set("location", prevLocation)
-	d.Set("project_id", prevProjectId)
-	d.Set("region", prevRegion)
-	d.Set("label", prevLabel)
+	d.Set(e2econstants.AttrImage, prevImage)
+	d.Set(e2econstants.AttrName, prevName)
+	d.Set(e2econstants.AttrPlan, prevPlan)
+	d.Set(e2econstants.AttrLocation, prevLocation)
+	d.Set(e2econstants.AttrProjectID, prevProjectId)
+	d.Set(e2econstants.AttrRegion, prevRegion)
+	d.Set(e2econstants.AttrLabel, prevLabel)
 	d.Set("backup", prevBackup)
 	d.Set("default_public_ip", prevDefaultPublicIp)
 	d.Set("disable_password", prevDisablePassword)
@@ -1018,12 +1528,12 @@ func rollbackChanges(d *schema.ResourceData) {
 	d.Set("reserve_ip", prevReserveIp)
 	d.Set("saved_image_template_id", prevSavedImageTemplateId)
 	d.Set("ssh_keys", prevSshKey)
-	d.Set("vpc_id", prevVpcId)
+	d.Set(e2econstants.AttrVPCID, prevVpcId)
 	d.Set("block_storage_ids", prevBlockStorageIds)
-	d.Set("security_group_ids", prevSecurityGroupIds)
+	d.Set(e2econstants.AttrSecurityGroupIDs, prevSecurityGroupIds)
 
-	d.Set("lock_node", prevLockNode)
-	d.Set("power_status", prevPowerStatus)
-	d.Set("reboot_node", prevRebootNode)
+	d.Set(e2econstants.AttrLockNode, prevLockNode)
+	d.Set(e2econstants.AttrPowerStatus, prevPowerStatus)
+	d.Set(e2econstants.AttrRebootNode, prevRebootNode)
 	d.Set("reinstall_node", prevReinstallNode)
 }

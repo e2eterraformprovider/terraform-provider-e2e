@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -14,40 +15,42 @@ func DataSourceContainerRegistry() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceReadContainerRegistry,
 		Schema: map[string]*schema.Schema{
-			"id": {
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// Container registry-specific fields
+			e2econstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "Container Registry ID (cr_project_id)",
+				Description: "id of the Container Registry",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Project ID associated with the Container Registry",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Location/region where the Container Registry is set up (e.g., 'Delhi')",
-			},
-			"project_name": {
+			e2econstants.AttrProjectName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the container registry project",
+				Description: "name of the Container Registry project",
+			},
+			e2econstants.AttrStatus: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "state of the Container Registry instance",
 			},
 			"setup_status": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Setup status of the container registry (e.g., 'CREATED')",
+				Deprecated:  "Use 'status' instead. This parameter will be removed in version 3.0.0",
+				Description: "DEPRECATED: Use 'status' instead",
 			},
-			"severity": {
+			e2econstants.AttrSeverity: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Severity level for vulnerability scan ('low', 'medium', 'high', 'critical')",
+				Description: "the severity level for vulnerability scan (low, medium, high, critical)",
 			},
-			"prevent_vul": {
+			e2econstants.AttrPreventVulnerabilities: {
 				Type:        schema.TypeBool,
 				Computed:    true,
-				Description: "Whether to prevent vulnerable images from being pushed",
+				Description: "whether to prevent vulnerable images from being pushed",
 			},
 		},
 	}
@@ -55,28 +58,41 @@ func DataSourceContainerRegistry() *schema.Resource {
 
 func dataSourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	var diags diag.Diagnostics
+	apiClient := cfg.Goe2eClient()
 
-	id := d.Get("id").(string)
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	id := d.Get(e2econstants.AttrID).(string)
 
-	registries, err := apiClient.GetContainerRegistryProjects(projectID, location)
+	// Parse ID to int for the API call
+	registryID, err := strconv.Atoi(id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to fetch container registry projects: %v", err))
+		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
 	}
 
-	for _, r := range registries {
-		if strconv.Itoa(r.ID) == id {
-			d.SetId(id)
-			d.Set("project_name", r.ProjectName)
-			d.Set("setup_status", r.State)
-			d.Set("severity", r.Severity)
-			d.Set("prevent_vul", r.PreventVul)
-			return diags
-		}
+	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to read container registry (ID: %s): %w", id, err))
 	}
 
-	return diag.Errorf("container registry with ID %s not found", id)
+	if registry == nil {
+		return diag.Errorf("container registry with ID %s not found", id)
+	}
+
+	d.SetId(id)
+	if err := d.Set(e2econstants.AttrProjectName, registry.ProjectName); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to set project_name: %w", err))
+	}
+	if err := d.Set(e2econstants.AttrStatus, registry.State); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to set status: %w", err))
+	}
+	if err := d.Set("setup_status", registry.State); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to set setup_status: %w", err))
+	}
+	if err := d.Set(e2econstants.AttrSeverity, registry.Severity); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to set severity: %w", err))
+	}
+	if err := d.Set(e2econstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to set prevent_vul: %w", err))
+	}
+
+	return nil
 }

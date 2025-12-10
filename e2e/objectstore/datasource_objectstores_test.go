@@ -1,11 +1,12 @@
 package objectstore_test
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -17,15 +18,14 @@ func TestAccDataSourceE2EObjectStores_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EObjectStoreDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccDataSourceE2EObjectStoresConfig_basic(bucketName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EObjectStoresExists("data.e2e_objectstores.test"),
-					resource.TestCheckResourceAttrSet("data.e2e_objectstores.test", "bucket_list.#"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_objectstores.test", "bucket_list.#")),
 			},
 		},
 	})
@@ -36,15 +36,14 @@ func TestAccDataSourceE2EObjectStores_WithBucket(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EObjectStoreDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccDataSourceE2EObjectStoresConfig_withBucket(bucketName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EObjectStoresExists("data.e2e_objectstores.test"),
-					testAccCheckDataSourceE2EObjectStoresContainsBucket("data.e2e_objectstores.test", bucketName),
-				),
+					testAccCheckDataSourceE2EObjectStoresContainsBucket("data.e2e_objectstores.test", bucketName)),
 			},
 		},
 	})
@@ -56,7 +55,7 @@ func TestAccDataSourceE2EObjectStores_MultipleBuckets(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EObjectStoreDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -64,8 +63,7 @@ func TestAccDataSourceE2EObjectStores_MultipleBuckets(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EObjectStoresExists("data.e2e_objectstores.test"),
 					testAccCheckDataSourceE2EObjectStoresContainsBucket("data.e2e_objectstores.test", bucketName1),
-					testAccCheckDataSourceE2EObjectStoresContainsBucket("data.e2e_objectstores.test", bucketName2),
-				),
+					testAccCheckDataSourceE2EObjectStoresContainsBucket("data.e2e_objectstores.test", bucketName2)),
 			},
 		},
 	})
@@ -74,7 +72,7 @@ func TestAccDataSourceE2EObjectStores_MultipleBuckets(t *testing.T) {
 func TestAccDataSourceE2EObjectStores_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EObjectStoresConfig_missingRegion(),
@@ -91,14 +89,13 @@ func TestAccDataSourceE2EObjectStores_MissingRequiredArguments(t *testing.T) {
 func TestAccDataSourceE2EObjectStores_EmptyList(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccDataSourceE2EObjectStoresConfig_empty(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceE2EObjectStoresExists("data.e2e_objectstores.test"),
-					resource.TestCheckResourceAttrSet("data.e2e_objectstores.test", "bucket_list.#"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_objectstores.test", "bucket_list.#")),
 			},
 		},
 	})
@@ -128,19 +125,22 @@ func testAccCheckDataSourceE2EObjectStoresContainsBucket(resourceName, bucketNam
 			return fmt.Errorf("Not found: %s", resourceName)
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
-
-		region := rs.Primary.Attributes["region"]
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		region := acceptance.GetRegionOrLocationFromState(rs)
 		projectID := rs.Primary.Attributes["project_id"]
 
-		response, err := client.GetBuckets(region, projectID)
+		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf("Error creating goe2e client: %v", err)
+		}
+
+		buckets, _, err := goe2eClient.ObjectStorage.ListBuckets(context.Background())
 		if err != nil {
 			return fmt.Errorf("Error fetching object stores: %v", err)
 		}
 
 		found := false
-		for _, bucket := range response.Data {
+		for _, bucket := range buckets {
 			if bucket.Name == bucketName {
 				found = true
 				break
@@ -160,84 +160,68 @@ func testAccCheckDataSourceE2EObjectStoresContainsBucket(resourceName, bucketNam
 func testAccDataSourceE2EObjectStoresConfig_basic(bucketName string) string {
 	return fmt.Sprintf(`
 resource "e2e_objectstore" "test" {
-  name       = "%s"
-  project_id = %s
-  region     = "%s"
+  name = "%s"
 }
 
 data "e2e_objectstores" "test" {
   region     = e2e_objectstore.test.region
   project_id = e2e_objectstore.test.project_id
 }
-`, bucketName, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"))
+`, bucketName)
 }
 
 func testAccDataSourceE2EObjectStoresConfig_withBucket(bucketName string) string {
 	return fmt.Sprintf(`
 resource "e2e_objectstore" "test" {
-  name       = "%s"
-  project_id = %s
-  region     = "%s"
+  name = "%s"
 }
 
 data "e2e_objectstores" "test" {
-  region     = "%s"
-  project_id = %s
+  region     = e2e_objectstore.test.region
+  project_id = e2e_objectstore.test.project_id
 
   depends_on = [e2e_objectstore.test]
 }
-`, bucketName, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"),
-		os.Getenv("E2E_TEST_REGION"), os.Getenv("E2E_TEST_PROJECT_ID"))
+`, bucketName)
 }
 
 func testAccDataSourceE2EObjectStoresConfig_multipleBuckets(bucketName1, bucketName2 string) string {
 	return fmt.Sprintf(`
 resource "e2e_objectstore" "test1" {
-  name       = "%s"
-  project_id = %s
-  region     = "%s"
+  name = "%s"
 }
 
 resource "e2e_objectstore" "test2" {
-  name       = "%s"
-  project_id = %s
-  region     = "%s"
+  name = "%s"
 }
 
 data "e2e_objectstores" "test" {
-  region     = "%s"
-  project_id = %s
+  region     = e2e_objectstore.test1.region
+  project_id = e2e_objectstore.test1.project_id
 
   depends_on = [e2e_objectstore.test1, e2e_objectstore.test2]
 }
-`, bucketName1, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"),
-		bucketName2, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_REGION"),
-		os.Getenv("E2E_TEST_REGION"), os.Getenv("E2E_TEST_PROJECT_ID"))
+`, bucketName1, bucketName2)
 }
 
 func testAccDataSourceE2EObjectStoresConfig_empty() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_objectstores" "test" {
-  region     = "%s"
-  project_id = %s
 }
-`, os.Getenv("E2E_TEST_REGION"), os.Getenv("E2E_TEST_PROJECT_ID"))
+`
 }
 
 // Error case configurations
 
 func testAccDataSourceE2EObjectStoresConfig_missingRegion() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_objectstores" "test" {
-  project_id = %s
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"))
+`
 }
 
 func testAccDataSourceE2EObjectStoresConfig_missingProjectID() string {
-	return fmt.Sprintf(`
-data "e2e_objectstores" "test" {
-  region = "%s"
-}
-`, os.Getenv("E2E_TEST_REGION"))
+	return `
+data "e2e_objectstores" "test" {}
+`
 }

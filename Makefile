@@ -16,8 +16,8 @@ build: fmtcheck
 	go build -o bin/$(BINARY)
 
 test: fmtcheck
-	go test $(TEST) || exit 1
-	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
+	go test -count=1 $(TEST) || exit 1
+	echo $(TEST) | xargs -t -n4 go test -count=1 $(TESTARGS) -timeout=30s -parallel=4
 
 testacc: fmtcheck
 	TF_ACC=1 go test -v ./$(PKG_NAME)/... $(TESTARGS) -timeout $(ACCTEST_TIMEOUT) -parallel=$(ACCTEST_PARALLELISM)
@@ -49,11 +49,70 @@ fmt:
 fmtcheck:
 	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
-.PHONY: build test testacc vet fmt fmtcheck lint install _upgrade_goe2e upgrade_goe2e vendor
+.PHONY: build test testacc vet fmt fmtcheck lint install _upgrade_goe2e upgrade_goe2e vendor changelog
+
+# =============================================================================
+# COLORS FOR OUTPUT
+# =============================================================================
+RED=\033[0;31m
+GREEN=\033[0;32m
+YELLOW=\033[1;33m
+BLUE=\033[0;34m
+NC=\033[0m # No Color
+
+# =============================================================================
+# CHANGELOG AUTOMATION
+# =============================================================================
+changelog:  ## Update CHANGELOG.md with new version entry from git commits
+	@echo "$(BLUE)📝 Generating CHANGELOG entry...$(NC)"
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)❌ VERSION is required. Usage: make changelog VERSION=2.2.8$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "CHANGELOG.md" ]; then \
+		echo "$(RED)❌ CHANGELOG.md not found$(NC)"; \
+		exit 1; \
+	fi
+	@VERSION=$(VERSION); \
+	DATE=$$(date +%Y-%m-%d); \
+	echo "$(YELLOW)➕ Adding entry for version $$VERSION ($$DATE)$(NC)"; \
+	cp CHANGELOG.md CHANGELOG.md.bak; \
+	LAST_TAG=$$(git describe --tags --abbrev=0 2>/dev/null || echo ""); \
+	if [ -n "$$LAST_TAG" ]; then \
+		echo "$(BLUE)📋 Extracting commits since $$LAST_TAG...$(NC)"; \
+		COMMITS=$$(git log $$LAST_TAG..HEAD --pretty=format:"- %s" --no-merges 2>/dev/null | grep -v "^- Merge" | head -20); \
+		if [ -z "$$COMMITS" ]; then \
+			COMMITS="- Version bump"; \
+		fi; \
+	else \
+		echo "$(YELLOW)⚠️  No previous tag found, using recent commits$(NC)"; \
+		COMMITS=$$(git log -10 --pretty=format:"- %s" --no-merges 2>/dev/null || echo "- Initial release"); \
+	fi; \
+	{ \
+		head -n 10 CHANGELOG.md | grep -B 10 "^## \[Unreleased\]" || head -n 6; \
+		echo ""; \
+		echo "## [$$VERSION] - $$DATE"; \
+		echo ""; \
+		echo "### Changed"; \
+		echo "$$COMMITS"; \
+		echo ""; \
+		echo "---"; \
+		echo ""; \
+		tail -n +11 CHANGELOG.md | sed '/^## \[Unreleased\]/,/^---/d'; \
+	} > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md; \
+	echo "$(GREEN)✅ CHANGELOG.md updated with version $$VERSION$(NC)"; \
+	echo "$(YELLOW)💡 Review and edit the entry, then commit:$(NC)"; \
+	echo "   git diff CHANGELOG.md"; \
+	echo "   git add CHANGELOG.md"; \
+	echo "   git commit -m \"chore: update CHANGELOG for v$$VERSION\""; \
+	echo ""; \
+	echo "$(BLUE)📦 Backup saved as CHANGELOG.md.bak$(NC)"
 
 _upgrade_goe2e:
-#	go get -u github.com/e2enetworks/goe2e
+	@echo "==> upgrading goe2e"
+	@go get -u github.com/e2enetworks/goe2e
 	@echo "==> upgraded goe2e"
+	@echo ""
 
 upgrade_goe2e: _upgrade_goe2e vendor
 	@echo "==> upgrade the goe2e version"

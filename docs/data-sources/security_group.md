@@ -1,21 +1,32 @@
-# e2e\_security\_group (Data Source)
+---
+page_title: "e2e_security_group Data Source - terraform-provider-e2e"
+subcategory: "Networking"
+description: |-
+  Provides information about an existing E2E Cloud Security Group.
+---
 
-The `e2e_security_group` data source allows you to fetch and reference an existing security group by its name, project, and location from your E2E cloud environment.
+<!-- updated-for-3.0-migration: 2025-11-27 -->
+
+# e2e_security_group (Data Source)
+
+The `e2e_security_group` data source allows you to fetch and reference an existing security group by its name, project, and region from your E2E cloud environment.
 
 This is useful when you want to use or reference an existing group in another resource (e.g., attaching to a VM) without creating a new one.
+
+~> **Migration Notice**: This data source has parameter changes in v3.0.0. See the [v3.0.0 Upgrade Guide](../guides/upgrade-to-v3.md#affected-resources) for migration instructions.
 
 ---
 
 ## Example Usage
 
 ```hcl
-data "e2e_security_groups" "web_sg" {
+data "e2e_security_group" "web_sg" {
   name       = "web-sg"
-  location   = "Delhi"
+  region     = "Delhi"  # Use 'region' instead of deprecated 'location'
   project_id = "42914"
+
+
 }
-
-
 ```
 
 ---
@@ -24,16 +35,17 @@ data "e2e_security_groups" "web_sg" {
 
 ### Required Attributes
 
-* **`name`** (String): Name of the existing security group.
-* **`project_id`** (String): The project ID to which the security group belongs.
-* **`location`** (String): The region in which the group resides.
+- **`name`** (String): Name of the existing security group.
+- **`project_id`** (String): The project ID to which the security group belongs.
+- **`region`** (String): The region in which the group resides.
+- **`location`** (Optional, **Deprecated**): Use `region` instead. Will be removed in v3.0.0.
 
 ### Read-Only Attributes
 
-* **`id`** (String): Unique ID of the security group.
-* **`description`** (String): Description of the security group.
-* **`default`** (Boolean): Whether this group is the default security group.
-* **`rules`** (List of Rule Blocks): A list of rules defined in the group.
+- **`id`** (String): Unique ID of the security group.
+- **`description`** (String): Description of the security group.
+- **`default`** (Boolean): Whether this group is the default security group.
+- **`rules`** (List of Rule Blocks): A list of rules defined in the group.
 
 ---
 
@@ -43,18 +55,18 @@ Each rule block contains the following fields:
 
 ### Read-Only Fields
 
-* **`rule_id`** (Number): ID of the rule.
-* **`rule_type`** (String): Direction of traffic (e.g., `Inbound`, `Outbound`).
-* **`protocol_name`** (String): Protocol allowed by the rule (e.g., `All`, `Custom_TCP`).
-* **`port_range`** (String): Port range this rule applies to.
-* **`network`** (String): Type of network source (e.g., `myNetwork`, `manual`, `any`).
-* **`network_cidr`** (String): The CIDR for manual or VPC networks. 
-* **`size`** (Number): Network size used with `myNetwork` or CIDR.
-* **`description`** (String): Description of the rule.
+- **`rule_id`** (Number): ID of the rule.
+- **`rule_type`** (String): Direction of traffic (e.g., `Inbound`, `Outbound`).
+- **`protocol_name`** (String): Protocol allowed by the rule (e.g., `All`, `Custom_TCP`).
+- **`port_range`** (String): Port range this rule applies to.
+- **`network`** (String): Type of network source (e.g., `myNetwork`, `manual`, `any`).
+- **`network_cidr`** (String): The CIDR for manual or VPC networks.
+- **`size`** (Number): Network size used with `myNetwork` or CIDR.
+- **`description`** (String): Description of the rule.
 
 ---
 
 ## Notes
 
-* Ensure the `name`, `project_id`, and `location` combination is valid and corresponds to an existing security group.
-* If no matching group is found, Terraform will return an error during the plan or apply stage.
+- Ensure the `name`, `project_id`, and `region` combination is valid and corresponds to an existing security group.
+- If no matching group is found, Terraform will return an error during the plan or apply stage.

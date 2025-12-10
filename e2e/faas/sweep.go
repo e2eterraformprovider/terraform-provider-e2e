@@ -2,16 +2,14 @@ package faas
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sweep"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-const testNamePrefix = "test-"
+const testNamePrefix = sweep.TestNamePrefix
 
 func init() {
 	resource.AddTestSweepers("e2e_faas_function", &resource.Sweeper{
@@ -24,27 +22,14 @@ func init() {
 }
 
 func sweepFaasFunctions(region string) error {
-	cfg, err := sharedConfigForRegion(region)
+	client, err := sweep.SharedGoe2eClientForTests()
 	if err != nil {
-		return fmt.Errorf("error getting config for region %s: %w", region, err)
-	}
-
-	_ = cfg.Goe2eClient()    // Will be used when ListFunctions is implemented
-	_ = context.Background() // Will be used when ListFunctions is implemented
-
-	// Get test project ID and location from environment
-	projectID := os.Getenv("E2E_TEST_PROJECT_ID")
-	location := os.Getenv("E2E_TEST_LOCATION")
-
-	if projectID == "" || location == "" {
-		log.Printf("[WARNING] E2E_TEST_PROJECT_ID or E2E_TEST_LOCATION not set, skipping sweep")
+		log.Printf("[WARNING] %v - skipping sweep", err)
 		return nil
 	}
 
-	_ = &goe2e.RequestOptions{ // Will be used when ListFunctions is implemented
-		ProjectID: projectID,
-		Location:  location,
-	}
+	_ = client               // Will be used when ListFunctions is implemented
+	_ = context.Background() // Will be used when ListFunctions is implemented
 
 	// TODO: Implement ListFunctions method in goe2e.FaasService
 	// Once ListFunctions is available, uncomment the following code to enable sweeping:
@@ -120,30 +105,4 @@ func sweepFaasNamespaces(client *goe2e.Client, ctx context.Context, opts *goe2e.
 	// log.Printf("[INFO] Swept %d FaaS namespaces", sweptCount)
 
 	return nil
-}
-
-// sharedConfigForRegion returns a common config for the region
-func sharedConfigForRegion(region string) (*config.Config, error) {
-	apiKey := os.Getenv("SERVICE_API_KEY")
-	authToken := os.Getenv("SERVICE_AUTH_TOKEN")
-	apiEndpoint := os.Getenv("SERVICE_API_ENDPOINT")
-
-	if apiKey == "" {
-		return nil, fmt.Errorf("SERVICE_API_KEY must be set for acceptance tests")
-	}
-
-	if authToken == "" {
-		return nil, fmt.Errorf("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-
-	if apiEndpoint == "" {
-		apiEndpoint = "https://api.e2enetworks.com/myaccount/api/v1/"
-	}
-
-	cfg, err := config.NewConfig(apiKey, authToken, apiEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("error creating config: %w", err)
-	}
-
-	return cfg, nil
 }

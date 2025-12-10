@@ -2,10 +2,11 @@ package security_group
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -14,22 +15,20 @@ func DataSourceSecurityGroup() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceSecurityGroupRead,
 		Schema: map[string]*schema.Schema{
-			"name": {
+			// Common fields
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// Resource-specific fields
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "Name of the security group",
+				Description: "name of the Security Group",
 			},
-			"id": {
+			e2econstants.AttrID: {
 				Type:     schema.TypeString,
 				Computed: true,
-			},
-			"project_id": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"location": {
-				Type:     schema.TypeString,
-				Required: true,
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -85,44 +84,42 @@ func DataSourceSecurityGroup() *schema.Resource {
 
 func dataSourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
 	log.Printf("[INFO] Reading security group with name: %s", name)
 
-	sg, err := apiClient.GetSecurityGroup(name, project_id, location)
+	// Get security group by name (API has no GET by ID, must list and filter)
+	sgList, _, err := goe2eClient.SecurityGroups.GetSecurityGroupList(ctx)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.Errorf("Error listing security groups while searching for %s: %s", name, err)
 	}
 
-	d.SetId(fmt.Sprintf("%v", sg["id"]))
-
-	d.Set("project_id", sg["project_id"])
-	d.Set("location", sg["location"])
-	d.Set("description", sg["description"])
-	d.Set("default", sg["is_default"])
-
-	if rulesRaw, ok := sg["rules"].([]interface{}); ok {
-		var ruleList []map[string]interface{}
-		for _, r := range rulesRaw {
-			rule := r.(map[string]interface{})
-			ruleList = append(ruleList, map[string]interface{}{
-				"rule_id":       rule["id"],
-				"rule_type":     rule["rule_type"],
-				"protocol_name": rule["protocol_name"],
-				"port_range":    rule["port_range"],
-				"network":       rule["network"],
-				"network_cidr":  rule["network_cidr"],
-				"description":   rule["description"],
-				"size":          int(rule["network_size"].(float64)),
-			})
+	// Find security group with matching name
+	var sg *goe2e.SecurityGroup
+	for _, item := range sgList {
+		if item.Name == name {
+			sg = item
+			break
 		}
-		d.Set("rules", ruleList)
 	}
+
+	if sg == nil {
+		return diag.Errorf("Security group with name %s not found", name)
+	}
+
+	// Set ID
+	d.SetId(sg.ID)
+
+	// Set fields
+	d.Set("description", sg.Description)
+	d.Set("default", sg.IsDefault)
+
+	// Convert rules using helper function
+	ruleList := flattenRules(sg.Rules)
+	d.Set("rules", ruleList)
 
 	return diags
 }

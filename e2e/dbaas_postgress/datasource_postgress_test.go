@@ -2,9 +2,9 @@ package dbaas_postgress_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
@@ -17,7 +17,7 @@ func TestAccE2EPostgresDBaaSDataSource_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -34,8 +34,7 @@ func TestAccE2EPostgresDBaaSDataSource_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_user", dbUser),
 					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_name", dbName),
 					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "plan", "E2E-2C-4GB"),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_version", "15"),
-				),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_version", "15")),
 			},
 		},
 	})
@@ -49,7 +48,7 @@ func TestAccE2EPostgresDBaaSDataSource_WithPublicIP(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EPostgresDBaaSDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -57,8 +56,7 @@ func TestAccE2EPostgresDBaaSDataSource_WithPublicIP(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "public_ip"),
 					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "private_ip"),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "is_public_ip_attached", "true"),
-				),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "is_public_ip_attached", "true")),
 			},
 		},
 	})
@@ -72,9 +70,6 @@ resource "e2e_dbaas_postgress" "test" {
   name       = "%s"
   version    = "15"
   plan       = "E2E-2C-4GB"
-  project_id = "%s"
-  location   = "%s"
-
   database {
     user     = "%s"
     password = "%s"
@@ -83,13 +78,9 @@ resource "e2e_dbaas_postgress" "test" {
 }
 
 data "e2e_dbaas_postgress" "test" {
-  id         = e2e_dbaas_postgress.test.id
-  project_id = "%s"
-  location   = "%s"
-}
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		dbUser, dbPassword, dbName,
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  id         = e2e_dbaas_postgress.test.id}
+`, name,
+		dbUser, dbPassword, dbName)
 }
 
 func testAccCheckE2EPostgresDBaaSDataSourceConfig_withPublicIP(name, dbUser, dbPassword, dbName string) string {
@@ -99,9 +90,6 @@ resource "e2e_dbaas_postgress" "test" {
   version            = "15"
   plan               = "E2E-2C-4GB"
   public_ip_required = true
-  project_id         = "%s"
-  location           = "%s"
-
   database {
     user     = "%s"
     password = "%s"
@@ -110,11 +98,7 @@ resource "e2e_dbaas_postgress" "test" {
 }
 
 data "e2e_dbaas_postgress" "test" {
-  id         = e2e_dbaas_postgress.test.id
-  project_id = "%s"
-  location   = "%s"
-}
-`, name, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		dbUser, dbPassword, dbName,
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  id         = e2e_dbaas_postgress.test.id}
+`, name,
+		dbUser, dbPassword, dbName)
 }

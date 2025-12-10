@@ -1,50 +1,65 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id int, location string) ([]models.NodePool, error) {
-	nodePools := make([]models.NodePool, 0, len(config))
+func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe2e.Client, projectIDStr, region string) ([]goe2e.NodePool, error) {
+	nodePools := make([]goe2e.NodePool, 0, len(config))
 	uniqueNodePoolNames := make(map[string]bool)
+
+	// Get worker plans from goe2e client (once for all node pools)
+	workerPlans, _, err := goe2eClient.Kubernetes.GetWorkerPlans(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching worker plans: %w", err)
+	}
 
 	for _, np := range config {
 		nodePoolDetail := np.(map[string]interface{})
 		name := nodePoolDetail["name"].(string)
 		uniqueNodePoolNames[name] = true
-		workerPlans, err := apiClient.GetKubernetesWorkerPlans(project_id, location) //Here we are are tryig to get all worker plans
-		if err != nil {
-			return nil, err
-		}
-		plans := workerPlans["data"].([]interface{})
-		var matchingPlan map[string]interface{}
-		//Below code is to fetch the corresponding slug name
-		for _, plan := range plans {
-			planData := plan.(map[string]interface{})
-			specs := planData["specs"].(map[string]interface{})
-			skuName := specs["sku_name"].(string)
 
-			if skuName == nodePoolDetail["specs_name"].(string) {
-				matchingPlan = planData
+		// Use field alias helpers
+		plan := getNodePoolPlan(nodePoolDetail)
+		poolType := getNodePoolType(nodePoolDetail)
+
+		// Log deprecation warnings
+		if _, ok := nodePoolDetail["specs_name"]; ok {
+			log.Printf("[WARN] Field 'specs_name' is deprecated. Use 'plan' instead.")
+		}
+		if _, ok := nodePoolDetail["node_pool_type"]; ok {
+			log.Printf("[WARN] Field 'node_pool_type' is deprecated. Use 'type' instead.")
+		}
+
+		// Find matching plan
+		var matchingPlan *goe2e.KubernetesWorkerPlan
+		for i := range workerPlans {
+			if workerPlans[i].Specs.SKUName == plan {
+				matchingPlan = &workerPlans[i]
 				break
 			}
 		}
 		if matchingPlan == nil {
-			return nil, fmt.Errorf("no matching plan found for specs_name: %s", nodePoolDetail["specs_name"])
+			return nil, fmt.Errorf("no matching plan found for plan: %s", plan)
 		}
-		if _, ok := nodePoolDetail["node_pool_type"]; !ok {
-			return nil, fmt.Errorf("node_pool_type is required")
+		if poolType == "" {
+			return nil, fmt.Errorf("node pool type (type or node_pool_type) is required")
 		}
+
 		var policyType, customParamName, customParamValue string
-		elasticityDict := models.ElasticityDict{}
-		scheduledDict := models.ScheduledDict{}
+		elasticityDict := goe2e.ElasticityDict{}
+		scheduledDict := goe2e.ScheduledDict{}
 
 		// If node_pool_type is Static, omit policyType, customParamName, and customParamValue
-		if nodePoolDetail["node_pool_type"].(string) == "Static" {
+		if poolType == "Static" {
 			policyType = ""
 			customParamName = ""
 			customParamValue = ""
@@ -53,19 +68,34 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 			customParamName = getCustomParamName(nodePoolDetail)
 			customParamValue = getCustomParamValue(nodePoolDetail)
 
-			if _, ok := nodePoolDetail["min_vms"]; !ok {
-				return nil, fmt.Errorf("in case of Autoscale node type, the 'min_vms' field is required")
+			minNodes := getNodePoolMinNodes(nodePoolDetail)
+			maxNodes := getNodePoolMaxNodes(nodePoolDetail)
+
+			if minNodes == 0 {
+				return nil, fmt.Errorf("in case of Autoscale node type, the 'min_nodes' (or 'min_vms') field is required")
 			}
-			if _, ok := nodePoolDetail["max_vms"]; !ok {
-				return nil, fmt.Errorf("in case of Autoscale node type, the 'max_vms' field is required")
+			if maxNodes == 0 {
+				return nil, fmt.Errorf("in case of Autoscale node type, the 'max_nodes' (or 'max_vms') field is required")
 			}
-			nodePoolDetail["cardinality"] = nodePoolDetail["min_vms"].(int) //NEW CHANGE
-			elasticity_dict, err := getElasticityDict(nodePoolDetail, nodePoolDetail["min_vms"].(int), nodePoolDetail["max_vms"].(int))
+
+			// Log deprecation warnings
+			if _, ok := nodePoolDetail["min_vms"]; ok {
+				log.Printf("[WARN] Field 'min_vms' is deprecated. Use 'min_nodes' instead.")
+			}
+			if _, ok := nodePoolDetail["max_vms"]; ok {
+				log.Printf("[WARN] Field 'max_vms' is deprecated. Use 'max_nodes' instead.")
+			}
+			if _, ok := nodePoolDetail["worker_node"]; ok {
+				log.Printf("[WARN] Field 'worker_node' is deprecated. Use 'size' instead.")
+			}
+
+			nodePoolDetail["cardinality"] = minNodes
+			elasticity_dict, err := getElasticityDict(nodePoolDetail, minNodes, maxNodes)
 			if err != nil {
 				log.Printf("Invalid format for Elast")
 			}
 
-			scheduled_dict, err := getScheduledDict(nodePoolDetail, nodePoolDetail["min_vms"].(int), nodePoolDetail["max_vms"].(int))
+			scheduled_dict, err := getScheduledDict(nodePoolDetail, minNodes, maxNodes)
 			if err != nil {
 				log.Printf("Invalid format for Scheduled Dictionary")
 			}
@@ -73,12 +103,18 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 			scheduledDict = scheduled_dict
 		}
 
-		nodePool := models.NodePool{
-			Name:             nodePoolDetail["name"].(string),
-			SlugName:         matchingPlan["plan"].(string),
-			SKUID:            matchingPlan["specs"].(map[string]interface{})["id"].(string),
-			SpecsName:        nodePoolDetail["specs_name"].(string),
-			WorkerNode:       nodePoolDetail["worker_node"].(int),
+		// Get size for Static pools
+		size := getNodePoolSize(nodePoolDetail)
+		if poolType == "Static" && size == 0 {
+			return nil, fmt.Errorf("size (or worker_node) is required for Static node pools")
+		}
+
+		nodePool := goe2e.NodePool{
+			Name:             name,
+			SlugName:         matchingPlan.Plan,
+			SKUID:            matchingPlan.Specs.ID,
+			SpecsName:        plan,
+			WorkerNode:       size,
 			ElasticityDict:   elasticityDict,
 			ScheduledDict:    scheduledDict,
 			PolicyType:       policyType,
@@ -90,23 +126,23 @@ func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id 
 	}
 	numUniqueNodePools := len(uniqueNodePoolNames)
 	if numUniqueNodePools < len(config) {
-		return []models.NodePool{}, fmt.Errorf("Name of the worker node pools must be unique!")
+		return []goe2e.NodePool{}, fmt.Errorf("Name of the worker node pools must be unique!")
 	}
 	return nodePools, nil
 }
 
 // ExpandElasticityDict is a helper function to process the elasticity_dict attribute.
-func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms int) (models.ElasticityDict, error) {
-	elasticityDict := models.ElasticityDict{}
+func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms int) (goe2e.ElasticityDict, error) {
+	elasticityDict := goe2e.ElasticityDict{}
 	workers := config["worker"].([]interface{})
 	if len(workers) > 0 {
 		worker := workers[0].(map[string]interface{})
 		elasticityWorker, err := ExpandElasticityWorker(worker, min_vms, max_vms)
 		if err != nil {
-			return models.ElasticityDict{}, err
+			return goe2e.ElasticityDict{}, err
 		}
 
-		elasticityDict = models.ElasticityDict{
+		elasticityDict = goe2e.ElasticityDict{
 			Worker: elasticityWorker,
 		}
 		return elasticityDict, nil
@@ -114,17 +150,17 @@ func ExpandElasticityDict(config map[string]interface{}, min_vms int, max_vms in
 	return elasticityDict, nil
 }
 
-func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int) (models.ScheduledDict, error) {
-	scheduledDict := models.ScheduledDict{}
+func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int) (goe2e.ScheduledDict, error) {
+	scheduledDict := goe2e.ScheduledDict{}
 	workers := config["worker"].([]interface{})
 	if len(workers) > 0 {
 		worker := workers[0].(map[string]interface{})
 		scheduledWorker, err := ExpandScheduledWorker(worker, min_vms, max_vms)
 		if err != nil {
-			return models.ScheduledDict{}, err
+			return goe2e.ScheduledDict{}, err
 		}
 
-		scheduledDict = models.ScheduledDict{
+		scheduledDict = goe2e.ScheduledDict{
 			Worker: scheduledWorker,
 		}
 		return scheduledDict, nil
@@ -133,13 +169,13 @@ func ExpandScheduledDict(config map[string]interface{}, min_vms int, max_vms int
 }
 
 // ExpandElasticityWorker is a helper function to process the worker attribute in elasticity_dict.
-func ExpandElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) (models.ElasticityWorker, error) {
+func ExpandElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) (goe2e.ElasticityWorker, error) {
 	elasticityPolicies, err := ExpandElasticityPolicies(config["elasticity_policies"].([]interface{}), config["parameter"].(string))
 	if err != nil {
-		return models.ElasticityWorker{}, err
+		return goe2e.ElasticityWorker{}, err
 	}
 
-	return models.ElasticityWorker{
+	return goe2e.ElasticityWorker{
 		MinVms:             min_vms,
 		Cardinality:        min_vms,
 		MaxVms:             max_vms,
@@ -147,13 +183,13 @@ func ExpandElasticityWorker(config map[string]interface{}, min_vms int, max_vms 
 	}, nil
 }
 
-func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) (models.ScheduleWorker, error) {
+func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) (goe2e.ScheduleWorker, error) {
 	scheduledPolicies, err := ExpandScheduledPolicies(config["scheduled_policies"].([]interface{}), min_vms, max_vms)
 	if err != nil {
-		return models.ScheduleWorker{}, err
+		return goe2e.ScheduleWorker{}, err
 	}
 
-	return models.ScheduleWorker{
+	return goe2e.ScheduleWorker{
 		MinVms:            min_vms,
 		Cardinality:       min_vms,
 		MaxVms:            max_vms,
@@ -162,14 +198,14 @@ func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms i
 }
 
 // ExpandElasticityPolicies is a helper function to process the elasticity_policies attribute.
-func ExpandElasticityPolicies(config []interface{}, parameter string) ([]models.ElasticityPolicy, error) {
-	elasticityPolicies := make([]models.ElasticityPolicy, 0, len(config))
+func ExpandElasticityPolicies(config []interface{}, parameter string) ([]goe2e.ElasticityPolicy, error) {
+	elasticityPolicies := make([]goe2e.ElasticityPolicy, 0, len(config))
 	var adjust_value int = -1
 	type_value := "CHANGE"
 	for _, ep := range config {
 		adjust_value = -1 * adjust_value
 		elasticityPolicyDetail := ep.(map[string]interface{})
-		elasticityPolicy := models.ElasticityPolicy{
+		elasticityPolicy := goe2e.ElasticityPolicy{
 			Type:         type_value,
 			Adjust:       adjust_value,
 			Parameter:    parameter,
@@ -184,8 +220,8 @@ func ExpandElasticityPolicies(config []interface{}, parameter string) ([]models.
 	return elasticityPolicies, nil
 }
 
-func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	scheduledPolicies := make([]models.SchedulePolicy, 0, len(config))
+func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]goe2e.SchedulePolicy, error) {
+	scheduledPolicies := make([]goe2e.SchedulePolicy, 0, len(config))
 	for _, sp := range config {
 		elasticityPolicyDetail := sp.(map[string]interface{})
 		// Adjust should be converted to an integer
@@ -201,12 +237,12 @@ func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]
 		}
 
 		// Create SchedulePolicy instances
-		upscalePolicy := models.SchedulePolicy{
+		upscalePolicy := goe2e.SchedulePolicy{
 			Type:       "CARDINALITY",
 			Adjust:     upscaleCardinality,
 			Recurrence: upscaleRecurrence,
 		}
-		downscalePolicy := models.SchedulePolicy{
+		downscalePolicy := goe2e.SchedulePolicy{
 			Type:       "CARDINALITY",
 			Adjust:     downscaleCardinality,
 			Recurrence: downscaleRecurrence,
@@ -216,13 +252,13 @@ func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]
 	return scheduledPolicies, nil
 }
 
-func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (models.ElasticityDict, error) {
-	var elasticityDict models.ElasticityDict
+func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (goe2e.ElasticityDict, error) {
+	var elasticityDict goe2e.ElasticityDict
 
 	// Handle ElasticityDict based on node_pool_type
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
 	case "Static":
-		elasticityDict = models.ElasticityDict{}
+		elasticityDict = goe2e.ElasticityDict{}
 	case "Autoscale":
 		for _, ed := range nodePoolDetail["elasticity_dict"].([]interface{}) {
 			ed := ed.(map[string]interface{})
@@ -235,12 +271,12 @@ func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_v
 	return elasticityDict, nil
 }
 
-func getScheduledDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (models.ScheduledDict, error) {
-	var scheduledDict models.ScheduledDict
+func getScheduledDict(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) (goe2e.ScheduledDict, error) {
+	var scheduledDict goe2e.ScheduledDict
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
 	case "Static":
-		scheduledDict = models.ScheduledDict{}
+		scheduledDict = goe2e.ScheduledDict{}
 	case "Autoscale":
 		for _, sd := range nodePoolDetail["scheduled_dict"].([]interface{}) {
 			sd := sd.(map[string]interface{})
@@ -355,56 +391,63 @@ func getPolicyType(nodePoolDetail map[string]interface{}) string {
 	return ""
 }
 
-func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Client, project_id int, location string) (models.NodePoolUpdate, error) {
-	nodeUpdate := models.NodePoolUpdate{}
-	if _, ok := nodePoolDetail["node_pool_type"]; !ok {
-		return nodeUpdate, fmt.Errorf("node_pool_type is required")
+func ExpandNodePoolUpdate(ctx context.Context, nodePoolDetail map[string]interface{}, goe2eClient *goe2e.Client, projectIDStr, region string) (goe2e.NodePoolUpdate, error) {
+	nodeUpdate := goe2e.NodePoolUpdate{}
+	poolType := getNodePoolType(nodePoolDetail)
+	if poolType == "" {
+		return nodeUpdate, fmt.Errorf("node pool type (type or node_pool_type) is required")
 	}
-	var policyType, customParamName, customParamValue string
-	var elasticity_policies []models.ElasticityPolicy
-	var scheduled_policies []models.SchedulePolicy
-	// var card int
-	workerPlans, err := apiClient.GetKubernetesWorkerPlans(project_id, location) //Here we are are tryig to get all worker plans
-	if err != nil {
-		return nodeUpdate, err
-	}
-	plans := workerPlans["data"].([]interface{})
-	var matchingPlan map[string]interface{}
-	//Below code is to fetch the corresponding slug name
-	for _, plan := range plans {
-		planData := plan.(map[string]interface{})
-		specs := planData["specs"].(map[string]interface{})
-		skuName := specs["sku_name"].(string)
 
-		if skuName == nodePoolDetail["specs_name"].(string) {
-			matchingPlan = planData
+	var policyType, customParamName, customParamValue string
+	var elasticity_policies []goe2e.ElasticityPolicy
+	var scheduled_policies []goe2e.SchedulePolicy
+	var minNodes, maxNodes int
+
+	// Get worker plans from goe2e client
+	workerPlans, _, err := goe2eClient.Kubernetes.GetWorkerPlans(ctx)
+	if err != nil {
+		return nodeUpdate, fmt.Errorf("error fetching worker plans: %w", err)
+	}
+
+	// Find matching plan
+	plan := getNodePoolPlan(nodePoolDetail)
+	var matchingPlan *goe2e.KubernetesWorkerPlan
+	for i := range workerPlans {
+		if workerPlans[i].Specs.SKUName == plan {
+			matchingPlan = &workerPlans[i]
 			break
 		}
 	}
 	if matchingPlan == nil {
-		return nodeUpdate, fmt.Errorf("no matching plan found for specs_name: %s", nodePoolDetail["specs_name"])
+		return nodeUpdate, fmt.Errorf("no matching plan found for plan: %s", plan)
 	}
 
-	if nodePoolDetail["node_pool_type"].(string) == "Static" {
+	if poolType == "Static" {
 		policyType = ""
 		customParamName = ""
 		customParamValue = ""
+		minNodes = 0
+		maxNodes = 0
 	} else {
 		policyType = getPolicyType(nodePoolDetail)
 		customParamName = getCustomParamName(nodePoolDetail)
 		customParamValue = getCustomParamValue(nodePoolDetail)
-		if _, ok := nodePoolDetail["min_vms"]; !ok {
-			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'min_vms' field is required")
+		minNodes = getNodePoolMinNodes(nodePoolDetail)
+		maxNodes = getNodePoolMaxNodes(nodePoolDetail)
+
+		if minNodes == 0 {
+			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'min_nodes' (or 'min_vms') field is required")
 		}
-		if _, ok := nodePoolDetail["max_vms"]; !ok {
-			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'max_vms' field is required")
+		if maxNodes == 0 {
+			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'max_nodes' (or 'max_vms') field is required")
 		}
-		ep, err := updateElasticPolicies(nodePoolDetail, nodePoolDetail["min_vms"].(int), nodePoolDetail["max_vms"].(int))
+
+		ep, err := updateElasticPolicies(nodePoolDetail, minNodes, maxNodes)
 		if err != nil {
 			log.Printf("Invalid format for Elast")
 		}
 
-		sp, err := updateScheduledPolicies(nodePoolDetail, nodePoolDetail["min_vms"].(int), nodePoolDetail["max_vms"].(int))
+		sp, err := updateScheduledPolicies(nodePoolDetail, minNodes, maxNodes)
 		if err != nil {
 			log.Printf("Invalid format for Scheduled Dictionary")
 		}
@@ -412,16 +455,27 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 		scheduled_policies = sp
 
 		cardinterface := nodePoolDetail["cardinality"]
-		card := cardinterface.(int)
-		if card == 0 || cardinterface == nil {
-			nodePoolDetail["cardinality"] = nodePoolDetail["min_vms"].(int)
+		card := 0
+		if cardinterface != nil {
+			card = cardinterface.(int)
+		}
+		if card == 0 {
+			nodePoolDetail["cardinality"] = minNodes
 		}
 	}
-	nodeUpdate = models.NodePoolUpdate{
-		MinVms:           nodePoolDetail["min_vms"].(int),
-		Cardinality:      nodePoolDetail["cardinality"].(int),
-		MaxVms:           nodePoolDetail["max_vms"].(int),
-		PlanID:           matchingPlan["specs"].(map[string]interface{})["id"].(string),
+	cardinality := 0
+	if cardinterface := nodePoolDetail["cardinality"]; cardinterface != nil {
+		cardinality = cardinterface.(int)
+	}
+	if cardinality == 0 {
+		cardinality = minNodes
+	}
+
+	nodeUpdate = goe2e.NodePoolUpdate{
+		MinVms:           minNodes,
+		Cardinality:      cardinality,
+		MaxVms:           maxNodes,
+		PlanID:           matchingPlan.Specs.ID,
 		ElasticityPolicy: elasticity_policies,
 		ScheduledPolicy:  scheduled_policies,
 		PolicyType:       policyType,
@@ -431,11 +485,11 @@ func ExpandNPUpdate(nodePoolDetail map[string]interface{}, apiClient *client.Cli
 	return nodeUpdate, nil
 }
 
-func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
-	var elasticityPolicyList []models.ElasticityPolicy
+func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]goe2e.ElasticityPolicy, error) {
+	var elasticityPolicyList []goe2e.ElasticityPolicy
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
 	case "Static":
-		elasticityPolicyList = []models.ElasticityPolicy{}
+		elasticityPolicyList = []goe2e.ElasticityPolicy{}
 	case "Autoscale":
 		for _, ed := range nodePoolDetail["elasticity_dict"].([]interface{}) {
 			ed := ed.(map[string]interface{})
@@ -448,36 +502,36 @@ func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, m
 	return elasticityPolicyList, nil
 }
 
-func UpdateElasticityDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
-	elasticityPolicy := []models.ElasticityPolicy{}
+func UpdateElasticityDict(config map[string]interface{}, min_vms int, max_vms int) ([]goe2e.ElasticityPolicy, error) {
+	elasticityPolicy := []goe2e.ElasticityPolicy{}
 	workers := config["worker"].([]interface{})
 	if len(workers) > 0 {
 		worker := workers[0].(map[string]interface{})
 		elasticityPolicy, err := UpdateElasticityWorker(worker, min_vms, max_vms)
 		if err != nil {
-			return []models.ElasticityPolicy{}, err
+			return []goe2e.ElasticityPolicy{}, err
 		}
 		return elasticityPolicy, nil
 	}
 	return elasticityPolicy, nil
 }
 
-func UpdateElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) ([]models.ElasticityPolicy, error) {
+func UpdateElasticityWorker(config map[string]interface{}, min_vms int, max_vms int) ([]goe2e.ElasticityPolicy, error) {
 	elasticityPolicies, err := ExpandElasticityPolicies(config["elasticity_policies"].([]interface{}), config["parameter"].(string))
 	if err != nil {
-		ep := make([]models.ElasticityPolicy, 0, len(config))
+		ep := make([]goe2e.ElasticityPolicy, 0, len(config))
 		return ep, err
 	}
 
 	return elasticityPolicies, nil
 }
 
-func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	var scheduledPolicyList []models.SchedulePolicy
+func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]goe2e.SchedulePolicy, error) {
+	var scheduledPolicyList []goe2e.SchedulePolicy
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
 	case "Static":
-		scheduledPolicyList = []models.SchedulePolicy{}
+		scheduledPolicyList = []goe2e.SchedulePolicy{}
 	case "Autoscale":
 		for _, sd := range nodePoolDetail["scheduled_dict"].([]interface{}) {
 			sd := sd.(map[string]interface{})
@@ -491,25 +545,206 @@ func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int,
 	return scheduledPolicyList, nil
 }
 
-func UpdateScheduledDict(config map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
-	scheduledDict := []models.SchedulePolicy{}
+func UpdateScheduledDict(config map[string]interface{}, min_vms int, max_vms int) ([]goe2e.SchedulePolicy, error) {
+	scheduledDict := []goe2e.SchedulePolicy{}
 	workers := config["worker"].([]interface{})
 	if len(workers) > 0 {
 		worker := workers[0].(map[string]interface{})
 		scheduledWorker, err := UpdateScheduledWorker(worker, min_vms, max_vms)
 		if err != nil {
-			return []models.SchedulePolicy{}, err
+			return []goe2e.SchedulePolicy{}, err
 		}
 		return scheduledWorker, nil
 	}
 	return scheduledDict, nil
 }
 
-func UpdateScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) ([]models.SchedulePolicy, error) {
+func UpdateScheduledWorker(config map[string]interface{}, min_vms int, max_vms int) ([]goe2e.SchedulePolicy, error) {
 	scheduledPolicies, err := ExpandScheduledPolicies(config["scheduled_policies"].([]interface{}), min_vms, max_vms)
 	if err != nil {
-		return []models.SchedulePolicy{}, err
+		return []goe2e.SchedulePolicy{}, err
 	}
 
 	return scheduledPolicies, nil
+}
+
+// ============================================
+// V3 FIELD ALIASING HELPERS
+// ============================================
+
+// getClusterName returns cluster_name if set, otherwise name (deprecated)
+func getClusterName(d *schema.ResourceData) string {
+	if v, ok := d.GetOk("cluster_name"); ok {
+		return v.(string)
+	}
+	if v, ok := d.GetOk(e2econstants.AttrName); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+// getKubernetesVersion returns kubernetes_version if set, otherwise version (deprecated)
+func getKubernetesVersion(d *schema.ResourceData) string {
+	if v, ok := d.GetOk("kubernetes_version"); ok {
+		return v.(string)
+	}
+	if v, ok := d.GetOk(e2econstants.AttrVersion); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+// logDeprecationWarning logs a deprecation warning if a deprecated field is used
+func logDeprecationWarning(d *schema.ResourceData, deprecatedField, preferredField string) {
+	if _, ok := d.GetOk(deprecatedField); ok {
+		log.Printf("[WARN] Field '%s' is deprecated. Use '%s' instead. The deprecated field will be removed in a future version.", deprecatedField, preferredField)
+	}
+}
+
+// ============================================
+// NODE POOL FIELD ALIASING HELPERS
+// ============================================
+
+// getNodePoolPlan returns plan if set, otherwise specs_name (deprecated)
+func getNodePoolPlan(pool map[string]interface{}) string {
+	if v, ok := pool["plan"].(string); ok && v != "" {
+		return v
+	}
+	if v, ok := pool["specs_name"].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// getNodePoolType returns type if set, otherwise node_pool_type (deprecated)
+func getNodePoolType(pool map[string]interface{}) string {
+	if v, ok := pool["type"].(string); ok && v != "" {
+		return v
+	}
+	if v, ok := pool["node_pool_type"].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// getNodePoolSize returns size if set, otherwise worker_node (deprecated)
+func getNodePoolSize(pool map[string]interface{}) int {
+	if v, ok := pool["size"].(int); ok && v > 0 {
+		return v
+	}
+	if v, ok := pool["worker_node"].(int); ok {
+		return v
+	}
+	return 0
+}
+
+// getNodePoolMinNodes returns min_nodes if set, otherwise min_vms (deprecated)
+func getNodePoolMinNodes(pool map[string]interface{}) int {
+	if v, ok := pool["min_nodes"].(int); ok && v > 0 {
+		return v
+	}
+	if v, ok := pool[e2econstants.AttrMinVMs].(int); ok {
+		return v
+	}
+	return 0
+}
+
+// getNodePoolMaxNodes returns max_nodes if set, otherwise max_vms (deprecated)
+func getNodePoolMaxNodes(pool map[string]interface{}) int {
+	if v, ok := pool["max_nodes"].(int); ok && v > 0 {
+		return v
+	}
+	if v, ok := pool[e2econstants.AttrMaxVMs].(int); ok {
+		return v
+	}
+	return 0
+}
+
+// ============================================
+// FLATTEN HELPERS
+// ============================================
+
+// flattenNodePools converts goe2e NodePoolServiceInfo to Terraform schema
+func flattenNodePools(nodePools []goe2e.NodePoolServiceInfo) []interface{} {
+	result := make([]interface{}, len(nodePools))
+
+	for i, pool := range nodePools {
+		p := make(map[string]interface{})
+
+		// Use V3 preferred field names
+		p["name"] = pool.ServiceName
+		p["service_id"] = fmt.Sprintf("%.0f", pool.ServiceID)
+		p["cardinality"] = pool.Cardinality
+
+		// Note: plan, type, size, min_nodes, max_nodes are not returned by GetNodePools
+		// They will be preserved from state or set during read from full node pool details
+		// This is a limitation - we'd need a more detailed API call to get full node pool info
+
+		result[i] = p
+	}
+
+	return result
+}
+
+// ============================================
+// ASYNC WAIT HELPERS
+// ============================================
+
+// waitForClusterStatus waits for cluster to reach target status
+func waitForClusterStatus(ctx context.Context, client *goe2e.Client, clusterID string, targetStatus string, timeout time.Duration) error {
+	stateConf := &resource.StateChangeConf{
+		Pending:    []string{"Creating", "Provisioning", "Updating"},
+		Target:     []string{targetStatus},
+		Refresh:    clusterStatusRefresh(ctx, client, clusterID),
+		Timeout:    timeout,
+		Delay:      30 * time.Second,
+		MinTimeout: 10 * time.Second,
+	}
+
+	_, err := stateConf.WaitForStateContext(ctx)
+	return err
+}
+
+func clusterStatusRefresh(ctx context.Context, client *goe2e.Client, clusterID string) resource.StateRefreshFunc {
+	return func() (interface{}, string, error) {
+		cluster, _, err := client.Kubernetes.Get(ctx, clusterID)
+		if err != nil {
+			return nil, "", err
+		}
+
+		if cluster == nil {
+			return nil, "", fmt.Errorf("cluster returned nil")
+		}
+
+		return cluster, cluster.State, nil
+	}
+}
+
+// ============================================
+// SECURITY GROUP HELPERS
+// ============================================
+
+// expandSecurityGroupIDs converts []interface{} to []int
+func expandSecurityGroupIDs(ids []interface{}) []int {
+	result := make([]int, len(ids))
+	for i, id := range ids {
+		result[i] = id.(int)
+	}
+	return result
+}
+
+// difference returns elements in a but not in b
+func difference(a, b []int) []int {
+	bMap := make(map[int]bool)
+	for _, v := range b {
+		bMap[v] = true
+	}
+
+	var diff []int
+	for _, v := range a {
+		if !bMap[v] {
+			diff = append(diff, v)
+		}
+	}
+	return diff
 }

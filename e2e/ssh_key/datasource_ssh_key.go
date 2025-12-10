@@ -2,81 +2,108 @@ package ssh_key
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func DataSourceSshKey() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: dataSourceReadSshKey,
 		Schema: map[string]*schema.Schema{
+			// Common fields
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
-			"label": {
+			// Resource-specific fields
+			e2econstants.AttrLabel: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The label(name) of the ssh key",
+				Description: "label (name) of the SSH key",
 				ForceNew:    true,
 			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "location of the key",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The ID of the project associated with the ssh key",
-			},
-			"ssh_key": {
+			// V3 preferred field name
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "your ssh key",
+				Description: "name of the SSH key",
 			},
-			"project_name": {
+			e2econstants.AttrSSHKey: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The name of the project associated with the ssh key",
+				Description: "the SSH public key content",
 			},
-
-			"timestamp": {
+			"public_key": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Timestamp of the SSH Key",
+				Description: "the public key material",
+			},
+			e2econstants.AttrProjectName: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "name of the project associated with the SSH key",
+			},
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the creation date for the SSH key",
 			},
 		},
-
-		ReadContext: dataSourceReadSshKey,
 	}
 }
-func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
+// dataSourceReadSshKey reads an SSH key data source
+func dataSourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
-	log.Printf("[INFO] INSIDE SSH KEY DATA SOURCE | read")
-	label := d.Get("label").(string)
-	project_id := d.Get("project_id").(string)
-	res, err := apiClient.GetSshKey(label, project_id, d.Get("location").(string))
-	if err != nil {
-		return diag.Errorf("error finding ssh key with label %s", label)
+
+	label := d.Get(e2econstants.AttrLabel).(string)
+	if label == "" {
+		return diag.Errorf("SSH key label is required")
 	}
 
-	data := res["data"].(map[string]interface{})
-	log.Printf("[INFO] SSH KEY DATA SOURCE | READ | data : %+v", data)
+	log.Printf("[INFO] Reading SSH key data source: label=%s", label)
 
-	ssh_key_id := strconv.FormatFloat(data["pk"].(float64), 'f', 0, 64)
+	// Fetch SSH key by label using goe2e client
+	sshKey, _, err := goe2eClient.SSHKeys.GetSSHKeyByLabel(ctx, label)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to find SSH key with label %s: %w", label, err))
+	}
 
-	d.SetId(ssh_key_id)
+	// Check if key was found
+	if sshKey == nil {
+		return diag.Errorf("SSH key with label %s not found", label)
+	}
 
-	d.Set("label", data["label"].(string))
-	d.Set("ssh_key", data["ssh_key"].(string))
-	d.Set("project_name", data["project_name"].(string))
-	d.Set("timestamp", data["timestamp"].(string))
-	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", d)
+	log.Printf("[DEBUG] SSH key found: pk=%d, label=%s", sshKey.PK, sshKey.Label)
 
+	// Set the resource ID
+	d.SetId(strconv.Itoa(sshKey.PK))
+
+	// Set all fields using helper functions for backward compatibility
+	if err := setKeyName(d, sshKey.Label); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := setPublicKey(d, sshKey.SSHKey); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set project name (currently empty from goe2e API, but we compute if available)
+	// TODO: Fetch project name when API supports it
+	if err := d.Set(e2econstants.AttrProjectName, ""); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[DEBUG] SSH key data source read successfully: label=%s, pk=%d", label, sshKey.PK)
 	return diags
-
 }

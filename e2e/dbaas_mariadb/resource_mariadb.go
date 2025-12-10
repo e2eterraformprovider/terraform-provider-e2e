@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-
 	"strconv"
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -19,142 +17,135 @@ import (
 
 func ResourceMariaDB() *schema.Resource {
 	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceMariaDBResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceMariaDBStateUpgradeV0toV1,
+				Version: 0,
+			},
+		},
 
-			"name": {
+		Schema: map[string]*schema.Schema{
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED IMMUTABLE FIELDS
+			// ============================================
+			e2econstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The name of the MariaDB service instance.",
+				Description: "name of the MariaDB DBaaS instance",
 			},
-
-			"software_id": {
-				Type:     schema.TypeInt,
-				Computed: true,
-			},
-
-			"template_id": {
-				Type:     schema.TypeInt,
-				Computed: true,
-			},
-
 			"software_name": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The software name (e.g., MariaDB).",
+				Description: "the software name (e.g., MariaDB)",
 			},
-
 			"software_version": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The software version (e.g., 10.6).",
+				Description: "the software version (e.g., 10.6)",
 			},
-
-			"plan_name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The plan name specifying CPU/memory (e.g. DBS.16GB).",
-			},
-
-			"public_ip_enabled": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     true,
-				Description: "Whether a public IP should be attached during creation or update.",
-			},
-
-			"public_ip_attached": {
-				Type:        schema.TypeBool,
-				Computed:    true,
-				Description: "Whether a public IP is currently attached (backend state).",
-			},
-
-			"parameter_group_id": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Default:     0,
-				Description: "ID of the parameter group to attach. Use 0 to skip.",
-			},
-
-			"group": {
+			e2econstants.AttrGroup: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The group to which this database belongs (e.g. 'Default').",
+				Description: "the group name for the MariaDB DBaaS instance (e.g., Default)",
 			},
-
-			"vpcs": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "List of VPC IDs to associate (optional).",
-				Elem:        &schema.Schema{Type: schema.TypeString},
-			},
-
-			"database": {
+			e2econstants.AttrDatabase: {
 				Type:        schema.TypeList,
 				Required:    true,
 				MaxItems:    1,
-				ForceNew:    true,
-				Description: "Database configuration (user, password, db name).",
+				Description: "database configuration (user, password, database name)",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"user": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Database username.",
+							ForceNew:    true,
+							Description: "the database username",
 						},
 						"password": {
 							Type:        schema.TypeString,
 							Required:    true,
 							Sensitive:   true,
-							Description: "Password for the database user.",
+							Description: "the database password",
 						},
 						"name": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Name of the database to create.",
+							ForceNew:    true,
+							Description: "name of the database to create",
 						},
 						"dbaas_number": {
 							Type:        schema.TypeInt,
 							Required:    true,
-							Description: "DBaaS number (typically 1 for single instance).",
+							ForceNew:    true,
+							Description: "the DBaaS number (typically 1 for single instance)",
 						},
 					},
 				},
 			},
 
-			"project_id": {
+			// ============================================
+			// OPTIONAL MUTABLE FIELDS - CONFIGURATION
+			// ============================================
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "Project ID under which the MariaDB cluster is provisioned.",
+				Description: "the plan name specifying CPU/memory (e.g., DBS.16GB)",
 			},
-
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Region where the MariaDB instance will be created.",
+			e2econstants.AttrVPCs: {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: "list of VPC ids to associate",
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-
-			"is_encryption_enabled": {
+			e2econstants.AttrPublicIPEnabled: {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
-				Description: "Enable encryption at rest for the MariaDB cluster.",
+				Default:     true,
+				Description: "whether to attach a public IP during creation or update",
+			},
+			e2econstants.AttrParameterGroupID: {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     0,
+				Description: "id of the parameter group to attach (use 0 to skip)",
 			},
 
-			"encryption_passphrase": {
+			// ============================================
+			// OPTIONAL IMMUTABLE FIELDS - SECURITY
+			// ============================================
+			e2econstants.AttrIsEncryptionEnabled: {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
+				Default:     false,
+				Description: "whether to enable encryption at rest for the MariaDB cluster",
+			},
+			e2econstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
+				ForceNew:    true,
 				Default:     "",
 				Sensitive:   true,
-				Description: "Passphrase for encryption. Leave empty if encryption is not enabled.",
+				Description: "passphrase for encryption (leave empty if encryption is not enabled)",
 			},
 
-			"status": {
+			// ============================================
+			// POWER MANAGEMENT
+			// ============================================
+			e2econstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -162,36 +153,79 @@ func ResourceMariaDB() *schema.Resource {
 					[]string{"STOPPED", "RUNNING", "RESTARTING"},
 					false,
 				),
-				Description: "Operational status: STOPPED, RUNNING, or RESTARTING.",
+				Description: "the operational status of the MariaDB DBaaS instance (STOPPED, RUNNING, or RESTARTING)",
 			},
 
-			"public_ip_address": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Public IP assigned to the master node (if enabled).",
-			},
-
-			"private_ip_address": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Private IP assigned to the master node.",
-			},
-
-			"disk_size": {
+			// ============================================
+			// DISK MANAGEMENT
+			// ============================================
+			e2econstants.AttrDiskSize: {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "Additional disk size (in GB) to expand during update.",
-			},
-			"total_disk_size": {
-				Type:        schema.TypeInt,
-				Computed:    true,
-				Description: "Total disk size in GB after expansion.",
+				Description: "additional disk size in gigabytes to expand during update",
 			},
 
+			// ============================================
+			// V3 OPTIONAL FIELDS
+			// ============================================
+			"tags": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Description: "map of tags to assign to the resource (state-only, API support pending)",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - IDENTIFIERS
+			// ============================================
+			"software_id": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "id of the software",
+			},
+			e2econstants.AttrTemplateID: {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "id of the template",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			"public_ip_attached": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether a public IP is currently attached",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			e2econstants.AttrPublicIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the MariaDB DBaaS instances public ipv4 address",
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the MariaDB DBaaS instances private ipv4 address",
+			},
 			"port": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Port number on which the MariaDB service is accessible.",
+				Description: "the port number on which the MariaDB service is accessible",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - RESOURCES
+			// ============================================
+			"total_disk_size": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "the total disk size in gigabytes after expansion",
 			},
 		},
 
@@ -201,76 +235,90 @@ func ResourceMariaDB() *schema.Resource {
 		DeleteContext: resourceDeleteMariaDB,
 
 		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
 
 func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
 	softwareName := d.Get("software_name").(string)
 	softwareVersion := d.Get("software_version").(string)
-	planName := d.Get("plan_name").(string)
+	planName := d.Get(e2econstants.AttrPlan).(string)
 
-	softwareID, err := apiClient.GetSoftwareId(projectID, location, softwareName, softwareVersion)
+	// Get software ID using goe2e client
+	softwareID, err := goe2eClient.MariaDB.GetSoftwareID(ctx, softwareName, softwareVersion)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to get software ID: %v", err))
+		return diag.Errorf("error retrieving %s software ID for version (%s) in project (%s), region (%s): %s", softwareName, softwareVersion, projectID, region, err)
 	}
 
-	templateID, err := apiClient.GetTemplateId(projectID, location, planName, strconv.Itoa(softwareID))
+	// Get template ID using goe2e client
+	templateID, err := goe2eClient.MariaDB.GetTemplateID(ctx, planName, softwareID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to get template ID: %v", err))
+		return diag.Errorf("error retrieving %s template ID for plan (%s) in project (%s), region (%s): %s", softwareName, planName, projectID, region, err)
 	}
 
-	dbConfigList := d.Get("database").([]interface{})
+	// Extract database configuration
+	dbConfigList := d.Get(e2econstants.AttrDatabase).([]interface{})
 	dbConfigMap := dbConfigList[0].(map[string]interface{})
 
+	// Extract VPC IDs
 	var vpcIDs []string
-	for _, v := range d.Get("vpcs").([]interface{}) {
+	for _, v := range d.Get(e2econstants.AttrVPCs).([]interface{}) {
 		vpcIDs = append(vpcIDs, v.(string))
 	}
 
-	var vpcList []models.VPCMetadata
+	// Expand VPC list using goe2e client
+	var vpcList []goe2e.VPCMetadata
 	if len(vpcIDs) > 0 {
-		vpcList, err = apiClient.ExpandMariaDBVpcList(vpcIDs, projectID, location)
+		vpcList, err = goe2eClient.MariaDB.ExpandVPCList(ctx, vpcIDs)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to expand VPC list during create: %v", err))
+			return diag.Errorf("error preparing VPC list for MariaDB DBaaS in project (%s), region (%s): %s", projectID, region, err)
 		}
 	}
 
-	publicIPEnabled := d.Get("public_ip_enabled").(bool)
+	publicIPEnabled := d.Get(e2econstants.AttrPublicIPEnabled).(bool)
 
 	parameterGroupID := 0
-	if v, ok := d.GetOk("parameter_group_id"); ok {
+	if v, ok := d.GetOk(e2econstants.AttrParameterGroupID); ok {
 		parameterGroupID = v.(int)
 	}
 
 	isEncryptionEnabled := false
-	if v, ok := d.GetOk("is_encryption_enabled"); ok {
+	if v, ok := d.GetOk(e2econstants.AttrIsEncryptionEnabled); ok {
 		isEncryptionEnabled = v.(bool)
 	}
 
 	encryptionPassphrase := ""
-	if v, ok := d.GetOk("encryption_passphrase"); ok {
+	if v, ok := d.GetOk(e2econstants.AttrEncryptionPassphrase); ok {
 		encryptionPassphrase = v.(string)
 	}
 
-	req := models.MariaDBCreateRequest{
+	// Build create request using goe2e types
+	req := &goe2e.MariaDBCreateRequest{
 		Name:                 d.Get("name").(string),
 		SoftwareID:           softwareID,
 		TemplateID:           templateID,
 		PublicIPRequired:     publicIPEnabled,
-		Group:                d.Get("group").(string),
+		Group:                d.Get(e2econstants.AttrGroup).(string),
 		VPCs:                 vpcList,
 		PGID:                 parameterGroupID,
 		IsEncryptionEnabled:  isEncryptionEnabled,
 		EncryptionPassphrase: encryptionPassphrase,
-		Database: models.DBConfig{
+		Database: goe2e.DBConfig{
 			User:        dbConfigMap["user"].(string),
 			Password:    dbConfigMap["password"].(string),
 			Name:        dbConfigMap["name"].(string),
@@ -278,232 +326,360 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 		},
 	}
 
-	mariaDB, err := apiClient.CreateMariaDB(&req, projectID, location)
+	// Create MariaDB cluster using goe2e client
+	mariaDB, _, err := goe2eClient.MariaDB.CreateMariaDB(ctx, req)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create MariaDB instance: %v", err))
+		return diag.Errorf("error creating MariaDB DBaaS (name: %s) in project (%s), region (%s): %s", req.Name, projectID, region, err)
 	}
 
+	// Set resource ID and attributes
 	d.SetId(fmt.Sprintf("%d", mariaDB.ID))
-	d.Set("name", mariaDB.Name)
-	d.Set("status", mariaDB.Status)
-	d.Set("public_ip_address", mariaDB.MasterNode.PublicIPAddress)
-	d.Set("private_ip_address", mariaDB.MasterNode.PrivateIPAddress)
-	d.Set("port", mariaDB.MasterNode.Port)
-	d.Set("software_id", softwareID)
-	d.Set("template_id", templateID)
+	if err := d.Set("name", mariaDB.Name); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != "")
+	// Normalize status (SUSPENDED → STOPPED)
+	status := mariaDB.Status
+	if status == "SUSPENDED" {
+		status = "STOPPED"
+	}
+	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set(e2econstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("port", mariaDB.MasterNode.Port); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("software_id", softwareID); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrTemplateID, templateID); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != ""); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[INFO] Successfully created MariaDB cluster: %s (ID: %d)", mariaDB.Name, mariaDB.ID)
 
 	return diags
 }
 
 func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	id := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
-	mariaDB, err := apiClient.ReadMariaDB(id, projectID, location)
+	// Get MariaDB cluster using goe2e client
+	mariaDB, _, err := goe2eClient.MariaDB.GetMariaDB(ctx, id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to read MariaDB instance: %v", err))
+		return diag.Errorf("error retrieving MariaDB DBaaS (ID: %s): %s", id, err)
 	}
 
-	d.Set("name", mariaDB.Name)
+	// Check if resource was deleted
+	if mariaDB == nil {
+		log.Printf("[WARN] MariaDB cluster %s not found, removing from state", id)
+		d.SetId("")
+		return diags
+	}
 
+	// Set basic attributes
+	if err := d.Set("name", mariaDB.Name); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Normalize status (SUSPENDED → STOPPED)
 	status := mariaDB.Status
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	d.Set("status", status)
+	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("software_name", mariaDB.Software.Name)
-	d.Set("software_version", mariaDB.Software.Version)
+	// Set software information
+	if err := d.Set("software_name", mariaDB.Software.Name); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("software_version", mariaDB.Software.Version); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("plan_name", mariaDB.MasterNode.Plan.Name)
+	// Set plan information
+	if err := d.Set(e2econstants.AttrPlan, mariaDB.MasterNode.Plan.Name); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("public_ip_address", mariaDB.MasterNode.PublicIPAddress)
-	d.Set("private_ip_address", mariaDB.MasterNode.PrivateIPAddress)
-	d.Set("port", mariaDB.MasterNode.Port)
+	// Set network information
+	if err := d.Set(e2econstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("port", mariaDB.MasterNode.Port); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != "")
-	d.Set("total_disk_size", mariaDB.MasterNode.Disk)
+	// Set computed fields
+	if err := d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != ""); err != nil {
+		return diag.FromErr(err)
+	}
 
-	d.Set("is_encryption_enabled", mariaDB.IsEncryptionEnabled)
+	// Parse disk size from string to int
+	diskSize := 0
+	if mariaDB.MasterNode.Disk != "" {
+		if size, err := strconv.Atoi(mariaDB.MasterNode.Disk); err == nil {
+			diskSize = size
+		}
+	}
+	if err := d.Set("total_disk_size", diskSize); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set encryption status
+	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, mariaDB.IsEncryptionEnabled); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[DEBUG] Successfully read MariaDB cluster: %s (ID: %s)", mariaDB.Name, id)
 
 	return diags
 }
 
 func resourceDeleteMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	id := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
-	err := apiClient.DeleteMariaDB(id, projectID, location)
+	log.Printf("[INFO] Deleting MariaDB cluster: %s", id)
+
+	// Delete MariaDB cluster using goe2e client
+	_, err := goe2eClient.MariaDB.DeleteMariaDB(ctx, id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to delete MariaDB instance: %v", err))
+		// Check if already deleted (404 or "not found" error)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+			log.Printf("[WARN] MariaDB cluster %s already deleted", id)
+			d.SetId("")
+			return diags
+		}
+		return diag.Errorf("error deleting MariaDB DBaaS (ID: %s): %s", id, err)
 	}
 
+	log.Printf("[INFO] Successfully deleted MariaDB cluster: %s", id)
 	d.SetId("")
 	return diags
 }
 
 func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	id := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
+	// Handle status changes (power management)
 	if d.HasChange("status") {
 		newStatus := d.Get("status").(string)
+		log.Printf("[INFO] Status change detected for MariaDB cluster %s: %s", id, newStatus)
+
 		switch strings.ToUpper(newStatus) {
 		case "STOPPED":
-			if err := apiClient.ShutdownMariaDB(id, projectID, location); err != nil {
-				if d.HasChange("disk_size") {
-					d.Set("disk_size", 0)
+			if _, err := goe2eClient.MariaDB.ShutdownMariaDB(ctx, id); err != nil {
+				// Rollback disk_size and plan changes on failure
+				if d.HasChange(e2econstants.AttrDiskSize) {
+					d.Set(e2econstants.AttrDiskSize, 0)
 				}
-				if d.HasChange("plan_name") {
-					oldPlan, _ := d.GetChange("plan_name")
-					d.Set("plan_name", oldPlan.(string))
+				if d.HasChange(e2econstants.AttrPlan) {
+					oldPlan, _ := d.GetChange(e2econstants.AttrPlan)
+					d.Set(e2econstants.AttrPlan, oldPlan.(string))
 				}
-				return diag.FromErr(fmt.Errorf("failed to shutdown MariaDB instance: %v", err))
+				return diag.Errorf("error stopping MariaDB DBaaS (ID: %s): %s", id, err)
 			}
+			log.Printf("[INFO] Successfully stopped MariaDB cluster %s", id)
 		case "RUNNING":
-			if err := apiClient.ResumeMariaDB(id, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to resume MariaDB instance: %v", err))
+			if _, err := goe2eClient.MariaDB.ResumeMariaDB(ctx, id); err != nil {
+				return diag.Errorf("error starting MariaDB DBaaS (ID: %s): %s", id, err)
 			}
+			log.Printf("[INFO] Successfully started MariaDB cluster %s", id)
 		case "RESTARTING":
-			if err := apiClient.RestartMariaDB(id, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to restart MariaDB instance: %v", err))
+			if _, err := goe2eClient.MariaDB.RestartMariaDB(ctx, id); err != nil {
+				return diag.Errorf("error restarting MariaDB DBaaS (ID: %s): %s", id, err)
 			}
+			log.Printf("[INFO] Successfully restarted MariaDB cluster %s", id)
 		default:
-			return diag.FromErr(fmt.Errorf("unsupported status value: %s", newStatus))
+			return diag.Errorf("error updating MariaDB DBaaS (ID: %s): unsupported status value: %s. Must be one of: STOPPED, RUNNING, RESTARTING", id, newStatus)
 		}
 	}
 
-	if d.HasChange("vpcs") {
-		oldRaw, newRaw := d.GetChange("vpcs")
+	// Handle VPC changes
+	if d.HasChange(e2econstants.AttrVPCs) {
+		oldRaw, newRaw := d.GetChange(e2econstants.AttrVPCs)
 		oldVPCSet := expandStringSet(oldRaw.([]interface{}))
 		newVPCSet := expandStringSet(newRaw.([]interface{}))
 
 		var toDetach, toAttach []string
 
+		// Find VPCs to detach
 		for vpc := range oldVPCSet {
 			if _, exists := newVPCSet[vpc]; !exists {
 				toDetach = append(toDetach, vpc)
 			}
 		}
+
+		// Find VPCs to attach
 		for vpc := range newVPCSet {
 			if _, exists := oldVPCSet[vpc]; !exists {
 				toAttach = append(toAttach, vpc)
 			}
 		}
 
+		// Detach VPCs
 		if len(toDetach) > 0 {
-			if err := apiClient.DetachVPCFromMariaDB(id, projectID, location, toDetach); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to detach VPC(s): %v", err))
+			log.Printf("[INFO] Detaching VPCs from MariaDB cluster %s: %v", id, toDetach)
+			if _, err := goe2eClient.MariaDB.DetachVPC(ctx, id, toDetach); err != nil {
+				return diag.Errorf("error detaching VPC from MariaDB DBaaS (ID: %s): %s", id, err)
 			}
 		}
+
+		// Attach VPCs
 		if len(toAttach) > 0 {
-			if err := apiClient.AttachVPCToMariaDB(id, projectID, location, toAttach); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to attach VPC(s): %v", err))
+			log.Printf("[INFO] Attaching VPCs to MariaDB cluster %s: %v", id, toAttach)
+			if _, err := goe2eClient.MariaDB.AttachVPC(ctx, id, toAttach); err != nil {
+				return diag.Errorf("error attaching VPC to MariaDB DBaaS (ID: %s): %s", id, err)
 			}
 		}
 	}
 
-	if d.HasChange("public_ip_enabled") {
-		newVal := d.Get("public_ip_enabled").(bool)
+	// Handle public IP changes
+	if d.HasChange(e2econstants.AttrPublicIPEnabled) {
+		newVal := d.Get(e2econstants.AttrPublicIPEnabled).(bool)
+		log.Printf("[INFO] Public IP change detected for MariaDB cluster %s: %v", id, newVal)
+
 		if newVal {
-			if err := apiClient.AttachPublicIPToMariaDB(id, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to attach public IP: %v", err))
+			if _, err := goe2eClient.MariaDB.AttachPublicIP(ctx, id); err != nil {
+				return diag.Errorf("error attaching public IP to MariaDB DBaaS (ID: %s): %s", id, err)
 			}
+			log.Printf("[INFO] Successfully attached public IP to MariaDB cluster %s", id)
 		} else {
-			if err := apiClient.DetachPublicIPFromMariaDB(id, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to detach public IP: %v", err))
+			if _, err := goe2eClient.MariaDB.DetachPublicIP(ctx, id); err != nil {
+				return diag.Errorf("error detaching public IP from MariaDB DBaaS (ID: %s): %s", id, err)
 			}
+			log.Printf("[INFO] Successfully detached public IP from MariaDB cluster %s", id)
 		}
 	}
 
-	if d.HasChange("parameter_group_id") {
-		oldRaw, newRaw := d.GetChange("parameter_group_id")
+	// Handle parameter group changes
+	if d.HasChange(e2econstants.AttrParameterGroupID) {
+		oldRaw, newRaw := d.GetChange(e2econstants.AttrParameterGroupID)
 		oldPGID := oldRaw.(int)
 		newPGID := newRaw.(int)
 
+		log.Printf("[INFO] Parameter group change detected for MariaDB cluster %s: %d -> %d", id, oldPGID, newPGID)
+
 		switch {
 		case oldPGID != 0 && newPGID == 0:
-			if err := apiClient.DetachParameterGroupFromMariaDB(id, oldPGID, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to detach parameter group: %v", err))
+			// Detach parameter group
+			if _, err := goe2eClient.MariaDB.DetachParameterGroup(ctx, id, oldPGID); err != nil {
+				return diag.Errorf("error detaching parameter group (ID: %d) from MariaDB DBaaS (ID: %s): %s", oldPGID, id, err)
 			}
+			log.Printf("[INFO] Successfully detached parameter group %d from MariaDB cluster %s", oldPGID, id)
 		case newPGID != 0 && newPGID != oldPGID:
-			if err := apiClient.AttachParameterGroupToMariaDB(id, newPGID, projectID, location); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to attach parameter group: %v", err))
+			// Attach new parameter group
+			if _, err := goe2eClient.MariaDB.AttachParameterGroup(ctx, id, newPGID); err != nil {
+				return diag.Errorf("error attaching parameter group (ID: %d) to MariaDB DBaaS (ID: %s): %s", newPGID, id, err)
 			}
+			log.Printf("[INFO] Successfully attached parameter group %d to MariaDB cluster %s", newPGID, id)
 		}
 	}
 
-	if d.HasChange("plan_name") {
-		oldPlan, newPlan := d.GetChange("plan_name")
-		log.Printf("[INFO] Plan change detected: %s -> %s", oldPlan.(string), newPlan.(string))
+	// Handle plan upgrade
+	if d.HasChange(e2econstants.AttrPlan) {
+		oldPlan, newPlan := d.GetChange(e2econstants.AttrPlan)
+		log.Printf("[INFO] Plan change detected for MariaDB cluster %s: %s -> %s", id, oldPlan.(string), newPlan.(string))
 
+		// Verify cluster is stopped
 		status := d.Get("status").(string)
 		if strings.ToUpper(status) != "STOPPED" {
-			d.Set("plan_name", oldPlan.(string))
-			return diag.FromErr(fmt.Errorf("cannot upgrade plan: MariaDB must be STOPPED, current status is '%s'", status))
+			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf("cannot upgrade plan for MariaDB DBaaS (ID: %s): database must be in STOPPED state (current state: %s). Please stop the instance first", id, status)
 		}
 
+		// Get software ID and template ID
 		softwareName := d.Get("software_name").(string)
 		softwareVersion := d.Get("software_version").(string)
-		softwareID, err := apiClient.GetSoftwareId(projectID, location, softwareName, softwareVersion)
+
+		softwareID, err := goe2eClient.MariaDB.GetSoftwareID(ctx, softwareName, softwareVersion)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to get software ID for %s %s: %v", softwareName, softwareVersion, err))
+			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf("error retrieving %s software ID for version (%s) while upgrading plan for DBaaS (ID: %s): %s", softwareName, softwareVersion, id, err)
 		}
 
-		templateID, err := apiClient.GetTemplateId(projectID, location, newPlan.(string), fmt.Sprintf("%d", softwareID))
+		templateID, err := goe2eClient.MariaDB.GetTemplateID(ctx, newPlan.(string), softwareID)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to get template ID for plan %s: %v", newPlan.(string), err))
+			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf("error retrieving %s template ID for plan (%s) while upgrading DBaaS (ID: %s): %s", softwareName, newPlan.(string), id, err)
 		}
 
-		if err := apiClient.UpgradeMariaDBPlan(id, projectID, location, templateID); err != nil {
-			d.Set("plan_name", oldPlan.(string))
-			return diag.FromErr(fmt.Errorf("failed to upgrade MariaDB plan: %v", err))
+		// Upgrade the plan
+		if _, err := goe2eClient.MariaDB.UpgradePlan(ctx, id, templateID); err != nil {
+			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf("error upgrading MariaDB DBaaS (ID: %s) plan from (%s) to (%s): %s", id, oldPlan.(string), newPlan.(string), err)
 		}
 
-		log.Printf("[INFO] Successfully upgraded %s %s to plan %s (template_id=%d)", softwareName, softwareVersion, newPlan, templateID)
+		log.Printf("[INFO] Successfully upgraded MariaDB cluster %s to plan %s (template_id=%d)", id, newPlan, templateID)
 
-		d.Set("template_id", templateID)
+		// Update template ID in state
+		if err := d.Set(e2econstants.AttrTemplateID, templateID); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	if d.HasChange("disk_size") {
-		additionalSize := d.Get("disk_size").(int)
+	// Handle disk expansion
+	if d.HasChange(e2econstants.AttrDiskSize) {
+		additionalSize := d.Get(e2econstants.AttrDiskSize).(int)
 
 		if additionalSize > 0 {
+			log.Printf("[INFO] Disk expansion requested for MariaDB cluster %s: +%d GB", id, additionalSize)
+
+			// Verify cluster is stopped
 			status := d.Get("status").(string)
 			if strings.ToUpper(status) != "STOPPED" {
-				d.Set("disk_size", 0)
-				return diag.FromErr(fmt.Errorf("cannot expand disk: MariaDB must be STOPPED, current status is '%s'", status))
+				d.Set(e2econstants.AttrDiskSize, 0)
+				return diag.Errorf("cannot expand disk for MariaDB DBaaS (ID: %s): database must be in STOPPED state (current state: %s)", id, status)
 			}
 
-			err := apiClient.ExpandMariaDBDisk(id, projectID, location, additionalSize)
-			if err != nil {
-				d.Set("disk_size", 0)
-				return diag.FromErr(fmt.Errorf("failed to expand MariaDB disk: %v", err))
+			// Expand the disk
+			if _, err := goe2eClient.MariaDB.ExpandDisk(ctx, id, additionalSize); err != nil {
+				d.Set(e2econstants.AttrDiskSize, 0)
+				return diag.Errorf("error expanding MariaDB DBaaS (ID: %s) disk by %d GB: %s", id, additionalSize, err)
 			}
 
-			log.Printf("[INFO] Disk expanded by %d GB for cluster %s", additionalSize, id)
+			log.Printf("[INFO] Successfully expanded disk by %d GB for MariaDB cluster %s", additionalSize, id)
 
-			d.Set("disk_size", 0)
+			// Reset disk_size to 0 after expansion
+			if err := d.Set(e2econstants.AttrDiskSize, 0); err != nil {
+				return diag.FromErr(err)
+			}
 		} else {
-			log.Printf("[INFO] disk_size is 0, skipping expansion.")
+			log.Printf("[DEBUG] disk_size is 0 for MariaDB cluster %s, skipping expansion", id)
 		}
 	}
 
+	// Handle tags (state-only, no API call)
+	if d.HasChange("tags") {
+		log.Printf("[INFO] MariaDB cluster %s: tags updated (state-only, not sent to API)", id)
+	}
+
+	// Refresh state by reading the resource
 	return resourceReadMariaDB(ctx, d, m)
 }
 
@@ -513,4 +689,195 @@ func expandStringSet(list []interface{}) map[string]struct{} {
 		result[v.(string)] = struct{}{}
 	}
 	return result
+}
+
+// ============================================
+// STATE MIGRATION: V0 → V1
+// ============================================
+
+// resourceMariaDBResourceV0 returns the V0 schema definition (before tags were added)
+func resourceMariaDBResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED IMMUTABLE FIELDS
+			// ============================================
+			e2econstants.AttrName: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"software_name": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"software_version": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			e2econstants.AttrGroup: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			e2econstants.AttrDatabase: {
+				Type:     schema.TypeList,
+				Required: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"user": {
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
+						},
+						"password": {
+							Type:      schema.TypeString,
+							Required:  true,
+							Sensitive: true,
+						},
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
+						},
+						"dbaas_number": {
+							Type:     schema.TypeInt,
+							Required: true,
+							ForceNew: true,
+						},
+					},
+				},
+			},
+
+			// ============================================
+			// OPTIONAL MUTABLE FIELDS - CONFIGURATION
+			// ============================================
+			e2econstants.AttrPlan: {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			e2econstants.AttrVPCs: {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			e2econstants.AttrPublicIPEnabled: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
+			},
+			e2econstants.AttrParameterGroupID: {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  0,
+			},
+
+			// ============================================
+			// OPTIONAL IMMUTABLE FIELDS - SECURITY
+			// ============================================
+			e2econstants.AttrIsEncryptionEnabled: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				ForceNew: true,
+				Default:  false,
+			},
+			e2econstants.AttrEncryptionPassphrase: {
+				Type:      schema.TypeString,
+				Optional:  true,
+				ForceNew:  true,
+				Default:   "",
+				Sensitive: true,
+			},
+
+			// ============================================
+			// POWER MANAGEMENT
+			// ============================================
+			e2econstants.AttrStatus: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
+
+			// ============================================
+			// DISK MANAGEMENT
+			// ============================================
+			e2econstants.AttrDiskSize: {
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - IDENTIFIERS
+			// ============================================
+			"software_id": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			e2econstants.AttrTemplateID: {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			"public_ip_attached": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			e2econstants.AttrPublicIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"port": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - RESOURCES
+			// ============================================
+			"total_disk_size": {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			// Note: V0 schema does not have "tags" field
+		},
+	}
+}
+
+// resourceMariaDBStateUpgradeV0toV1 upgrades the state from V0 to V1
+// V1 adds the "tags" field for state-only tag management
+func resourceMariaDBStateUpgradeV0toV1(
+	ctx context.Context,
+	rawState map[string]interface{},
+	meta interface{},
+) (map[string]interface{}, error) {
+	// Add new V3 fields with defaults
+	if _, exists := rawState["tags"]; !exists {
+		rawState["tags"] = make(map[string]interface{})
+	}
+
+	// Preserve all existing fields - no modifications needed
+	log.Printf("[INFO] Upgraded MariaDB resource state from v0 to v1: %s", rawState["id"])
+
+	return rawState, nil
 }

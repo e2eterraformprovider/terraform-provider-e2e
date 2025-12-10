@@ -3,12 +3,11 @@ package faas_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -20,7 +19,7 @@ func TestAccDataSourceE2EFaasFunction_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EFaasFunctionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -37,8 +36,7 @@ func TestAccDataSourceE2EFaasFunction_Basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "endpoint_url"),
 					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "status"),
 					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "created_at"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "updated_at"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "updated_at")),
 			},
 		},
 	})
@@ -50,7 +48,7 @@ func TestAccDataSourceE2EFaasFunction_WithEnvironment(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EFaasFunctionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -59,8 +57,7 @@ func TestAccDataSourceE2EFaasFunction_WithEnvironment(t *testing.T) {
 					testAccDataSourceE2EFaasFunctionExists("data.e2e_faas_function.test"),
 					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "name", functionName),
 					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "environment.ENV", "production"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "environment.DEBUG", "false"),
-				),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "environment.DEBUG", "false")),
 			},
 		},
 	})
@@ -69,7 +66,7 @@ func TestAccDataSourceE2EFaasFunction_WithEnvironment(t *testing.T) {
 func TestAccDataSourceE2EFaasFunction_NotFound(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EFaasFunctionConfig_notFound(),
@@ -85,7 +82,7 @@ func TestAccDataSourceE2EFaasFunction_DifferentRuntime(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EFaasFunctionDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -93,8 +90,7 @@ func TestAccDataSourceE2EFaasFunction_DifferentRuntime(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccDataSourceE2EFaasFunctionExists("data.e2e_faas_function.test"),
 					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "runtime", "node-18"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "endpoint_url"),
-				),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "endpoint_url")),
 			},
 		},
 	})
@@ -113,19 +109,12 @@ func testAccDataSourceE2EFaasFunctionExists(resourceName string) resource.TestCh
 			return fmt.Errorf("No FaaS function ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 		client := cfg.Goe2eClient()
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
 		functionID := rs.Primary.Attributes["function_id"]
 
-		opts := &goe2e.RequestOptions{
-			ProjectID: projectID,
-			Location:  location,
-		}
-
-		fn, _, err := client.FaaS.GetFunction(context.Background(), functionID, opts)
+		fn, _, err := client.FaaS.GetFunction(context.Background(), functionID)
 		if err != nil {
 			return err
 		}
@@ -149,18 +138,11 @@ resource "e2e_faas_function" "test" {
   code_inline = <<-EOT
     def handler(event, context):
         return {"statusCode": 200, "body": "Hello World"}
-  EOT
-  project_id = "%s"
-  location   = "%s"
-}
+  EOT}
 
 data "e2e_faas_function" "test" {
-  function_id = e2e_faas_function.test.id
-  project_id  = "%s"
-  location    = "%s"
-}
-`, name, namespace, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  function_id = e2e_faas_function.test.id}
+`, name, namespace)
 }
 
 func testAccDataSourceE2EFaasFunctionConfig_withEnvironment(name, namespace string) string {
@@ -176,18 +158,11 @@ resource "e2e_faas_function" "test" {
   environment = {
     ENV   = "production"
     DEBUG = "false"
-  }
-  project_id = "%s"
-  location   = "%s"
-}
+  }}
 
 data "e2e_faas_function" "test" {
-  function_id = e2e_faas_function.test.id
-  project_id  = "%s"
-  location    = "%s"
-}
-`, name, namespace, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  function_id = e2e_faas_function.test.id}
+`, name, namespace)
 }
 
 func testAccDataSourceE2EFaasFunctionConfig_nodejs(name, namespace string) string {
@@ -200,26 +175,16 @@ resource "e2e_faas_function" "test" {
     module.exports = async (event, context) => {
       return {statusCode: 200, body: "Hello from Node.js"};
     };
-  EOT
-  project_id = "%s"
-  location   = "%s"
-}
+  EOT}
 
 data "e2e_faas_function" "test" {
-  function_id = e2e_faas_function.test.id
-  project_id  = "%s"
-  location    = "%s"
-}
-`, name, namespace, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"),
-		os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  function_id = e2e_faas_function.test.id}
+`, name, namespace)
 }
 
 func testAccDataSourceE2EFaasFunctionConfig_notFound() string {
-	return fmt.Sprintf(`
+	return `
 data "e2e_faas_function" "test" {
-  function_id = "non-existent-function-id-12345"
-  project_id  = "%s"
-  location    = "%s"
-}
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+  function_id = "non-existent-function-id-12345"}
+`
 }

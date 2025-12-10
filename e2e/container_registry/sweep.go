@@ -1,16 +1,18 @@
 package container_registry
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"os"
+	"strconv"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sweep"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-const testNamePrefix = "test-cr-"
+const testNamePrefix = sweep.TestNamePrefix + "cr-"
 
 func init() {
 	resource.AddTestSweepers("e2e_container_registry", &resource.Sweeper{
@@ -20,22 +22,17 @@ func init() {
 }
 
 func sweepContainerRegistries(region string) error {
-	cfg, err := sharedConfigForRegion(region)
+	client, err := sweep.SharedGoe2eClientForTests()
 	if err != nil {
-		return fmt.Errorf("error getting config for region %s: %w", region, err)
-	}
-
-	client := cfg.Client()
-
-	projectID := os.Getenv("E2E_TEST_PROJECT_ID")
-	location := os.Getenv("E2E_TEST_LOCATION")
-
-	if projectID == "" || location == "" {
-		log.Printf("[WARNING] E2E_TEST_PROJECT_ID or E2E_TEST_LOCATION not set, skipping sweep")
+		log.Printf("[WARNING] %v - skipping sweep", err)
 		return nil
 	}
 
-	registries, err := client.GetContainerRegistryProjects(projectID, location)
+	ctx := context.Background()
+
+	// List all registries (no pagination limit, just get all)
+	listOpts := &goe2e.ContainerRegistryListOptions{Page: 1, PageSize: 100}
+	registries, _, err := client.ContainerRegistry.ListContainerRegistryProjects(ctx, listOpts)
 	if err != nil {
 		return fmt.Errorf("error listing container registries: %w", err)
 	}
@@ -52,9 +49,15 @@ func sweepContainerRegistries(region string) error {
 		log.Printf("[INFO] Deleting container registry: %s (ID: %d)", registry.ProjectName, registry.ID)
 
 		registryID := fmt.Sprintf("%d", registry.ID)
-		userID := "0"
+		userID := strconv.Itoa(registry.Customer)
 
-		err := client.DeleteContainerRegistry(registryID, registry.ProjectName, userID, projectID, location)
+		deleteReq := &goe2e.ContainerRegistryDeleteRequest{
+			CRProjectID: registryID,
+			ProjectName: registry.ProjectName,
+			UserID:      userID,
+		}
+
+		_, err := client.ContainerRegistry.DeleteContainerRegistry(ctx, deleteReq)
 		if err != nil {
 			log.Printf("[ERROR] Failed to delete container registry %s: %v", registry.ProjectName, err)
 			continue
@@ -67,29 +70,4 @@ func sweepContainerRegistries(region string) error {
 	log.Printf("[INFO] Swept %d container registries", sweptCount)
 
 	return nil
-}
-
-func sharedConfigForRegion(region string) (*config.Config, error) {
-	apiKey := os.Getenv("SERVICE_API_KEY")
-	authToken := os.Getenv("SERVICE_AUTH_TOKEN")
-	apiEndpoint := os.Getenv("SERVICE_API_ENDPOINT")
-
-	if apiKey == "" {
-		return nil, fmt.Errorf("SERVICE_API_KEY must be set for acceptance tests")
-	}
-
-	if authToken == "" {
-		return nil, fmt.Errorf("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-
-	if apiEndpoint == "" {
-		apiEndpoint = "https://api.e2enetworks.com/myaccount/api/v1/"
-	}
-
-	cfg, err := config.NewConfig(apiKey, authToken, apiEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("error creating config: %w", err)
-	}
-
-	return cfg, nil
 }

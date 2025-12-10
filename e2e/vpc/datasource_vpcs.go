@@ -2,85 +2,77 @@ package vpc
 
 import (
 	"context"
-	// "fmt"
 	"log"
-	// "math"
-	// "regexp"
-
-	// "strconv"
-	//"strings"
-
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
-
-	// "github.com/hashicorp/terraform-plugin-log"
-	// "github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func DataSourceVpcs() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: dataSourceReadVpcs,
+		Importer: &schema.ResourceImporter{
+			State: schema.ImportStatePassthrough,
+		},
 		Schema: map[string]*schema.Schema{
-			"region": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Region should specified",
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "ID of the project. It should be unique",
-			},
+			// Common fields
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// Resource-specific fields
 			"vpc_list": {
 				Type:        schema.TypeList,
 				Computed:    true,
-				Description: "List of all the Vpcs. You can attach these vpcs to launch resources ",
+				Description: "list of all VPCs (you can attach these VPCs to launch resources)",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"network_id": {
 							Type:        schema.TypeFloat,
 							Computed:    true,
-							Description: "The id of network",
+							Description: "id of the VPC network",
 						},
 						"pool_size": {
-							Type:     schema.TypeFloat,
-							Computed: true,
+							Type:        schema.TypeFloat,
+							Computed:    true,
+							Description: "the pool size of the VPC",
 						},
-						"created_at": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrCreatedAt: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the creation date for the VPC",
 						},
-						"state": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrStatus: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "status of the VPC instance",
 						},
-						"name": {
-							Type:     schema.TypeString,
-							Computed: true,
+						e2econstants.AttrName: {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "name of the VPC",
 						},
 						"ipv4_cidr": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the IPv4 CIDR block of the VPC",
 						},
 						"gateway_ip": {
-							Type:     schema.TypeString,
-							Computed: true,
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "the gateway IP address of the VPC",
 						},
 						"is_active": {
-							Type:     schema.TypeBool,
-							Computed: true,
+							Type:        schema.TypeBool,
+							Computed:    true,
+							Description: "whether the VPC is active",
 						},
 					},
 				},
 			},
-		},
-		ReadContext: dataSourceReadVpcs,
-		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
 		},
 	}
 }
@@ -89,44 +81,38 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 
 	var diags diag.Diagnostics
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	log.Printf("[INFO] Inside vpcs data source ")
 
-	region, okRegion := d.Get("region").(string)
-	projectID, okProjectID := d.Get("project_id").(string)
-	if !okRegion || !okProjectID {
-		return diag.Errorf("region or project_id is not set or has an unexpected type")
-	}
-	Response, err := apiClient.GetVpcs(region, projectID)
+	vpcs, _, err := goe2eClient.Vpcs.ListVPCs(ctx)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	log.Printf("[INFO] %v", Response)
-	if Response.Data != nil {
-		d.Set("vpc_list", flattenVpcs(&Response.Data))
+	log.Printf("[INFO] %v", vpcs)
+	if len(vpcs) > 0 {
+		d.Set("vpc_list", flattenVpcs(vpcs))
 		d.SetId("vpc_list")
 	} else {
-		log.Printf("[ERROR] VPC list is nil in the response")
+		log.Printf("[ERROR] VPC list is empty in the response")
 	}
 	return diags
 }
 
-func flattenVpcs(vpcList *[]models.Vpc) []interface{} {
+func flattenVpcs(vpcList []goe2e.Vpc) []interface{} {
 
-	if vpcList != nil {
-		ois := make([]interface{}, len(*vpcList))
+	if len(vpcList) > 0 {
+		ois := make([]interface{}, len(vpcList))
 
-		for i, vpc := range *vpcList {
+		for i, vpc := range vpcList {
 			oi := make(map[string]interface{})
-			oi["network_id"] = vpc.Network_id
-			oi["pool_size"] = vpc.Pool_size
-			oi["created_at"] = vpc.Created_at
+			oi["network_id"] = vpc.ID
+			oi["pool_size"] = vpc.PoolSize
+			oi["created_at"] = vpc.CreatedAt
 			oi["name"] = vpc.Name
-			oi["is_active"] = vpc.Is_active
-			oi["gateway_ip"] = vpc.Gateway_ip
-			oi["ipv4_cidr"] = vpc.Ipv4_cidr
-			oi["network_id"] = vpc.Network_id
-			oi["state"] = vpc.State
+			oi["is_active"] = vpc.IsActive
+			oi["gateway_ip"] = vpc.GatewayIP
+			oi["ipv4_cidr"] = vpc.IPv4CIDR
+			oi[e2econstants.AttrStatus] = vpc.State
 			ois[i] = oi
 		}
 

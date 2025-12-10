@@ -4,9 +4,15 @@ terraform.tfstate.backup
 .terraform
 terraform-provider-e2e
 .terraform.lock.hcl
+.claude
+*.code-workspace
 
 # Build output directory
 bin/
 
 # Vendor directory
 vendor/
+
+# prompts directory
+prompts/
+.DS_Store

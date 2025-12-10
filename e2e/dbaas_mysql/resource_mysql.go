@@ -5,504 +5,756 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceMySql() *schema.Resource {
 	return &schema.Resource{
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceMySQLResourceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceMySQLStateUpgradeV0toV1,
+				Version: 0,
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
-			"location": {
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED IMMUTABLE FIELDS
+			// ============================================
+			e2econstants.AttrVersion: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "location should specified",
+				Description: "the MySQL version to use (e.g., 5.6, 5.7, 8.0)",
 			},
-			"project_id": {
+			e2econstants.AttrDatabase: {
+				Type:        schema.TypeList,
+				Required:    true,
+				MaxItems:    1,
+				Description: "database configuration (user, password, database name)",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"user": {
+							Type:        schema.TypeString,
+							Required:    true,
+							ForceNew:    true,
+							Description: "the database username",
+						},
+						"password": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Sensitive:   true,
+							Description: "the database password",
+						},
+						"dbaas_number": {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Default:     1,
+							ForceNew:    true,
+							Description: "the DBaaS number (typically 1)",
+						},
+						"name": {
+							Type:        schema.TypeString,
+							Required:    true,
+							ForceNew:    true,
+							Description: "name of the database to create",
+						},
+					},
+				},
+			},
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "ID of the project, this should be unique",
+				Description: "the plan name for the MySQL DBaaS instance",
 			},
-			"version": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "this field is to specifiy which version of MYSQL user wants to cerate",
-			},
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - IMMUTABLE
+			// ============================================
 			"dbaas_name": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "have to figure out what to write",
+				ForceNew:    true,
+				Description: "name of the MySQL DBaaS instance",
 			},
-			"database": {
+			"db_location": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Delhi",
+				ForceNew:    true,
+				Description: "the location of the MySQL DBaaS instance",
+			},
+			"is_encryption_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Computed:    true,
+				ForceNew:    true,
+				Description: "whether encryption is enabled for the MySQL DBaaS instance",
+			},
+			"encryption_passphrase": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Sensitive:   true,
+				Description: "encryption passphrase (required if encryption enabled)",
+			},
+			e2econstants.AttrGroup: {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Default",
+				ForceNew:    true,
+				Description: "the group name for the instance",
+			},
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - MUTABLE
+			// ============================================
+			e2econstants.AttrVPCs: {
+				Type:        schema.TypeSet,
+				Elem:        &schema.Schema{Type: schema.TypeInt},
+				Optional:    true,
+				Description: "list of VPC ids to attach to the MySQL DBaaS instance",
+			},
+			e2econstants.AttrParameterGroupID: {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Description: "id of the parameter group to attach",
+			},
+			e2econstants.AttrPublicIPRequired: {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+				Description: "whether to attach a public IP to the MySQL DBaaS instance",
+			},
+			e2econstants.AttrSize: {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Description: "additional disk size in gigabytes to attach (cumulative across updates)",
+			},
+
+			// ============================================
+			// POWER MANAGEMENT
+			// ============================================
+			e2econstants.AttrStatus: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+				ValidateFunc: validation.StringInSlice(
+					[]string{"STOPPED", "SUSPENDED", "RUNNING", "RESTARTING", "start", "stop", "restart"},
+					false,
+				),
+				Description: "state of the MySQL DBaaS instance (use 'SUSPENDED' to stop, 'RUNNING' to start, 'RESTARTING' to restart)",
+			},
+
+			// ============================================
+			// V3 OPTIONAL FIELDS
+			// ============================================
+			"tags": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Description: "map of tags to assign to the resource (state-only, API support pending)",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - RESOURCES
+			// ============================================
+			e2econstants.AttrDisk: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the total disk size of the MySQL DBaaS instance after expansions",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			e2econstants.AttrPublicIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the MySQL instance public IPv4 address (if public IP attached)",
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the MySQL instance private IPv4 address",
+			},
+			"port": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the port number for MySQL service (typically 3306)",
+			},
+		},
+
+		CreateContext: resourceCreateMySqlDB,
+		ReadContext:   resourceReadMySqlDB,
+		UpdateContext: resourceUpdateMySqlDB,
+		DeleteContext: resourceDeleteMySqlDB,
+
+		Importer: &schema.ResourceImporter{
+			State: customImportStateFunc,
+		},
+	}
+}
+
+func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	cfg := m.(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
+	var diags diag.Diagnostics
+
+	projectID, err := cfg.GetProjectIDOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	region, err := cfg.GetRegionOrDefault(d)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	softwareName := "MySQL"
+	softwareVersion := d.Get(e2econstants.AttrVersion).(string)
+	planName := d.Get(e2econstants.AttrPlan).(string)
+
+	// Get software ID using goe2e client
+	softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, softwareName, softwareVersion)
+	if err != nil {
+		return diag.Errorf("error retrieving %s software ID for version (%s) in project (%s), region (%s): %s", softwareName, softwareVersion, projectID, region, err)
+	}
+
+	// Get template ID using goe2e client
+	templateID, err := goe2eClient.DBaaSMySQL.GetTemplateID(ctx, planName, softwareID)
+	if err != nil {
+		return diag.Errorf("error retrieving %s template ID for plan (%s) in project (%s), region (%s): %s", softwareName, planName, projectID, region, err)
+	}
+
+	// Build create request using helper
+	createReq, err := buildMySQLCreateRequest(ctx, d, goe2eClient, softwareID, templateID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Create MySQL cluster using goe2e client
+	mysql, _, err := goe2eClient.DBaaSMySQL.CreateCluster(ctx, createReq)
+	if err != nil {
+		return diag.Errorf("error creating MySQL DBaaS (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
+	}
+
+	// Set resource ID
+	d.SetId(strconv.Itoa(mysql.ID))
+
+	// Set computed fields from create response
+	if err := d.Set(e2econstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[INFO] Successfully created MySQL cluster: %s (ID: %d)", mysql.Name, mysql.ID)
+
+	return diags
+}
+
+func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	cfg := m.(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
+	var diags diag.Diagnostics
+
+	id := d.Id()
+
+	// Get MySQL cluster using goe2e client
+	mysql, _, err := goe2eClient.DBaaSMySQL.GetCluster(ctx, id)
+	if err != nil {
+		return diag.Errorf("error retrieving MySQL DBaaS (ID: %s): %s", id, err)
+	}
+
+	// Check if resource was deleted
+	if mysql == nil {
+		log.Printf("[WARN] MySQL cluster %s not found, removing from state", id)
+		d.SetId("")
+		return diags
+	}
+
+	// Set status
+	if err := d.Set(e2econstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set encryption status
+	if err := d.Set("is_encryption_enabled", mysql.IsEncryptionEnabled); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set parameter group ID (with nil check for PGDetail)
+	pgID := 0
+	if mysql.MasterNode.Database.PGDetail.ID != 0 {
+		pgID = mysql.MasterNode.Database.PGDetail.ID
+	}
+	if err := d.Set(e2econstants.AttrParameterGroupID, pgID); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set disk size
+	if err := d.Set(e2econstants.AttrDisk, mysql.MasterNode.Disk); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set network information
+	if err := d.Set(e2econstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set(e2econstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
+		return diag.FromErr(err)
+	}
+
+	log.Printf("[DEBUG] Successfully read MySQL cluster: %s (ID: %s)", mysql.Name, id)
+
+	return diags
+}
+
+func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	cfg := m.(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
+	id := d.Id()
+
+	// Handle status changes (power management)
+	if d.HasChange("status") {
+		newStatus := d.Get("status").(string)
+		log.Printf("[INFO] Status change detected for MySQL cluster %s: %s", id, newStatus)
+
+		switch strings.ToUpper(newStatus) {
+		case "SUSPENDED", "STOPPED":
+			if _, err := goe2eClient.DBaaSMySQL.StopCluster(ctx, id); err != nil {
+				return diag.Errorf("error stopping MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			log.Printf("[INFO] Successfully stopped MySQL cluster %s", id)
+		case "RUNNING", "START":
+			if _, err := goe2eClient.DBaaSMySQL.StartCluster(ctx, id); err != nil {
+				return diag.Errorf("error starting MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			log.Printf("[INFO] Successfully started MySQL cluster %s", id)
+		case "RESTARTING", "RESTART":
+			if _, err := goe2eClient.DBaaSMySQL.RestartCluster(ctx, id); err != nil {
+				return diag.Errorf("error restarting MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			log.Printf("[INFO] Successfully restarted MySQL cluster %s", id)
+		default:
+			return diag.Errorf("error updating MySQL DBaaS (ID: %s): unsupported status value: %s. Must be one of: SUSPENDED, STOPPED, RUNNING, START, RESTARTING, RESTART", id, newStatus)
+		}
+	}
+
+	// Handle VPC changes
+	if d.HasChange(e2econstants.AttrVPCs) {
+		prevRaw, newRaw := d.GetChange(e2econstants.AttrVPCs)
+		prevSet := prevRaw.(*schema.Set)
+		newSet := newRaw.(*schema.Set)
+
+		// Calculate added and removed VPCs
+		var added, removed []interface{}
+		for _, v := range newSet.List() {
+			if !prevSet.Contains(v) {
+				added = append(added, v)
+			}
+		}
+		for _, v := range prevSet.List() {
+			if !newSet.Contains(v) {
+				removed = append(removed, v)
+			}
+		}
+
+		// Attach new VPCs
+		if len(added) > 0 {
+			log.Printf("[INFO] Attaching VPCs to MySQL cluster %s: %v", id, added)
+			vpcDetails, err := expandVPCList(ctx, goe2eClient, added)
+			if err != nil {
+				d.Set(e2econstants.AttrVPCs, prevSet)
+				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			attachReq := &goe2e.MySQLVPCAttachRequest{
+				Action: "attach",
+				VPCs:   vpcDetails,
+			}
+			if _, err := goe2eClient.DBaaSMySQL.AttachVPC(ctx, id, attachReq); err != nil {
+				d.Set(e2econstants.AttrVPCs, prevSet)
+				return diag.Errorf("error attaching VPC to MySQL DBaaS (ID: %s): %s", id, err)
+			}
+		}
+
+		// Detach removed VPCs
+		if len(removed) > 0 {
+			log.Printf("[INFO] Detaching VPCs from MySQL cluster %s: %v", id, removed)
+			vpcDetails, err := expandVPCList(ctx, goe2eClient, removed)
+			if err != nil {
+				d.Set(e2econstants.AttrVPCs, prevSet)
+				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			detachReq := &goe2e.MySQLVPCDetachRequest{
+				Action: "detach",
+				VPCs:   vpcDetails,
+			}
+			if _, err := goe2eClient.DBaaSMySQL.DetachVPC(ctx, id, detachReq); err != nil {
+				d.Set(e2econstants.AttrVPCs, prevSet)
+				return diag.Errorf("error detaching VPC from MySQL DBaaS (ID: %s): %s", id, err)
+			}
+		}
+	}
+
+	// Handle parameter group changes
+	if d.HasChange(e2econstants.AttrParameterGroupID) {
+		oldRaw, newRaw := d.GetChange(e2econstants.AttrParameterGroupID)
+		oldPGID := oldRaw.(int)
+		newPGID := newRaw.(int)
+
+		log.Printf("[INFO] Parameter group change detected for MySQL cluster %s: %d -> %d", id, oldPGID, newPGID)
+
+		switch {
+		case oldPGID != 0 && newPGID == 0:
+			// Detach parameter group
+			if _, err := goe2eClient.DBaaSMySQL.DetachParameterGroup(ctx, id, strconv.Itoa(oldPGID)); err != nil {
+				return diag.Errorf("error detaching parameter group (ID: %d) from MySQL DBaaS (ID: %s): %s", oldPGID, id, err)
+			}
+			log.Printf("[INFO] Successfully detached parameter group %d from MySQL cluster %s", oldPGID, id)
+		case newPGID != 0 && newPGID != oldPGID:
+			// Attach new parameter group
+			if _, err := goe2eClient.DBaaSMySQL.AttachParameterGroup(ctx, id, strconv.Itoa(newPGID)); err != nil {
+				return diag.Errorf("error attaching parameter group (ID: %d) to MySQL DBaaS (ID: %s): %s", newPGID, id, err)
+			}
+			log.Printf("[INFO] Successfully attached parameter group %d to MySQL cluster %s", newPGID, id)
+		}
+	}
+
+	// Handle public IP changes
+	if d.HasChange(e2econstants.AttrPublicIPRequired) {
+		newVal := d.Get(e2econstants.AttrPublicIPRequired).(bool)
+		log.Printf("[INFO] Public IP change detected for MySQL cluster %s: %v", id, newVal)
+
+		if newVal {
+			if _, err := goe2eClient.DBaaSMySQL.AttachPublicIP(ctx, id); err != nil {
+				return diag.Errorf("error attaching public IP to MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			log.Printf("[INFO] Successfully attached public IP to MySQL cluster %s", id)
+		} else {
+			if _, err := goe2eClient.DBaaSMySQL.DetachPublicIP(ctx, id); err != nil {
+				return diag.Errorf("error detaching public IP from MySQL DBaaS (ID: %s): %s", id, err)
+			}
+			log.Printf("[INFO] Successfully detached public IP from MySQL cluster %s", id)
+		}
+	}
+
+	// Handle plan upgrade
+	if d.HasChange("plan") {
+		oldPlan, newPlan := d.GetChange("plan")
+		log.Printf("[INFO] Plan change detected for MySQL cluster %s: %s -> %s", id, oldPlan.(string), newPlan.(string))
+
+		// Verify cluster is suspended
+		status := d.Get("status").(string)
+		if strings.ToUpper(status) != "SUSPENDED" && strings.ToUpper(status) != "STOPPED" {
+			d.Set("plan", oldPlan.(string))
+			return diag.Errorf("cannot upgrade plan for MySQL DBaaS (ID: %s): database must be in SUSPENDED/STOPPED state (current state: %s). Please stop the instance first", id, status)
+		}
+
+		// Get version for software ID lookup
+		version := d.Get(e2econstants.AttrVersion).(string)
+
+		// Get software ID and template ID
+		softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, "MySQL", version)
+		if err != nil {
+			d.Set("plan", oldPlan.(string))
+			return diag.Errorf("error retrieving MySQL software ID for version (%s) while upgrading plan for DBaaS (ID: %s): %s", version, id, err)
+		}
+
+		templateID, err := goe2eClient.DBaaSMySQL.GetTemplateID(ctx, newPlan.(string), softwareID)
+		if err != nil {
+			d.Set("plan", oldPlan.(string))
+			return diag.Errorf("error retrieving MySQL template ID for plan (%s) while upgrading DBaaS (ID: %s): %s", newPlan.(string), id, err)
+		}
+
+		// Upgrade the plan
+		upgradeReq := &goe2e.MySQLPlanUpgradeRequest{
+			TemplateID: templateID,
+		}
+		if _, err := goe2eClient.DBaaSMySQL.UpgradePlan(ctx, id, upgradeReq); err != nil {
+			d.Set("plan", oldPlan.(string))
+			return diag.Errorf("error upgrading MySQL DBaaS (ID: %s) plan from (%s) to (%s): %s", id, oldPlan.(string), newPlan.(string), err)
+		}
+
+		log.Printf("[INFO] Successfully upgraded MySQL cluster %s to plan %s (template_id=%d)", id, newPlan, templateID)
+	}
+
+	// Handle disk expansion
+	if d.HasChange(e2econstants.AttrSize) {
+		additionalSize := d.Get(e2econstants.AttrSize).(int)
+
+		if additionalSize > 0 {
+			log.Printf("[INFO] Disk expansion requested for MySQL cluster %s: +%d GB", id, additionalSize)
+
+			// Expand the disk
+			expandReq := &goe2e.DiskExpansionRequest{
+				Size: additionalSize,
+			}
+			if _, err := goe2eClient.DBaaSMySQL.ExpandDisk(ctx, id, expandReq); err != nil {
+				d.Set(e2econstants.AttrSize, 0)
+				return diag.Errorf("error expanding MySQL DBaaS (ID: %s) disk by %d GB: %s", id, additionalSize, err)
+			}
+
+			log.Printf("[INFO] Successfully expanded disk by %d GB for MySQL cluster %s", additionalSize, id)
+
+			// Reset size to 0 after expansion (cumulative behavior)
+			if err := d.Set(e2econstants.AttrSize, 0); err != nil {
+				return diag.FromErr(err)
+			}
+		} else {
+			log.Printf("[DEBUG] size is 0 for MySQL cluster %s, skipping expansion", id)
+		}
+	}
+
+	// Handle tags (state-only, no API call)
+	if d.HasChange("tags") {
+		log.Printf("[INFO] MySQL cluster %s: tags updated (state-only, not sent to API)", id)
+	}
+
+	// Refresh state by reading the resource
+	return resourceReadMySqlDB(ctx, d, m)
+}
+
+func resourceDeleteMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	cfg := m.(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
+	var diags diag.Diagnostics
+
+	id := d.Id()
+
+	log.Printf("[INFO] Deleting MySQL cluster: %s", id)
+
+	// Delete MySQL cluster using goe2e client
+	_, err := goe2eClient.DBaaSMySQL.DeleteCluster(ctx, id)
+	if err != nil {
+		// Check if already deleted (404 or "not found" error)
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+			log.Printf("[WARN] MySQL cluster %s already deleted", id)
+			d.SetId("")
+			return diags
+		}
+		return diag.Errorf("error deleting MySQL DBaaS (ID: %s): %s", id, err)
+	}
+
+	log.Printf("[INFO] Successfully deleted MySQL cluster: %s", id)
+	d.SetId("")
+	return diags
+}
+
+func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), ":")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid ID format: expected project_id:dbaas_id")
+	}
+
+	projectID := parts[0]
+	dbaasID := parts[1]
+
+	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+		return nil, err
+	}
+	d.SetId(dbaasID)
+
+	return []*schema.ResourceData{d}, nil
+}
+
+// ============================================
+// STATE MIGRATION: V0 → V1
+// ============================================
+
+// resourceMySQLResourceV0 returns the V0 schema definition (before tags were added)
+func resourceMySQLResourceV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED IMMUTABLE FIELDS
+			// ============================================
+			e2econstants.AttrVersion: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			e2econstants.AttrDatabase: {
 				Type:     schema.TypeList,
 				Required: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"user": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "This is the username of the databse",
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
 						},
 						"password": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Sensitive:   true,
-							Description: "This the passowrd of the database",
+							Type:      schema.TypeString,
+							Required:  true,
+							Sensitive: true,
 						},
 						"dbaas_number": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Default:  1,
+							ForceNew: true,
 						},
 						"name": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "This the name of database",
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
 						},
 					},
 				},
 			},
-			"vpcs": {
-				Type:        schema.TypeSet,
-				Elem:        &schema.Schema{Type: schema.TypeInt},
-				Optional:    true,
-				Description: "List of vpc Id which you want to attach",
+			e2econstants.AttrPlan: {
+				Type:     schema.TypeString,
+				Required: true,
 			},
-			"plan": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "This the name of plan which user wants to select",
-			},
-			"status": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Optional:    true,
-				Description: "This is the status of your dbaas, only to get the status from my account.",
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - IMMUTABLE
+			// ============================================
+			"dbaas_name": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
 			},
 			"db_location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "Delhi",
-				Description: "This is the location of your db",
-				ForceNew:    true,
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "Delhi",
+				ForceNew: true,
 			},
 			"is_encryption_enabled": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Computed:    true,
-				Description: "look what to write",
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+				ForceNew: true,
 			},
-			"parameter_group_id": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "ID of parameter group that need to be attached",
+			"encryption_passphrase": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				ForceNew:  true,
+				Sensitive: true,
 			},
-			"public_ip_required": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     true,
-				Description: "want to attach public ip or not",
+			e2econstants.AttrGroup: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "Default",
+				ForceNew: true,
 			},
-			"size": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "additional size of disk you want to attach",
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - MUTABLE
+			// ============================================
+			e2econstants.AttrVPCs: {
+				Type:     schema.TypeSet,
+				Elem:     &schema.Schema{Type: schema.TypeInt},
+				Optional: true,
 			},
-			"disk": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Disk size",
+			e2econstants.AttrParameterGroupID: {
+				Type:     schema.TypeInt,
+				Optional: true,
 			},
-			"group": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "",
-				Default:     "Default",
+			e2econstants.AttrPublicIPRequired: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
 			},
+			e2econstants.AttrSize: {
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
+
+			// ============================================
+			// POWER MANAGEMENT
+			// ============================================
+			e2econstants.AttrStatus: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+				ValidateFunc: validation.StringInSlice(
+					[]string{"STOPPED", "SUSPENDED", "RUNNING", "RESTARTING", "start", "stop", "restart"},
+					false,
+				),
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - RESOURCES
+			// ============================================
+			e2econstants.AttrDisk: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - NETWORK
+			// ============================================
+			e2econstants.AttrPublicIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			e2econstants.AttrPrivateIPAddress: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"port": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			// Note: V0 schema does not have "tags" field
 		},
-
-		CreateContext: ResourceCreateMySqlDB,
-		ReadContext:   ResourceReadMySqlDB,
-		UpdateContext: ResourceUpdateMySqlDB,
-		DeleteContext: ResourceDeleteMySqlDB,
-		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
-		},
 	}
 }
 
-func CreateMySqlObject(apiClient *client.Client, d *schema.ResourceData) (*models.MySqlCreate, diag.Diagnostics) {
-
-	mySqlobject := models.MySqlCreate{
-		Name:             d.Get("dbaas_name").(string),
-		ParameterGroupId: d.Get("parameter_group_id").(int),
-		PublicIPRequired: d.Get("public_ip_required").(bool),
-		Group:            d.Get("group").(string),
+// resourceMySQLStateUpgradeV0toV1 upgrades the state from V0 to V1
+// V1 adds the "tags" field for state-only tag management
+func resourceMySQLStateUpgradeV0toV1(
+	ctx context.Context,
+	rawState map[string]interface{},
+	meta interface{},
+) (map[string]interface{}, error) {
+	// Add new V1 fields with defaults
+	if _, exists := rawState["tags"]; !exists {
+		rawState["tags"] = make(map[string]interface{})
 	}
 
-	dbList := d.Get("database").([]interface{})
-	if len(dbList) > 0 {
-		dbMap := dbList[0].(map[string]interface{})
+	// Preserve all existing fields - no modifications needed
+	log.Printf("[INFO] Upgraded MySQL resource state from v0 to v1: %s", rawState["id"])
 
-		mySqlobject.Database = models.DBConfig{
-			User:        dbMap["user"].(string),
-			Password:    dbMap["password"].(string),
-			Name:        dbMap["name"].(string),
-			DBaaSNumber: dbMap["dbaas_number"].(int),
-		}
-
-	}
-
-	project_id := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	database_version := d.Get("version").(string)
-
-	softwareId, err := apiClient.GetSoftwareId(project_id, location, "MySQL", database_version)
-
-	if err != nil {
-		return nil, diag.FromErr(err)
-	}
-	mySqlobject.SoftwareID = softwareId
-
-	templateId, err := apiClient.GetTemplateId(project_id, location, d.Get("plan").(string), strconv.Itoa(softwareId))
-	if err != nil {
-		return nil, diag.FromErr(err)
-	}
-	mySqlobject.TemplateID = templateId
-
-	vpcList, ok := d.GetOk("vpcs")
-	if ok {
-		vpcListDetail, err := ExpandVpcList(d, vpcList.(*schema.Set).List(), apiClient)
-		if err != nil {
-			return nil, diag.FromErr(err)
-		}
-		mySqlobject.Vpcs = vpcListDetail
-	} else {
-		mySqlobject.Vpcs = make([]models.VPC, 0)
-	}
-
-	return &mySqlobject, nil
-}
-
-func ResourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	var diags diag.Diagnostics
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-
-	mySqlObj, diags := CreateMySqlObject(apiClient, d)
-
-	if diags != nil {
-		log.Println("[ERROR] CreateMySqlObject returned error or nil object")
-		return diags
-	}
-
-	response, err := apiClient.NewMySqlDb(mySqlObj, d.Get("project_id").(string), d.Get("location").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	dataRaw, ok := response["data"]
-	if !ok {
-		return diag.Errorf("missing 'data' field in response")
-	}
-
-	data, ok := dataRaw.(map[string]interface{})
-	if !ok {
-		return diag.Errorf("invalid type for 'data' field in response")
-	}
-
-	idVal, idOK := data["id"].(float64)
-	if !idOK {
-		return diag.Errorf("id not found in response data")
-	}
-
-	d.SetId(strconv.Itoa(int(idVal)))
-	d.Set("status", data["status"].(string))
-	return diags
-}
-
-func ResourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-
-	res, err := apiClient.GetMySqlDbaas(d.Id(), d.Get("project_id").(string), d.Get("location").(string))
-	if err != nil {
-		return diag.Errorf("finding dbaas_mysql: %v", err)
-	}
-
-	data := res.Data
-	if err := d.Set("status", data.Status); err != nil {
-		log.Printf("[ERROR] Failed to set status: %v", err)
-	}
-
-	d.Set("status", data.Status)
-	d.Set("is_encryption_enabled", data.IsEncryptionEnabled)
-	d.Set("parameter_group_id", data.MasterNode.Database.PGDetail.ID)
-	d.Set("disk", data.MasterNode.Disk)
-
-	return diags
-}
-
-func ResourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	mySqlDBaaSId := d.Id()
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-
-	dbaasResp, err := apiClient.GetMySqlDbaas(mySqlDBaaSId, projectID, location)
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to fetch current DBaaS status: %v", err))
-	}
-
-	if dbaasResp == nil || dbaasResp.Data.Status == "" {
-		return diag.Errorf("invalid response from GetMySqlDbaas while checking status")
-	}
-
-	if dbaasResp.Data.Status == "CREATING" {
-		_ = ResourceReadMySqlDB(ctx, d, m)
-		return diag.Errorf("Cannot update MySQL DBaaS while it is in 'CREATING' state")
-	}
-
-	if d.HasChange("status") {
-		oldStatus, newStatus := d.GetChange("status")
-
-		if oldStatus == "CREATING" {
-			_ = ResourceReadMySqlDB(ctx, d, m)
-			return diag.Errorf("Cannot change status while DBaaS instance is still in 'CREATING' state")
-		}
-
-		switch newStatus {
-		case "start":
-			_, err := apiClient.ResumeMySqlDBaaS(mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("status", oldStatus)
-				return diag.FromErr(fmt.Errorf("failed to change status of MySQL DBaaS instance to start"))
-			}
-		case "stop":
-			_, err := apiClient.StopMySqlDBaaS(mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("status", oldStatus)
-				return diag.FromErr(fmt.Errorf("failed to change status of MySQL DBaaS instance to stop"))
-			}
-		case "restart":
-			_, err := apiClient.RestartMySqlDBaaS(mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("status", oldStatus)
-				return diag.FromErr(fmt.Errorf("failed to change status of MySQL DBaaS instance to restart"))
-			}
-		}
-	}
-
-	if d.HasChange("vpcs") {
-		prevRaw, newRaw := d.GetChange("vpcs")
-
-		prevSet := prevRaw.(*schema.Set)
-		newSet := newRaw.(*schema.Set)
-
-		added := schema.NewSet(schema.HashInt, []interface{}{})
-		for _, v := range newSet.List() {
-			if !prevSet.Contains(v) {
-				added.Add(v)
-			}
-		}
-
-		removed := schema.NewSet(schema.HashInt, []interface{}{})
-		for _, v := range prevSet.List() {
-			if !newSet.Contains(v) {
-				removed.Add(v)
-			}
-		}
-
-		if added.Len() > 0 {
-			vpcIDs := added.List()
-			vpcDetails, err := ExpandVpcList(d, vpcIDs, apiClient)
-			if err != nil {
-				d.Set("vpcs", prevSet)
-				return diag.FromErr(err)
-			}
-			attachObj := models.AttachVPCPayloadRequest{
-				Action: "attach",
-				VPCs:   vpcDetails,
-			}
-			_, err = apiClient.AttachVpcToMySql(&attachObj, mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("vpcs", prevSet)
-				return diag.FromErr(fmt.Errorf(" failed to attach VPC(s) to MySQL DBaaS instance"))
-			}
-		}
-
-		if removed.Len() > 0 {
-			vpcIDs := removed.List()
-			vpcDetails, err := ExpandVpcList(d, vpcIDs, apiClient)
-			if err != nil {
-				d.Set("vpcs", prevSet)
-				return diag.FromErr(err)
-			}
-			detachObj := models.AttachVPCPayloadRequest{
-				Action: "detach",
-				VPCs:   vpcDetails,
-			}
-			_, err = apiClient.DetachVpcFromMySql(&detachObj, mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("vpcs", prevSet)
-				return diag.FromErr(fmt.Errorf(" failed to detach VPC(s) from MySQL DBaaS instance"))
-			}
-		}
-	}
-
-	if d.HasChange("parameter_group_id") {
-		oldVal, newVal := d.GetChange("parameter_group_id")
-
-		oldInt, oldOK := oldVal.(int)
-		newInt, newOK := newVal.(int)
-
-		// PG added
-		if oldOK && newOK && oldInt == 0 && newInt != 0 {
-			_, err := apiClient.AttachPGToMySqlDBaaS(mySqlDBaaSId, strconv.Itoa(newInt), projectID, location)
-			if err != nil {
-				d.Set("parameter_group_id", oldVal)
-				return diag.FromErr(fmt.Errorf("failed to attach PG ID %d to DBaaS: %v", newInt, err))
-			}
-		}
-
-		// PG removed
-		if oldOK && newOK && oldInt != 0 && newInt == 0 {
-			_, err := apiClient.DetachPGFromMySqlDBaaS(mySqlDBaaSId, strconv.Itoa(oldInt), projectID, location)
-			if err != nil {
-				d.Set("parameter_group_id", oldVal)
-				return diag.FromErr(fmt.Errorf("failed to detach PG ID %d from DBaaS: %v", oldInt, err))
-			}
-		}
-	}
-
-	if d.HasChange("public_ip_required") {
-		oldVal, newVal := d.GetChange("public_ip_required")
-
-		oldBool := oldVal.(bool)
-		newBool := newVal.(bool)
-
-		if !oldBool && newBool {
-			_, err := apiClient.AttachPublicIPToMySql(mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("public_ip_required", oldVal)
-				return diag.FromErr(fmt.Errorf("failed to attach public IP: %v", err))
-			}
-		} else if oldBool && !newBool {
-			_, err := apiClient.DetachPublicIPFromMySql(mySqlDBaaSId, projectID, location)
-			if err != nil {
-				d.Set("public_ip_required", oldVal)
-				return diag.FromErr(fmt.Errorf("failed to detach public IP: %v", err))
-			}
-		}
-	}
-
-	if d.HasChange("plan") {
-		prevPlan, currPlan := d.GetChange("plan")
-
-		projectIDRaw, ok := d.GetOk("project_id")
-		if !ok || projectIDRaw == nil {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("project_id is required but not set")
-		}
-		project_id := projectIDRaw.(string)
-
-		locationRaw, ok := d.GetOk("location")
-		if !ok || locationRaw == nil {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("location is required but not set")
-		}
-		location := locationRaw.(string)
-
-		planRaw, ok := d.GetOk("plan")
-		if !ok || planRaw == nil {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("[ERROR]plan is required but not set")
-		}
-		plan := planRaw.(string)
-
-		versionRaw, ok := d.GetOk("version")
-		if !ok || versionRaw == nil {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("[ERROR]database_version is required but not set")
-		}
-		database_version := versionRaw.(string)
-
-		dbaas_id := d.Id()
-
-		software_id, err := apiClient.GetSoftwareId(project_id, location, "MySQL", database_version)
-		if err != nil {
-			d.Set("plan", prevPlan)
-			return diag.FromErr(fmt.Errorf(" error while fetching software id: %v", err))
-		}
-
-		template_id, err := apiClient.GetTemplateId(project_id, location, plan, strconv.Itoa(software_id))
-		if err != nil {
-			d.Set("plan", prevPlan)
-			return diag.FromErr(fmt.Errorf(" error while fetching template id: %v", err))
-		}
-
-		log.Printf("[INFO] prevPlan: %s, currPlan: %s", prevPlan.(string), currPlan.(string))
-
-		statusRaw, ok := d.GetOk("status")
-		if !ok || statusRaw == nil || statusRaw.(string) != "SUSPENDED" {
-			d.Set("plan", prevPlan)
-			return diag.Errorf("[ERROR]Node should be stopped before any upgradation ")
-		}
-
-		_, err = apiClient.UpgradeMySQLPlan(dbaas_id, template_id, project_id, location)
-		if err != nil {
-			d.Set("plan", prevPlan)
-			return diag.FromErr(fmt.Errorf(" error while upgrading plan: %v", err))
-		}
-	}
-
-	if d.HasChange("size") {
-		oldSizeRaw, newSizeRaw := d.GetChange("size")
-		oldSize := oldSizeRaw.(int)
-		newSize := newSizeRaw.(int)
-
-		_, err = apiClient.ExpandMySQLDBaaSDisk(mySqlDBaaSId, newSize, projectID, location)
-		if err != nil {
-			d.Set("size", oldSize)
-			return diag.FromErr(fmt.Errorf("failed to expand disk: %v", err))
-		}
-
-		// On success, update to oldSize + newSize
-		updatedSize := oldSize + newSize
-		d.Set("size", updatedSize)
-	}
-
-	return ResourceReadMySqlDB(ctx, d, m)
-
-}
-
-func ResourceDeleteMySqlDB(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
-	var diags diag.Diagnostics
-	mySqlDBaaSId := d.Id()
-
-	currentState := d.Get("status").(string)
-
-	if currentState == "CREATING" {
-		return diag.Errorf("Cannot delete DBaaS: the database is still in 'CREATING' state")
-	}
-
-	_, err := apiClient.DeleteMySqlDBaaS(mySqlDBaaSId, d.Get("project_id").(string), d.Get("location").(string))
-	if err != nil {
-		return diag.FromErr(fmt.Errorf(" error while deleting dbaas instance: %s", err))
-	}
-
-	d.SetId("")
-	return diags
+	return rawState, nil
 }

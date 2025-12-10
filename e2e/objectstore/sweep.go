@@ -1,16 +1,16 @@
 package objectstore
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/sweep"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-const testNamePrefix = "test-bucket-"
+const testNamePrefix = sweep.TestNamePrefix + "bucket-"
 
 func init() {
 	resource.AddTestSweepers("e2e_objectstore", &resource.Sweeper{
@@ -20,30 +20,22 @@ func init() {
 }
 
 func sweepObjectStores(region string) error {
-	cfg, err := sharedConfigForRegion(region)
+	goe2eClient, err := sweep.SharedGoe2eClientForTests()
 	if err != nil {
-		return fmt.Errorf("error getting config for region %s: %w", region, err)
-	}
-
-	client := cfg.Client()
-
-	projectID := os.Getenv("E2E_TEST_PROJECT_ID")
-	testRegion := os.Getenv("E2E_TEST_REGION")
-
-	if projectID == "" || testRegion == "" {
-		log.Printf("[WARNING] E2E_TEST_PROJECT_ID or E2E_TEST_REGION not set, skipping sweep")
+		log.Printf("[WARNING] %v - skipping sweep", err)
 		return nil
 	}
 
-	response, err := client.GetBuckets(testRegion, projectID)
+	ctx := context.Background()
+	buckets, _, err := goe2eClient.ObjectStorage.ListBuckets(ctx)
 	if err != nil {
 		return fmt.Errorf("error listing object store buckets: %w", err)
 	}
 
-	log.Printf("[DEBUG] Found %d object store buckets in total", len(response.Data))
+	log.Printf("[DEBUG] Found %d object store buckets in total", len(buckets))
 
 	sweptCount := 0
-	for _, bucket := range response.Data {
+	for _, bucket := range buckets {
 		if !strings.HasPrefix(bucket.Name, testNamePrefix) {
 			log.Printf("[DEBUG] Skipping object store bucket %s (does not have test prefix)", bucket.Name)
 			continue
@@ -51,7 +43,7 @@ func sweepObjectStores(region string) error {
 
 		log.Printf("[INFO] Deleting object store bucket: %s", bucket.Name)
 
-		err := client.DeleteBucket(bucket.Name, testRegion, projectID)
+		_, err := goe2eClient.ObjectStorage.DeleteBucket(ctx, bucket.Name)
 		if err != nil {
 			log.Printf("[ERROR] Failed to delete object store bucket %s: %v", bucket.Name, err)
 			continue
@@ -64,29 +56,4 @@ func sweepObjectStores(region string) error {
 	log.Printf("[INFO] Swept %d object store buckets", sweptCount)
 
 	return nil
-}
-
-func sharedConfigForRegion(region string) (*config.Config, error) {
-	apiKey := os.Getenv("SERVICE_API_KEY")
-	authToken := os.Getenv("SERVICE_AUTH_TOKEN")
-	apiEndpoint := os.Getenv("SERVICE_API_ENDPOINT")
-
-	if apiKey == "" {
-		return nil, fmt.Errorf("SERVICE_API_KEY must be set for acceptance tests")
-	}
-
-	if authToken == "" {
-		return nil, fmt.Errorf("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-
-	if apiEndpoint == "" {
-		apiEndpoint = "https://api.e2enetworks.com/myaccount/api/v1/"
-	}
-
-	cfg, err := config.NewConfig(apiKey, authToken, apiEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("error creating config: %w", err)
-	}
-
-	return cfg, nil
 }

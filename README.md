@@ -132,10 +132,10 @@ These tests create real resources on E2E Cloud and **require valid API credentia
 Set required environment variables:
 
 ```bash
-export SERVICE_API_KEY="your-api-key"
-export SERVICE_AUTH_TOKEN="your-auth-token"
+export E2E_API_KEY="your-api-key"
+export E2E_AUTH_TOKEN="your-auth-token"
 export E2E_TEST_PROJECT_ID="your-project-id"
-export E2E_TEST_LOCATION="your-location"
+export E2E_TEST_REGION="your-region"
 ```
 
 Run all acceptance tests:

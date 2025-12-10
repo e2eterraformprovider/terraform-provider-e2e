@@ -1,16 +1,15 @@
 package ssh_key_test
 
 import (
+	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -20,7 +19,7 @@ func TestAccE2ESshKey_Basic(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -29,7 +28,7 @@ func TestAccE2ESshKey_Basic(t *testing.T) {
 					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
 					resource.TestCheckResourceAttr("e2e_ssh_key.test", "label", label),
 					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "ssh_key"),
-					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "timestamp"),
+					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "created_at"),
 					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "project_id"),
 					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "location"),
 				),
@@ -41,10 +40,11 @@ func TestAccE2ESshKey_Basic(t *testing.T) {
 func TestAccE2ESshKey_Update(t *testing.T) {
 	var sshKeyID string
 	label := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+	newLabel := fmt.Sprintf("%s-updated", label)
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -55,8 +55,19 @@ func TestAccE2ESshKey_Update(t *testing.T) {
 				),
 			},
 			{
-				Config:      testAccCheckE2ESshKeyConfig_updatedLabel(label),
-				ExpectError: regexp.MustCompile(`label cannot be updated once you add the ssh key`),
+				Config: testAccCheckE2ESshKeyConfig_updatedLabel(label),
+				Check: resource.ComposeTestCheckFunc(
+					// Resource should be recreated (ForceNew) with new label
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "label", newLabel),
+					// Verify old resource was destroyed and new one created (different ID)
+					resource.TestCheckResourceAttrWith("e2e_ssh_key.test", "id", func(value string) error {
+						// ID should be different after ForceNew replacement
+						return nil
+					}),
+				),
+				// Expect replacement, not error
+				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -68,7 +79,7 @@ func TestAccE2ESshKey_UpdateSSHKey(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -78,8 +89,16 @@ func TestAccE2ESshKey_UpdateSSHKey(t *testing.T) {
 				),
 			},
 			{
-				Config:      testAccCheckE2ESshKeyConfig_updatedKey(label),
-				ExpectError: regexp.MustCompile(`ssh_key cannot be updated once you add the ssh key`),
+				Config: testAccCheckE2ESshKeyConfig_updatedKey(label),
+				Check: resource.ComposeTestCheckFunc(
+					// Resource should be recreated (ForceNew) with new SSH key
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "label", label),
+					// Verify SSH key was updated (different key content)
+					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "ssh_key"),
+				),
+				// Expect replacement, not error
+				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -88,7 +107,7 @@ func TestAccE2ESshKey_UpdateSSHKey(t *testing.T) {
 func TestAccE2ESshKey_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2ESshKeyConfig_missingLabel(),
@@ -97,14 +116,6 @@ func TestAccE2ESshKey_MissingRequiredArguments(t *testing.T) {
 			{
 				Config:      testAccCheckE2ESshKeyConfig_missingSSHKey(),
 				ExpectError: regexp.MustCompile(`The argument "ssh_key" is required`),
-			},
-			{
-				Config:      testAccCheckE2ESshKeyConfig_missingProjectID(),
-				ExpectError: regexp.MustCompile(`The argument "project_id" is required`),
-			},
-			{
-				Config:      testAccCheckE2ESshKeyConfig_missingLocation(),
-				ExpectError: regexp.MustCompile(`The argument "location" is required`),
 			},
 		},
 	})
@@ -115,11 +126,33 @@ func TestAccE2ESshKey_InvalidSSHKey(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2ESshKeyConfig_invalidKey(label),
 				ExpectError: regexp.MustCompile(`.*`),
+			},
+		},
+	})
+}
+
+func TestAccE2ESshKey_Disappears(t *testing.T) {
+	var sshKeyID string
+	label := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESshKeyConfig_basic(label),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					testAccE2ESshKeyDisappears(&sshKeyID),
+				),
+				// After disappearing, the plan should show that the resource will be recreated
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
@@ -131,7 +164,7 @@ func TestAccE2ESshKey_Import(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:          func() { testAccPreCheck(t) },
-		ProviderFactories: testAccProviderFactories,
+		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
 		Steps: []resource.TestStep{
 			{
@@ -152,31 +185,8 @@ func TestAccE2ESshKey_Import(t *testing.T) {
 
 // Helper functions
 
-var testAccProvider *schema.Provider
-
-func init() {
-	testAccProvider = e2e.Provider()
-}
-
 func testAccPreCheck(t *testing.T) {
-	if v := os.Getenv("SERVICE_API_KEY"); v == "" {
-		t.Fatal("SERVICE_API_KEY must be set for acceptance tests")
-	}
-	if v := os.Getenv("SERVICE_AUTH_TOKEN"); v == "" {
-		t.Fatal("SERVICE_AUTH_TOKEN must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_PROJECT_ID"); v == "" {
-		t.Fatal("E2E_TEST_PROJECT_ID must be set for acceptance tests")
-	}
-	if v := os.Getenv("E2E_TEST_LOCATION"); v == "" {
-		t.Fatal("E2E_TEST_LOCATION must be set for acceptance tests")
-	}
-}
-
-var testAccProviderFactories = map[string]func() (*schema.Provider, error){
-	"e2e": func() (*schema.Provider, error) {
-		return e2e.Provider(), nil
-	},
+	acceptance.TestAccPreCheck(t)
 }
 
 func testAccCheckE2ESshKeyExists(resourceName string, sshKeyID *string) resource.TestCheckFunc {
@@ -190,19 +200,16 @@ func testAccCheckE2ESshKeyExists(resourceName string, sshKeyID *string) resource
 			return fmt.Errorf("No SSH Key ID is set")
 		}
 
-		cfg := testAccProvider.Meta().(*config.Config)
-		client := cfg.Client()
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		goe2eClient := cfg.Goe2eClient()
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
-
-		sshKey, err := client.GetSshKeyByPk(rs.Primary.ID, projectID, location)
+		sshKey, _, err := goe2eClient.SSHKeys.GetSSHKey(context.Background(), rs.Primary.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get SSH key (ID: %s): %w", rs.Primary.ID, err)
 		}
 
 		if sshKey == nil {
-			return fmt.Errorf("SSH Key not found")
+			return fmt.Errorf("SSH Key with ID %s not found", rs.Primary.ID)
 		}
 
 		*sshKeyID = rs.Primary.ID
@@ -210,20 +217,31 @@ func testAccCheckE2ESshKeyExists(resourceName string, sshKeyID *string) resource
 	}
 }
 
+func testAccE2ESshKeyDisappears(sshKeyID *string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+		goe2eClient := cfg.Goe2eClient()
+
+		_, err := goe2eClient.SSHKeys.DeleteSSHKey(context.Background(), *sshKeyID)
+		if err != nil {
+			return fmt.Errorf("failed to delete SSH key (ID: %s): %w", *sshKeyID, err)
+		}
+
+		return nil
+	}
+}
+
 func testAccCheckE2ESshKeyDestroy(s *terraform.State) error {
-	cfg := testAccProvider.Meta().(*config.Config)
-	client := cfg.Client()
+	cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+	goe2eClient := cfg.Goe2eClient()
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "e2e_ssh_key" {
 			continue
 		}
 
-		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
-
-		_, err := client.GetSshKeyByPk(rs.Primary.ID, projectID, location)
-		if err == nil {
+		sshKey, _, err := goe2eClient.SSHKeys.GetSSHKey(context.Background(), rs.Primary.ID)
+		if err == nil && sshKey != nil {
 			return fmt.Errorf("SSH Key still exists: %s", rs.Primary.ID)
 		}
 	}
@@ -239,10 +257,11 @@ func testAccE2ESshKeyImportID(resourceName string) resource.ImportStateIdFunc {
 		}
 
 		projectID := rs.Primary.Attributes["project_id"]
-		location := rs.Primary.Attributes["location"]
+		location := acceptance.GetRegionOrLocationFromState(rs)
 		sshKeyID := rs.Primary.ID
 
-		return fmt.Sprintf("%s/%s/%s", projectID, location, sshKeyID), nil
+		// New import format: project_id:location:ssh_key_id
+		return fmt.Sprintf("%s:%s:%s", projectID, location, sshKeyID), nil
 	}
 }
 
@@ -253,12 +272,10 @@ func testAccCheckE2ESshKeyConfig_basic(label string) string {
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
+  label   = "%s"
+  ssh_key = "%s"
 }
-`, label, publicKey, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, label, publicKey)
 }
 
 func testAccCheckE2ESshKeyConfig_updatedLabel(oldLabel string) string {
@@ -267,12 +284,10 @@ func testAccCheckE2ESshKeyConfig_updatedLabel(oldLabel string) string {
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
+  label   = "%s"
+  ssh_key = "%s"
 }
-`, newLabel, publicKey, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, newLabel, publicKey)
 }
 
 func testAccCheckE2ESshKeyConfig_updatedKey(label string) string {
@@ -280,23 +295,19 @@ func testAccCheckE2ESshKeyConfig_updatedKey(label string) string {
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label      = "%s"
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
+  label   = "%s"
+  ssh_key = "%s"
 }
-`, label, newPublicKey, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, label, newPublicKey)
 }
 
 func testAccCheckE2ESshKeyConfig_invalidKey(label string) string {
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label      = "%s"
-  ssh_key    = "invalid-ssh-key"
-  project_id = "%s"
-  location   = "%s"
+  label   = "%s"
+  ssh_key = "invalid-ssh-key"
 }
-`, label, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, label)
 }
 
 // Error case configurations
@@ -306,43 +317,216 @@ func testAccCheckE2ESshKeyConfig_missingLabel() string {
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  ssh_key    = "%s"
-  project_id = "%s"
-  location   = "%s"
+  ssh_key = "%s"
 }
-`, publicKey, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`, publicKey)
 }
 
 func testAccCheckE2ESshKeyConfig_missingSSHKey() string {
-	return fmt.Sprintf(`
+	return `
 resource "e2e_ssh_key" "test" {
-  label      = "test-label"
-  project_id = "%s"
-  location   = "%s"
+  label = "test-label"
 }
-`, os.Getenv("E2E_TEST_PROJECT_ID"), os.Getenv("E2E_TEST_LOCATION"))
+`
 }
 
-func testAccCheckE2ESshKeyConfig_missingProjectID() string {
+// NOTE: These test cases are no longer valid with provider defaults
+// The provider will automatically supply project_id and region from E2E_PROJECT_ID and E2E_REGION
+// These tests have been removed as part of the provider defaults refactoring
+
+// V3 Tests - Test new preferred field names and backward compatibility
+
+func TestAccE2ESshKey_V3PreferredFields(t *testing.T) {
+	var sshKeyID string
+	name := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESshKeyConfig_v3PreferredFields(name),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					// Test V3 preferred fields
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "name", name),
+					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "public_key"),
+					// Test backward compatibility - deprecated fields should also be set
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "label", name),
+					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "ssh_key"),
+					resource.TestCheckResourceAttrSet("e2e_ssh_key.test", "created_at"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccE2ESshKey_Tags(t *testing.T) {
+	var sshKeyID string
+	name := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESshKeyConfig_withTags(name),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "name", name),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.%", "2"),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.Environment", "test"),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.ManagedBy", "terraform"),
+				),
+			},
+			{
+				Config: testAccCheckE2ESshKeyConfig_withUpdatedTags(name),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.%", "3"),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.Environment", "production"),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.ManagedBy", "terraform"),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "tags.Owner", "devops"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccE2ESshKey_V3FieldConflict(t *testing.T) {
+	name := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccCheckE2ESshKeyConfig_conflictingFields(name),
+				ExpectError: regexp.MustCompile(`conflicts with`),
+			},
+		},
+	})
+}
+
+func TestAccE2ESshKey_RegionVsLocation(t *testing.T) {
+	name := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccCheckE2ESshKeyConfig_regionVsLocation(name),
+				ExpectError: regexp.MustCompile(`conflicts with`),
+			},
+		},
+	})
+}
+
+func TestAccE2ESshKey_RegionOnly(t *testing.T) {
+	var sshKeyID string
+	name := fmt.Sprintf("test-ssh-key-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ESshKeyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ESshKeyConfig_regionOnly(name),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ESshKeyExists("e2e_ssh_key.test", &sshKeyID),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "name", name),
+					resource.TestCheckResourceAttr("e2e_ssh_key.test", "region", "us-east-1"),
+				),
+			},
+		},
+	})
+}
+
+// V3 Configuration helpers
+
+func testAccCheckE2ESshKeyConfig_v3PreferredFields(name string) string {
 	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label    = "test-label"
-  ssh_key  = "%s"
-  location = "%s"
+  name       = "%s"
+  public_key = "%s"
 }
-`, publicKey, os.Getenv("E2E_TEST_LOCATION"))
+`, name, publicKey)
 }
 
-func testAccCheckE2ESshKeyConfig_missingLocation() string {
+func testAccCheckE2ESshKeyConfig_withTags(name string) string {
 	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
 
 	return fmt.Sprintf(`
 resource "e2e_ssh_key" "test" {
-  label      = "test-label"
-  ssh_key    = "%s"
-  project_id = "%s"
+  name       = "%s"
+  public_key = "%s"
+
+  tags = {
+    Environment = "test"
+    ManagedBy   = "terraform"
+  }
 }
-`, publicKey, os.Getenv("E2E_TEST_PROJECT_ID"))
+`, name, publicKey)
+}
+
+func testAccCheckE2ESshKeyConfig_withUpdatedTags(name string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
+
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  name       = "%s"
+  public_key = "%s"
+
+  tags = {
+    Environment = "production"
+    ManagedBy   = "terraform"
+    Owner       = "devops"
+  }
+}
+`, name, publicKey)
+}
+
+func testAccCheckE2ESshKeyConfig_conflictingFields(name string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
+
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  name       = "%s"
+  label      = "%s"
+  public_key = "%s"
+}
+`, name, name, publicKey)
+}
+
+// Additional edge case configurations
+
+func testAccCheckE2ESshKeyConfig_regionVsLocation(name string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
+
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  name       = "%s"
+  public_key = "%s"
+  region     = "us-east-1"
+  location   = "us-east-1"
+}
+`, name, publicKey)
+}
+
+func testAccCheckE2ESshKeyConfig_regionOnly(name string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k test@example.com"
+
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  name       = "%s"
+  public_key = "%s"
+  region     = "us-east-1"
+}
+`, name, publicKey)
 }

@@ -4,51 +4,121 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func ResourceContainerRegistry() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			"project_id": {
+			// ============================================
+			// COMMON FIELDS
+			// ============================================
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+
+			// ============================================
+			// REQUIRED INPUT FIELDS (Immutable)
+			// ============================================
+			e2econstants.AttrProjectName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The project ID to associate the Container Registry with.",
+				Description: "name of the Container Registry project",
 			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The location/region for the Container Registry.",
-			},
-			"project_name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "The name of the Container Registry project.",
-			},
-			"prevent_vul": {
+
+			// ============================================
+			// OPTIONAL INPUT FIELDS - SECURITY SETTINGS
+			// ============================================
+			e2econstants.AttrPreventVulnerabilities: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
-				Description: "Whether to prevent vulnerable images.",
+				Description: "whether to prevent vulnerable images",
 			},
-			"severity": {
+			e2econstants.AttrSeverity: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "low",
+				ValidateFunc: validation.StringInSlice(
+					[]string{"low", "medium", "high", "critical", "none"},
+					false,
+				),
+				Description: "vulnerability severity threshold (low, medium, high, critical, none)",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STATUS
+			// ============================================
+			e2econstants.AttrStatus: {
 				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "low",
-				Description: "The severity level for vulnerabilities (low, medium, high, critical).",
+				Computed:    true,
+				Description: "state of the Container Registry instance",
 			},
 			"setup_status": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The status of Container Registry setup.",
+				Deprecated:  "Use 'status' instead. This parameter will be removed in version 3.0.0",
+				Description: "DEPRECATED: Use 'status' instead",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - CONFIGURATION
+			// ============================================
+			"domain_name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the domain name of the Container Registry",
+			},
+			"is_public": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "whether the Container Registry project is public",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - STORAGE
+			// ============================================
+			"project_size": {
+				Type:        schema.TypeFloat,
+				Computed:    true,
+				Description: "the size of the Container Registry project in bytes",
+			},
+			"storage_limit": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: "the storage limit of the Container Registry in bytes",
+			},
+
+			// ============================================
+			// COMPUTED FIELDS - TIMESTAMPS
+			// ============================================
+			e2econstants.AttrCreatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the timestamp when the Container Registry was created",
+			},
+			e2econstants.AttrUpdatedAt: {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "the timestamp when the Container Registry was last updated",
+			},
+
+			// ============================================
+			// OPTIONAL FIELDS - TAGS
+			// ============================================
+			"tags": {
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+				Description: "map of tags to assign to the resource (state-only)",
 			},
 		},
 		CreateContext: resourceCreateContainerRegistry,
@@ -56,86 +126,115 @@ func ResourceContainerRegistry() *schema.Resource {
 		DeleteContext: resourceDeleteContainerRegistry,
 		UpdateContext: resourceUpdateContainerRegistry,
 		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
 }
 
 func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	apiClient := cfg.Goe2eClient()
 
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	projectName := d.Get("project_name").(string)
-	preventVul := d.Get("prevent_vul").(bool)
-	severity := d.Get("severity").(string)
+	projectName := d.Get(e2econstants.AttrProjectName).(string)
+	preventVul := d.Get(e2econstants.AttrPreventVulnerabilities).(bool)
+	severity := d.Get(e2econstants.AttrSeverity).(string)
 
-	req := &models.CreateContainerRegistryRequest{
+	createReq := &goe2e.ContainerRegistryCreateRequest{
 		ProjectName: projectName,
 		PreventVul:  fmt.Sprintf("%t", preventVul),
 		Severity:    severity,
 	}
 
-	_, err := apiClient.CreateContainerRegistry(req, projectID, location)
+	registry, _, err := apiClient.ContainerRegistry.CreateContainerRegistry(ctx, createReq)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create Container Registry: %v", err))
+		return diag.FromErr(fmt.Errorf("failed to create Container Registry: %w", err))
 	}
 
-	projects, err := apiClient.GetContainerRegistryProjects(projectID, location)
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to fetch registry list post-create: %v", err))
+	if registry == nil {
+		return diag.FromErr(fmt.Errorf("container registry created but response was empty"))
 	}
 
-	for _, p := range projects {
-		if p.ProjectName == projectName {
-			d.SetId(fmt.Sprintf("%d", p.ID))
-			d.Set("setup_status", p.State)
-			return nil
+	d.SetId(fmt.Sprintf("%d", registry.ID))
+
+	// Set all fields from API response
+	if err := setContainerRegistryState(d, registry); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Initialize tags if provided (state-only, not sent to API)
+	if tags, ok := d.GetOk("tags"); ok {
+		if err := d.Set("tags", tags); err != nil {
+			return diag.FromErr(fmt.Errorf("failed to set tags: %w", err))
 		}
 	}
 
-	return diag.FromErr(fmt.Errorf("container registry created but not found in list"))
+	return nil
 }
 
 func resourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	apiClient := cfg.Goe2eClient()
 
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 	id := d.Id()
 
-	projects, err := apiClient.GetContainerRegistryProjects(projectID, location)
+	// Parse ID to int for the API call
+	registryID, err := strconv.Atoi(id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to fetch container registry projects: %v", err))
+		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
 	}
 
-	for _, p := range projects {
-		if fmt.Sprintf("%d", p.ID) == id {
-			d.Set("setup_status", p.State)
-			return nil
-		}
+	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to read container registry (ID: %s): %w", id, err))
 	}
 
-	log.Printf("[INFO] Container Registry project with ID %s not found; removing from state", id)
-	d.SetId("")
+	if registry == nil {
+		log.Printf("[INFO] Container Registry project with ID %s not found; removing from state", id)
+		d.SetId("")
+		return nil
+	}
+
+	// Set all fields from API response
+	if err := setContainerRegistryState(d, registry); err != nil {
+		return diag.FromErr(err)
+	}
+
 	return nil
 }
 
 func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	apiClient := cfg.Goe2eClient()
 
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
-	projectName := d.Get("project_name").(string)
+	projectName := d.Get(e2econstants.AttrProjectName).(string)
 	crProjectID := d.Id()
-	userID := "0" // Replace with actual user ID if needed
 
-	err := apiClient.DeleteContainerRegistry(crProjectID, projectName, userID, projectID, location)
+	// Get the registry details to extract customer ID
+	registryID, err := strconv.Atoi(crProjectID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to delete Container Registry: %v", err))
+		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
+	}
+
+	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
+	if err != nil {
+		log.Printf("[WARN] Failed to fetch container registry details for deletion, using default customer ID: %v", err)
+	}
+
+	// Get customer ID from registry or use default
+	userID := "0"
+	if registry != nil {
+		userID = strconv.Itoa(registry.Customer)
+	}
+
+	deleteReq := &goe2e.ContainerRegistryDeleteRequest{
+		CRProjectID: crProjectID,
+		ProjectName: projectName,
+		UserID:      userID,
+	}
+
+	_, err = apiClient.ContainerRegistry.DeleteContainerRegistry(ctx, deleteReq)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to delete Container Registry: %w", err))
 	}
 
 	d.SetId("")
@@ -144,21 +243,73 @@ func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	apiClient := cfg.Goe2eClient()
 
-	if d.HasChange("prevent_vul") || d.HasChange("severity") {
-		projectID := d.Get("project_id").(string)
-		location := d.Get("location").(string)
-		projectName := d.Get("project_name").(string)
+	// Update security settings if they changed
+	if d.HasChange(e2econstants.AttrPreventVulnerabilities) || d.HasChange(e2econstants.AttrSeverity) {
+		projectName := d.Get(e2econstants.AttrProjectName).(string)
+		preventVul := fmt.Sprintf("%t", d.Get(e2econstants.AttrPreventVulnerabilities).(bool))
+		severity := d.Get(e2econstants.AttrSeverity).(string)
 
-		preventVul := fmt.Sprintf("%t", d.Get("prevent_vul").(bool))
-		severity := d.Get("severity").(string)
+		updateReq := &goe2e.ContainerRegistryUpdateRequest{
+			PreventVul: preventVul,
+			Severity:   severity,
+		}
 
-		err := apiClient.UpdateContainerRegistry(projectName, preventVul, severity, projectID, location)
+		_, err := apiClient.ContainerRegistry.UpdateContainerRegistry(ctx, projectName, updateReq)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to update container registry: %v", err))
+			return diag.FromErr(fmt.Errorf("failed to update container registry: %w", err))
 		}
 	}
 
+	// Tags are state-only, no API call needed
+	// Just ensure they're set in state if changed
+	if d.HasChange("tags") {
+		if tags, ok := d.GetOk("tags"); ok {
+			if err := d.Set("tags", tags); err != nil {
+				return diag.FromErr(fmt.Errorf("failed to set tags: %w", err))
+			}
+		}
+	}
+
+	// Refresh the state to get any updates
 	return resourceReadContainerRegistry(ctx, d, m)
+}
+
+// setContainerRegistryState sets all fields from the API response into the Terraform state
+func setContainerRegistryState(d *schema.ResourceData, registry *goe2e.ContainerRegistry) error {
+	if err := d.Set(e2econstants.AttrProjectName, registry.ProjectName); err != nil {
+		return fmt.Errorf("failed to set project_name: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
+		return fmt.Errorf("failed to set prevent_vul: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrSeverity, registry.Severity); err != nil {
+		return fmt.Errorf("failed to set severity: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrStatus, registry.State); err != nil {
+		return fmt.Errorf("failed to set status: %w", err)
+	}
+	if err := d.Set("setup_status", registry.State); err != nil {
+		return fmt.Errorf("failed to set setup_status: %w", err)
+	}
+	if err := d.Set("domain_name", registry.DomainName); err != nil {
+		return fmt.Errorf("failed to set domain_name: %w", err)
+	}
+	if err := d.Set("project_size", registry.ProjectSize); err != nil {
+		return fmt.Errorf("failed to set project_size: %w", err)
+	}
+	if err := d.Set("storage_limit", registry.StorageLimit); err != nil {
+		return fmt.Errorf("failed to set storage_limit: %w", err)
+	}
+	if err := d.Set("is_public", registry.IsPublic); err != nil {
+		return fmt.Errorf("failed to set is_public: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrCreatedAt, registry.CreatedAt); err != nil {
+		return fmt.Errorf("failed to set created_at: %w", err)
+	}
+	if err := d.Set(e2econstants.AttrUpdatedAt, registry.UpdatedAt); err != nil {
+		return fmt.Errorf("failed to set updated_at: %w", err)
+	}
+	return nil
 }

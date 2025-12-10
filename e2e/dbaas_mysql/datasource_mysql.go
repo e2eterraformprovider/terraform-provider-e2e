@@ -6,126 +6,135 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func DataSourceMySQLDBaaS() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: dataSourceReadMySQL,
 		Schema: map[string]*schema.Schema{
-			"id": {
+			// Common fields - use constants and helpers
+			e2econstants.AttrRegion:    config.RegionSchema(),
+			e2econstants.AttrLocation:  config.LocationSchema(),
+			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+
+			// MySQL-specific fields
+			e2econstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "ID of the MySQL DBaaS instance",
+				Description: "id of the MySQL DBaaS instance",
 			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Project ID",
-			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Deployment location",
-			},
-			"database_id": {
+			e2econstants.AttrDatabaseID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Database ID",
+				Description: "id of the database",
 			},
-			"database_name": {
+			e2econstants.AttrDatabaseName: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Name of the database",
+				Description: "name of the database",
 			},
-			"database_user": {
+			e2econstants.AttrDatabaseUser: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Database user",
+				Description: "the database username",
 			},
-			"status": {
+			e2econstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Status of the DBaaS",
+				Description: "state of the MySQL DBaaS instance",
 			},
-			"public_ip": {
+			e2econstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Public IP address",
+				Description: "the MySQL DBaaS instances public ipv4 address",
 			},
-			"private_ip": {
+			e2econstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Private IP address",
+				Description: "the MySQL DBaaS instances private ipv4 address",
 			},
 			"is_public_ip_attached": {
 				Type:        schema.TypeBool,
 				Computed:    true,
-				Description: "Whether a public IP is attached",
+				Description: "whether a public IP is attached to the MySQL DBaaS instance",
 			},
-			"disk": {
+			e2econstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Disk size",
+				Description: "the disk size of the MySQL DBaaS instance",
 			},
-			"plan": {
+			e2econstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Plan name",
+				Description: "the plan name of the MySQL DBaaS instance",
 			},
 			"database_version": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "MySQL version",
+				Description: "the MySQL version",
 			},
-			"parameter_group_id": {
+			e2econstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
-				Description: "Attached Parameter Group ID",
+				Description: "id of the attached parameter group",
 			},
-			"power_status": {
+			e2econstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "Power status of the DBaaS",
+				Description: "the power status of the MySQL DBaaS instance",
 			},
 		},
-		ReadContext: dataSourceReadMySQL,
 	}
 }
 
 func dataSourceReadMySQL(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
-	apiClient := cfg.Client()
+	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
 	dbaasID := d.Get("id").(string)
-	projectID := d.Get("project_id").(string)
-	location := d.Get("location").(string)
 
-	res, err := apiClient.GetMySqlDbaas(dbaasID, projectID, location)
+	// Get MySQL cluster using goe2e client
+	mysql, _, err := goe2eClient.DBaaSMySQL.GetCluster(ctx, dbaasID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("error while fteching dbaas instance details: %s", err))
+		return diag.FromErr(fmt.Errorf("error while fetching MySQL DBaaS instance details: %s", err))
 	}
 
-	mysql := res.Data
+	// Handle case where cluster was not found
+	if mysql == nil {
+		return diag.Errorf("MySQL DBaaS instance (ID: %s) not found", dbaasID)
+	}
+
+	// Extract nested data
 	master := mysql.MasterNode
 	db := master.Database
 	plan := master.Plan
 	software := plan.Software
 
+	// Set all attributes
 	d.SetId(strconv.Itoa(mysql.ID))
-	d.Set("database_id", db.ID)
-	d.Set("database_name", db.Database)
-	d.Set("database_user", db.Username)
-	d.Set("status", mysql.Status)
-	d.Set("public_ip", master.PublicIPAddress)
-	d.Set("private_ip", master.PrivateIPAddress)
+	d.Set(e2econstants.AttrDatabaseID, db.ID)
+	d.Set(e2econstants.AttrDatabaseName, db.Database)
+	d.Set(e2econstants.AttrDatabaseUser, db.Username)
+	d.Set(e2econstants.AttrStatus, mysql.Status)
+	d.Set(e2econstants.AttrPublicIPAddress, master.PublicIPAddress)
+	d.Set(e2econstants.AttrPrivateIPAddress, master.PrivateIPAddress)
 	d.Set("is_public_ip_attached", master.PublicIPAddress != "")
-	d.Set("disk", master.Disk)
-	d.Set("plan", plan.Name)
+	d.Set(e2econstants.AttrDisk, master.Disk)
+	d.Set(e2econstants.AttrPlan, plan.Name)
 	d.Set("database_version", software.Version)
-	d.Set("parameter_group_id", db.PGDetail.ID)
-	d.Set("power_status", master.Status)
+
+	// Handle PGDetail safely (check if ID is set)
+	if db.PGDetail.ID != 0 {
+		d.Set(e2econstants.AttrParameterGroupID, db.PGDetail.ID)
+	} else {
+		d.Set(e2econstants.AttrParameterGroupID, 0)
+	}
+
+	d.Set(e2econstants.AttrPowerStatus, master.Status)
 
 	return diags
 }
