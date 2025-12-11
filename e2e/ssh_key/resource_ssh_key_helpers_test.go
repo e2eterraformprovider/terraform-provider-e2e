@@ -3,7 +3,7 @@ package ssh_key
 import (
 	"testing"
 
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -17,22 +17,22 @@ func TestGetKeyName(t *testing.T) {
 		{
 			name: "prefers_name_over_label",
 			data: map[string]interface{}{
-				e2econstants.AttrName:  "my-key",
-				e2econstants.AttrLabel: "old-label",
+				tfconstants.AttrName:  "my-key",
+				tfconstants.AttrLabel: "old-label",
 			},
 			expected: "my-key",
 		},
 		{
 			name: "falls_back_to_label_when_name_missing",
 			data: map[string]interface{}{
-				e2econstants.AttrLabel: "my-label",
+				tfconstants.AttrLabel: "my-label",
 			},
 			expected: "my-label",
 		},
 		{
 			name: "returns_name_when_only_name_set",
 			data: map[string]interface{}{
-				e2econstants.AttrName: "preferred-name",
+				tfconstants.AttrName: "preferred-name",
 			},
 			expected: "preferred-name",
 		},
@@ -61,22 +61,22 @@ func TestGetPublicKey(t *testing.T) {
 		{
 			name: "prefers_public_key_over_ssh_key",
 			data: map[string]interface{}{
-				"public_key":            "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
-				e2econstants.AttrSSHKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA_old...",
+				tfconstants.AttrPublicKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
+				tfconstants.AttrSSHKey:    "ssh-rsa AAAAB3NzaC1yc2EAAAA_old...",
 			},
 			expected: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
 		},
 		{
 			name: "falls_back_to_ssh_key_when_public_key_missing",
 			data: map[string]interface{}{
-				e2econstants.AttrSSHKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
+				tfconstants.AttrSSHKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
 			},
 			expected: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
 		},
 		{
 			name: "returns_public_key_when_only_public_key_set",
 			data: map[string]interface{}{
-				"public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
+				tfconstants.AttrPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
 			},
 			expected: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
 		},
@@ -104,11 +104,11 @@ func TestSetKeyName(t *testing.T) {
 	}
 
 	// Verify both fields are set
-	if name, ok := d.GetOk(e2econstants.AttrName); !ok || name != keyName {
+	if name, ok := d.GetOk(tfconstants.AttrName); !ok || name != keyName {
 		t.Errorf("name field not set correctly: got %v", name)
 	}
 
-	if label, ok := d.GetOk(e2econstants.AttrLabel); !ok || label != keyName {
+	if label, ok := d.GetOk(tfconstants.AttrLabel); !ok || label != keyName {
 		t.Errorf("label field not set correctly: got %v", label)
 	}
 }
@@ -123,11 +123,11 @@ func TestSetPublicKey(t *testing.T) {
 	}
 
 	// Verify both fields are set
-	if pk, ok := d.GetOk("public_key"); !ok || pk != pubKey {
+	if pk, ok := d.GetOk(tfconstants.AttrPublicKey); !ok || pk != pubKey {
 		t.Errorf("public_key field not set correctly: got %v", pk)
 	}
 
-	if sshKey, ok := d.GetOk(e2econstants.AttrSSHKey); !ok || sshKey != pubKey {
+	if sshKey, ok := d.GetOk(tfconstants.AttrSSHKey); !ok || sshKey != pubKey {
 		t.Errorf("ssh_key field not set correctly: got %v", sshKey)
 	}
 }

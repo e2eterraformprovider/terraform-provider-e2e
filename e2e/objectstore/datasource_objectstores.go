@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -18,9 +18,9 @@ func DataSourceObjectStores() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
 			"bucket_list": {
@@ -29,12 +29,12 @@ func DataSourceObjectStores() *schema.Resource {
 				Description: "list of Object Store buckets",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrID: {
+						tfconstants.AttrID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "id of the Object Store bucket",
 						},
-						e2econstants.AttrName: {
+						tfconstants.AttrName: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "name of the Object Store bucket",
@@ -44,23 +44,23 @@ func DataSourceObjectStores() *schema.Resource {
 							Computed:    true,
 							Description: "the size of the Object Store bucket",
 						},
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "state of the Object Store bucket instance",
 						},
-						e2econstants.AttrCreatedAt: {
+						tfconstants.AttrCreatedAt: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Optional:    true,
 							Description: "the creation date for the Object Store bucket",
 						},
-						e2econstants.AttrVersioningStatus: {
+						tfconstants.AttrVersioningStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "whether versioning is enabled for the bucket",
 						},
-						e2econstants.AttrLifecycleConfigurationStatus: {
+						tfconstants.AttrLifecycleConfigurationStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "whether lifecycle rules are configured for the bucket",
@@ -133,8 +133,8 @@ func flattenBuckets(buckets interface{}) []interface{} {
 			eos_bucket["bucket_size"] = bktMap["bucket_size"]
 			eos_bucket["created_at"] = bktMap["created_at"]
 			eos_bucket["status"] = bktMap["status"]
-			eos_bucket[e2econstants.AttrLifecycleConfigurationStatus] = bktMap["lifecycle_configuration_status"]
-			eos_bucket[e2econstants.AttrVersioningStatus] = bktMap["versioning_status"]
+			eos_bucket[tfconstants.AttrLifecycleConfigurationStatus] = bktMap["lifecycle_configuration_status"]
+			eos_bucket[tfconstants.AttrVersioningStatus] = bktMap["versioning_status"]
 			result = append(result, eos_bucket)
 		}
 	}

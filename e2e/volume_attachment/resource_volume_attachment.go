@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -21,21 +21,21 @@ func ResourceVolumeAttachment() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED FIELDS (ForceNew - attachment is immutable)
 			// ============================================
-			e2econstants.AttrNodeID: {
+			tfconstants.AttrNodeID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "id of the Node to which the volume will be attached",
 			},
 
-			e2econstants.AttrVolumeID: {
+			tfconstants.AttrVolumeID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -45,7 +45,7 @@ func ResourceVolumeAttachment() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS
 			// ============================================
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "VM id of the Node",
@@ -57,7 +57,7 @@ func ResourceVolumeAttachment() *schema.Resource {
 				Description: "device name of the attached volume",
 			},
 
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "attachment status",
@@ -98,8 +98,8 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 		return diag.Errorf("Error creating goe2e client: %s", err)
 	}
 
-	nodeID := d.Get(e2econstants.AttrNodeID).(string)
-	volumeID := d.Get(e2econstants.AttrVolumeID).(string)
+	nodeID := d.Get(tfconstants.AttrNodeID).(string)
+	volumeID := d.Get(tfconstants.AttrVolumeID).(string)
 
 	log.Printf("[INFO] Attaching volume (ID: %s) to node (ID: %s) in project (%s), region (%s)", volumeID, nodeID, projectID, region)
 
@@ -116,7 +116,7 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 	vmID := node.VMID
 
 	// Check if node plan supports block storage
-	if len(node.Plan) >= 2 && node.Plan[0:2] == e2econstants.PREFIX_C2_NODE {
+	if len(node.Plan) >= 2 && node.Plan[0:2] == tfconstants.PREFIX_C2_NODE {
 		return diag.Errorf("Cannot attach volume to node (ID: %s): C2 plan nodes do not support block storage attachment", nodeID)
 	}
 
@@ -134,9 +134,9 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 
 	// Set the resource ID as a composite of node_id and volume_id
 	d.SetId(fmt.Sprintf("%s/%s", nodeID, volumeID))
-	d.Set(e2econstants.AttrVMID, vmID)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrVMID, vmID)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 
 	// Wait for attachment to complete
 	if err := waitForVolumeAttachment(ctx, goe2eClient, nodeID, volumeID, projectID, region, true); err != nil {
@@ -224,12 +224,12 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	// Update state
-	d.Set(e2econstants.AttrNodeID, nodeID)
-	d.Set(e2econstants.AttrVolumeID, volumeID)
-	d.Set(e2econstants.AttrVMID, vmID)
-	d.Set(e2econstants.AttrStatus, volume.Status)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrNodeID, nodeID)
+	d.Set(tfconstants.AttrVolumeID, volumeID)
+	d.Set(tfconstants.AttrVMID, vmID)
+	d.Set(tfconstants.AttrStatus, volume.Status)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 
 	// Device name may not be available in API, but we can infer from vm_name
 	if volumeVMName != "" {
@@ -320,16 +320,16 @@ func resourceVolumeAttachmentImport(ctx context.Context, d *schema.ResourceData,
 		volumeID = parts[3]
 
 		// Set project_id and region in state
-		d.Set(e2econstants.AttrProjectID, projectID)
-		d.Set(e2econstants.AttrRegion, region)
+		d.Set(tfconstants.AttrProjectID, projectID)
+		d.Set(tfconstants.AttrRegion, region)
 	default:
 		return nil, fmt.Errorf("invalid import ID format: expected 'node_id/volume_id' or 'project_id/region/node_id/volume_id', got: %s", d.Id())
 	}
 
 	// Set the composite ID
 	d.SetId(fmt.Sprintf("%s/%s", nodeID, volumeID))
-	d.Set(e2econstants.AttrNodeID, nodeID)
-	d.Set(e2econstants.AttrVolumeID, volumeID)
+	d.Set(tfconstants.AttrNodeID, nodeID)
+	d.Set(tfconstants.AttrVolumeID, volumeID)
 
 	// Call Read to populate the rest of the state
 	diags := resourceVolumeAttachmentRead(ctx, d, m)

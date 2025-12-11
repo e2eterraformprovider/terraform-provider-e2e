@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -30,15 +30,15 @@ func ResourceKubernetesService() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion: config.RegionSchema(),
-			e2econstants.AttrLocation: {
+			tfconstants.AttrRegion: config.RegionSchema(),
+			tfconstants.AttrLocation: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Deprecated:    "Use 'region' instead. The 'location' field will be removed in v4.0.0",
-				ConflictsWith: []string{e2econstants.AttrRegion},
+				ConflictsWith: []string{tfconstants.AttrRegion},
 				Description:   "the location of the cluster (deprecated, use 'region')",
 			},
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// V3 PREFERRED CLUSTER FIELDS (Aliases)
@@ -48,7 +48,7 @@ func ResourceKubernetesService() *schema.Resource {
 				Optional:      true,
 				ForceNew:      true,
 				Description:   "name of the Kubernetes cluster (preferred over 'name')",
-				ConflictsWith: []string{e2econstants.AttrName},
+				ConflictsWith: []string{tfconstants.AttrName},
 				ValidateFunc:  validation.StringLenBetween(1, 255),
 			},
 			"kubernetes_version": {
@@ -56,14 +56,14 @@ func ResourceKubernetesService() *schema.Resource {
 				Optional:      true,
 				ForceNew:      true,
 				Description:   "the Kubernetes version (preferred over 'version')",
-				ConflictsWith: []string{e2econstants.AttrVersion},
+				ConflictsWith: []string{tfconstants.AttrVersion},
 				ValidateFunc:  validation.StringMatch(regexp.MustCompile(`^1\.\d{2}$`), "must be format 1.XX"),
 			},
 
 			// ============================================
 			// DEPRECATED CLUSTER FIELDS (V2)
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
@@ -71,7 +71,7 @@ func ResourceKubernetesService() *schema.Resource {
 				ConflictsWith: []string{"cluster_name"},
 				Description:   "name of the Kubernetes cluster (deprecated, use 'cluster_name')",
 			},
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
@@ -79,7 +79,7 @@ func ResourceKubernetesService() *schema.Resource {
 				ConflictsWith: []string{"kubernetes_version"},
 				Description:   "the Kubernetes version (deprecated, use 'kubernetes_version')",
 			},
-			e2econstants.AttrVPCID: {
+			tfconstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -123,7 +123,7 @@ func ResourceKubernetesService() *schema.Resource {
 			// ============================================
 			// REQUIRED INPUT FIELDS (Mutable via Updates)
 			// ============================================
-			e2econstants.AttrNodePools: {
+			tfconstants.AttrNodePools: {
 				Type:        schema.TypeList,
 				Required:    true,
 				Description: "list of node pools for the Kubernetes cluster",
@@ -165,7 +165,7 @@ func ResourceKubernetesService() *schema.Resource {
 							Optional:      true,
 							Default:       0,
 							Description:   "minimum number of nodes for Autoscale pools (preferred over 'min_vms')",
-							ConflictsWith: []string{e2econstants.AttrMinVMs},
+							ConflictsWith: []string{tfconstants.AttrMinVMs},
 							ValidateFunc:  validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
 						},
 						"max_nodes": {
@@ -173,7 +173,7 @@ func ResourceKubernetesService() *schema.Resource {
 							Optional:      true,
 							Default:       0,
 							Description:   "maximum number of nodes for Autoscale pools (preferred over 'max_vms')",
-							ConflictsWith: []string{e2econstants.AttrMaxVMs},
+							ConflictsWith: []string{tfconstants.AttrMaxVMs},
 							ValidateFunc:  validation.IntAtMost(25),
 						},
 
@@ -206,7 +206,7 @@ func ResourceKubernetesService() *schema.Resource {
 							Description:   "number of worker nodes (deprecated, use 'size')",
 							ValidateFunc:  validation.IntBetween(2, 25),
 						},
-						e2econstants.AttrMinVMs: {
+						tfconstants.AttrMinVMs: {
 							Type:          schema.TypeInt,
 							Optional:      true,
 							Default:       0,
@@ -215,7 +215,7 @@ func ResourceKubernetesService() *schema.Resource {
 							ValidateFunc:  validation.All(validation.IntAtLeast(2), validation.IntAtMost(25)),
 							Description:   "the minimum number of virtual machines (Autoscale pools only, deprecated, use 'min_nodes')",
 						},
-						e2econstants.AttrMaxVMs: {
+						tfconstants.AttrMaxVMs: {
 							Type:          schema.TypeInt,
 							Optional:      true,
 							Default:       0,
@@ -425,12 +425,12 @@ func ResourceKubernetesService() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the Kubernetes cluster instance",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation timestamp of the Kubernetes cluster",
@@ -501,7 +501,7 @@ func CreateKubernetesObject(ctx context.Context, cfg *config.Config, d *schema.R
 
 	clusterName := getClusterName(d)
 	kubernetesVersion := getKubernetesVersion(d)
-	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+	vpcID := d.Get(tfconstants.AttrVPCID).(string)
 	skuID := d.Get("sku_id").(string)
 
 	kubernetesObj := &goe2e.KubernetesClusterCreateRequest{
@@ -512,7 +512,7 @@ func CreateKubernetesObject(ctx context.Context, cfg *config.Config, d *schema.R
 		SlugName: slugName,
 	}
 
-	if nodePools, ok := d.GetOk(e2econstants.AttrNodePools); ok {
+	if nodePools, ok := d.GetOk(tfconstants.AttrNodePools); ok {
 		nodePoolList := nodePools.([]interface{})
 
 		// Use config helpers instead of direct Get()
@@ -561,9 +561,9 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 	}
 
 	// Log deprecation warnings
-	logDeprecationWarning(d, e2econstants.AttrName, "cluster_name")
-	logDeprecationWarning(d, e2econstants.AttrVersion, "kubernetes_version")
-	logDeprecationWarning(d, e2econstants.AttrLocation, e2econstants.AttrRegion)
+	logDeprecationWarning(d, tfconstants.AttrName, "cluster_name")
+	logDeprecationWarning(d, tfconstants.AttrVersion, "kubernetes_version")
+	logDeprecationWarning(d, tfconstants.AttrLocation, tfconstants.AttrRegion)
 
 	clusterName := getClusterName(d)
 
@@ -665,10 +665,10 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	log.Printf("[INFO] SETTING--------- (1)")
 
 	// Set computed fields
-	if err := d.Set(e2econstants.AttrStatus, cluster.State); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, cluster.State); err != nil {
 		log.Printf("[WARN] Failed to set status: %s", err)
 	}
-	if err := d.Set(e2econstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
 		log.Printf("[WARN] Failed to set created_at: %s", err)
 	}
 	if err := d.Set("slug_name", d.Get("slug_name")); err != nil {
@@ -685,10 +685,10 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	if err := d.Set("kubernetes_version", cluster.Version); err != nil {
 		log.Printf("[WARN] Failed to set kubernetes_version: %s", err)
 	}
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		log.Printf("[WARN] Failed to set region: %s", err)
 	}
-	if err := d.Set(e2econstants.AttrVPCID, cluster.VPCID); err != nil {
+	if err := d.Set(tfconstants.AttrVPCID, cluster.VPCID); err != nil {
 		log.Printf("[WARN] Failed to set vpc_id: %s", err)
 	}
 
@@ -699,7 +699,7 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	// Flatten node pools
-	if err := d.Set(e2econstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
+	if err := d.Set(tfconstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
 		return diag.Errorf("Error setting node_pools: %s", err)
 	}
 
@@ -867,8 +867,8 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 	if err != nil {
 		return diag.Errorf("Error retrieving node pool service mapping for Kubernetes cluster (ID: %s) in project (%s), region (%s): %s", clusterID, projectIDStr, region, err)
 	}
-	if d.HasChange(e2econstants.AttrNodePools) {
-		oldData, newData := d.GetChange(e2econstants.AttrNodePools)
+	if d.HasChange(tfconstants.AttrNodePools) {
+		oldData, newData := d.GetChange(tfconstants.AttrNodePools)
 
 		oldNodePools := oldData.([]interface{})
 		newNodePools := newData.([]interface{})
@@ -901,7 +901,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					return diag.Errorf("Error retrieving Kubernetes cluster (ID: %s) status in project (%s), region (%s): %s", clusterID, projectIDStr, region, err)
 				}
 				if !IsNodePoolRunning(oldServiceIDFloat, nodePools) {
-					d.Set(e2econstants.AttrNodePools, oldData)
+					d.Set(tfconstants.AttrNodePools, oldData)
 					return diag.Errorf("Cannot delete node pool '%s' from Kubernetes cluster (ID: %s): node pool must be in Running state before deletion", oldNPName, clusterID)
 				}
 				_, err = goe2eClient.Kubernetes.DeleteNodePool(ctx, oldServiceID)
@@ -1093,14 +1093,14 @@ func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m int
 	cfg := m.(*config.Config)
 
 	// Set project_id and region in resource data
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, fmt.Errorf("error setting project_id: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return nil, fmt.Errorf("error setting region: %w", err)
 	}
 	// Also set location for backwards compatibility
-	if err := d.Set(e2econstants.AttrLocation, region); err != nil {
+	if err := d.Set(tfconstants.AttrLocation, region); err != nil {
 		return nil, fmt.Errorf("error setting location: %w", err)
 	}
 
@@ -1136,15 +1136,15 @@ func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m int
 	if err := d.Set("kubernetes_version", cluster.Version); err != nil {
 		return nil, fmt.Errorf("error setting kubernetes_version: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrVPCID, cluster.VPCID); err != nil {
+	if err := d.Set(tfconstants.AttrVPCID, cluster.VPCID); err != nil {
 		return nil, fmt.Errorf("error setting vpc_id: %w", err)
 	}
 
 	// Set computed fields
-	if err := d.Set(e2econstants.AttrStatus, cluster.State); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, cluster.State); err != nil {
 		return nil, fmt.Errorf("error setting status: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, cluster.CreatedAt); err != nil {
 		return nil, fmt.Errorf("error setting created_at: %w", err)
 	}
 
@@ -1154,7 +1154,7 @@ func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Use flattenNodePools() with V3 field names
-	if err := d.Set(e2econstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
+	if err := d.Set(tfconstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
 		return nil, fmt.Errorf("error setting node_pools: %w", err)
 	}
 

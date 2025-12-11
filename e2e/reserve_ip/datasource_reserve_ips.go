@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -19,9 +19,9 @@ func DataSourceReserveIps() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
 			"reserve_ips_list": {
@@ -40,7 +40,7 @@ func DataSourceReserveIps() *schema.Resource {
 							Computed:    true,
 							Description: "the type of infrastructure to which the reserved IP is attached",
 						},
-						e2econstants.AttrIPAddress: {
+						tfconstants.AttrIPAddress: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the IP address",
@@ -50,22 +50,22 @@ func DataSourceReserveIps() *schema.Resource {
 							Computed:    true,
 							Description: "the type of IP address that is reserved",
 						},
-						e2econstants.AttrVMID: {
+						tfconstants.AttrVMID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "id of the VM to which the reserved IP is attached",
 						},
-						e2econstants.AttrCreatedAt: {
+						tfconstants.AttrCreatedAt: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the date when the IP was purchased",
 						},
-						e2econstants.AttrVMName: {
+						tfconstants.AttrVMName: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "name of the VM to which the reserved IP is attached (if any)",
 						},
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "whether the IP is attached or available",
@@ -119,14 +119,14 @@ func flattenReserveIps(ips []goe2e.ReserveIP) []interface{} {
 		oi := make(map[string]interface{})
 		// Map goe2e model fields to Terraform schema
 		// API field "bought_at" maps to schema field "created_at"
-		oi[e2econstants.AttrReserveID] = ip.ReserveID
-		oi[e2econstants.AttrApplianceType] = ip.ApplianceType
-		oi[e2econstants.AttrBoughtAt] = ip.BoughtAt
-		oi[e2econstants.AttrIPAddress] = ip.IPAddress
-		oi[e2econstants.AttrReservedType] = ip.ReservedType
-		oi[e2econstants.AttrStatus] = ip.Status
-		oi[e2econstants.AttrVMID] = ip.VMID
-		oi[e2econstants.AttrVMName] = ip.VMName
+		oi[tfconstants.AttrReserveID] = ip.ReserveID
+		oi[tfconstants.AttrApplianceType] = ip.ApplianceType
+		oi[tfconstants.AttrBoughtAt] = ip.BoughtAt
+		oi[tfconstants.AttrIPAddress] = ip.IPAddress
+		oi[tfconstants.AttrReservedType] = ip.ReservedType
+		oi[tfconstants.AttrStatus] = ip.Status
+		oi[tfconstants.AttrVMID] = ip.VMID
+		oi[tfconstants.AttrVMName] = ip.VMName
 		ois[i] = oi
 	}
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/util"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 
@@ -44,12 +44,12 @@ func ResourceFaasFunction() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// FaaS-specific fields
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -122,7 +122,7 @@ func ResourceFaasFunction() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "environment variables for the function",
 			},
-			e2econstants.AttrTags: {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -133,17 +133,17 @@ func ResourceFaasFunction() *schema.Resource {
 				Computed:    true,
 				Description: "the endpoint URL of the function",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the FaaS function instance",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the FaaS function",
 			},
-			e2econstants.AttrUpdatedAt: {
+			tfconstants.AttrUpdatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the last update date for the FaaS function",
@@ -285,13 +285,13 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrStatus, fn.Status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
 	}
 	if err := d.Set("created_at", fn.CreatedAt); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting created_at: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
 	}
 
@@ -355,13 +355,13 @@ func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m int
 	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrStatus, fn.Status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
 	}
 	if err := d.Set("created_at", fn.CreatedAt); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting created_at: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
 	}
 
@@ -471,10 +471,10 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrStatus, fn.Status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
 	}
 

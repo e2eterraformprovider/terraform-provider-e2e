@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -16,42 +16,42 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 		ReadContext: dataSourceReadMySQL,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// MySQL-specific fields
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the MySQL DBaaS instance",
 			},
-			e2econstants.AttrDatabaseID: {
+			tfconstants.AttrDatabaseID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the database",
 			},
-			e2econstants.AttrDatabaseName: {
+			tfconstants.AttrDatabaseName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the database",
 			},
-			e2econstants.AttrDatabaseUser: {
+			tfconstants.AttrDatabaseUser: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the database username",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the MySQL DBaaS instance",
 			},
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MySQL DBaaS instances public ipv4 address",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MySQL DBaaS instances private ipv4 address",
@@ -61,12 +61,12 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "whether a public IP is attached to the MySQL DBaaS instance",
 			},
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the disk size of the MySQL DBaaS instance",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the plan name of the MySQL DBaaS instance",
@@ -76,12 +76,12 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the MySQL version",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the attached parameter group",
 			},
-			e2econstants.AttrPowerStatus: {
+			tfconstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the power status of the MySQL DBaaS instance",
@@ -116,25 +116,25 @@ func dataSourceReadMySQL(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Set all attributes
 	d.SetId(strconv.Itoa(mysql.ID))
-	d.Set(e2econstants.AttrDatabaseID, db.ID)
-	d.Set(e2econstants.AttrDatabaseName, db.Database)
-	d.Set(e2econstants.AttrDatabaseUser, db.Username)
-	d.Set(e2econstants.AttrStatus, mysql.Status)
-	d.Set(e2econstants.AttrPublicIPAddress, master.PublicIPAddress)
-	d.Set(e2econstants.AttrPrivateIPAddress, master.PrivateIPAddress)
+	d.Set(tfconstants.AttrDatabaseID, db.ID)
+	d.Set(tfconstants.AttrDatabaseName, db.Database)
+	d.Set(tfconstants.AttrDatabaseUser, db.Username)
+	d.Set(tfconstants.AttrStatus, mysql.Status)
+	d.Set(tfconstants.AttrPublicIPAddress, master.PublicIPAddress)
+	d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress)
 	d.Set("is_public_ip_attached", master.PublicIPAddress != "")
-	d.Set(e2econstants.AttrDisk, master.Disk)
-	d.Set(e2econstants.AttrPlan, plan.Name)
+	d.Set(tfconstants.AttrDisk, master.Disk)
+	d.Set(tfconstants.AttrPlan, plan.Name)
 	d.Set("database_version", software.Version)
 
 	// Handle PGDetail safely (check if ID is set)
 	if db.PGDetail.ID != 0 {
-		d.Set(e2econstants.AttrParameterGroupID, db.PGDetail.ID)
+		d.Set(tfconstants.AttrParameterGroupID, db.PGDetail.ID)
 	} else {
-		d.Set(e2econstants.AttrParameterGroupID, 0)
+		d.Set(tfconstants.AttrParameterGroupID, 0)
 	}
 
-	d.Set(e2econstants.AttrPowerStatus, master.Status)
+	d.Set(tfconstants.AttrPowerStatus, master.Status)
 
 	return diags
 }

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -20,19 +20,19 @@ func ResourceReserveIP() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS (Input Only)
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// COMPUTED FIELDS - NETWORK INFORMATION
 			// ============================================
-			e2econstants.AttrIPAddress: {
+			tfconstants.AttrIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The IPv4 address of the Reserved IP",
 			},
-			e2econstants.AttrReservedType: {
+			tfconstants.AttrReservedType: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The type of Reserved IP (deprecated, use 'type' instead)",
@@ -47,7 +47,7 @@ func ResourceReserveIP() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Current status of the Reserved IP (Available, Attached)",
@@ -56,12 +56,12 @@ func ResourceReserveIP() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - IDENTIFIER
 			// ============================================
-			e2econstants.AttrReserveID: {
+			tfconstants.AttrReserveID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Numeric ID of the Reserved IP from E2E API",
 			},
-			e2econstants.AttrURN: {
+			tfconstants.AttrURN: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Unique Resource Name (URN) in E2E format: e2e:reserve_ip:<region>:<ip_address>",
@@ -70,22 +70,22 @@ func ResourceReserveIP() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - ATTACHMENT INFORMATION
 			// ============================================
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "ID of the VM to which the Reserved IP is attached (if any)",
 			},
-			e2econstants.AttrVMName: {
+			tfconstants.AttrVMName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Name of the VM to which the Reserved IP is attached (if any)",
 			},
-			e2econstants.AttrApplianceType: {
+			tfconstants.AttrApplianceType: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The type of appliance",
 			},
-			e2econstants.AttrFloatingIPNodes: {
+			tfconstants.AttrFloatingIPNodes: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Description: "List of nodes attached to this floating IP (only populated when type is FloatingIP)",
@@ -133,12 +133,12 @@ func ResourceReserveIP() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - METADATA
 			// ============================================
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The timestamp when the Reserved IP was created/purchased",
 			},
-			e2econstants.AttrProjectName: {
+			tfconstants.AttrProjectName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The name of the project",
@@ -162,9 +162,9 @@ func resourceReserveIPImport(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	cfg := m.(*config.Config)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
-	d.Set(e2econstants.AttrLocation, region) // Also set location for backwards compatibility
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
+	d.Set(tfconstants.AttrLocation, region) // Also set location for backwards compatibility
 
 	// Fetch the reserved IP to verify it exists using goe2e client
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
@@ -234,21 +234,21 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 	urn := generateReserveIPURN(region, rip.IPAddress)
 
 	// Set all computed fields from the response
-	d.Set(e2econstants.AttrIPAddress, rip.IPAddress)
-	d.Set(e2econstants.AttrStatus, rip.Status)
-	d.Set(e2econstants.AttrCreatedAt, rip.BoughtAt)
-	d.Set(e2econstants.AttrVMID, strconv.Itoa(rip.VMID))
-	d.Set(e2econstants.AttrVMName, rip.VMName)
-	d.Set(e2econstants.AttrReserveID, rip.ReserveID)
-	d.Set(e2econstants.AttrApplianceType, rip.ApplianceType)
-	d.Set(e2econstants.AttrReservedType, rip.ReservedType) // Keep for backwards compatibility
-	d.Set("type", rip.ReservedType)                        // V3 field
-	d.Set(e2econstants.AttrURN, urn)                       // V3 field
-	d.Set(e2econstants.AttrProjectName, rip.ProjectName)
+	d.Set(tfconstants.AttrIPAddress, rip.IPAddress)
+	d.Set(tfconstants.AttrStatus, rip.Status)
+	d.Set(tfconstants.AttrCreatedAt, rip.BoughtAt)
+	d.Set(tfconstants.AttrVMID, strconv.Itoa(rip.VMID))
+	d.Set(tfconstants.AttrVMName, rip.VMName)
+	d.Set(tfconstants.AttrReserveID, rip.ReserveID)
+	d.Set(tfconstants.AttrApplianceType, rip.ApplianceType)
+	d.Set(tfconstants.AttrReservedType, rip.ReservedType) // Keep for backwards compatibility
+	d.Set("type", rip.ReservedType)                       // V3 field
+	d.Set(tfconstants.AttrURN, urn)                       // V3 field
+	d.Set(tfconstants.AttrProjectName, rip.ProjectName)
 
 	// Set floating_ip_attached_nodes if type is FloatingIP
 	if rip.ReservedType == "FloatingIP" && len(rip.FloatingIPAttachedNodes) > 0 {
-		d.Set(e2econstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(rip.FloatingIPAttachedNodes))
+		d.Set(tfconstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(rip.FloatingIPAttachedNodes))
 	}
 
 	return diags
@@ -303,23 +303,23 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 
 	// Set all computed fields
 	log.Printf("[INFO] ReserveIP READ | SETTING DATA %+v", data)
-	d.Set(e2econstants.AttrIPAddress, data.IPAddress)
-	d.Set(e2econstants.AttrStatus, data.Status)
-	d.Set(e2econstants.AttrCreatedAt, data.BoughtAt)
-	d.Set(e2econstants.AttrVMID, strconv.Itoa(data.VMID))
-	d.Set(e2econstants.AttrVMName, data.VMName)
-	d.Set(e2econstants.AttrApplianceType, data.ApplianceType)
-	d.Set(e2econstants.AttrReservedType, data.ReservedType) // Keep for backwards compatibility
-	d.Set("type", data.ReservedType)                        // V3 field
-	d.Set(e2econstants.AttrURN, urn)                        // V3 field
-	d.Set(e2econstants.AttrReserveID, data.ReserveID)
-	d.Set(e2econstants.AttrProjectName, data.ProjectName)
+	d.Set(tfconstants.AttrIPAddress, data.IPAddress)
+	d.Set(tfconstants.AttrStatus, data.Status)
+	d.Set(tfconstants.AttrCreatedAt, data.BoughtAt)
+	d.Set(tfconstants.AttrVMID, strconv.Itoa(data.VMID))
+	d.Set(tfconstants.AttrVMName, data.VMName)
+	d.Set(tfconstants.AttrApplianceType, data.ApplianceType)
+	d.Set(tfconstants.AttrReservedType, data.ReservedType) // Keep for backwards compatibility
+	d.Set("type", data.ReservedType)                       // V3 field
+	d.Set(tfconstants.AttrURN, urn)                        // V3 field
+	d.Set(tfconstants.AttrReserveID, data.ReserveID)
+	d.Set(tfconstants.AttrProjectName, data.ProjectName)
 
 	// Set floating_ip_attached_nodes if type is FloatingIP
 	if data.ReservedType == "FloatingIP" && len(data.FloatingIPAttachedNodes) > 0 {
-		d.Set(e2econstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(data.FloatingIPAttachedNodes))
+		d.Set(tfconstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(data.FloatingIPAttachedNodes))
 	} else {
-		d.Set(e2econstants.AttrFloatingIPNodes, []map[string]interface{}{})
+		d.Set(tfconstants.AttrFloatingIPNodes, []map[string]interface{}{})
 	}
 
 	return diags

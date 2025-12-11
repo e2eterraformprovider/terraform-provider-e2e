@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -19,33 +19,33 @@ func DataSourceSshKeys() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
-			"ssh_key_list": {
+			tfconstants.AttrSSHKeyList: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Description: "list of SSH keys which can be used to launch resources",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"pk": {
+						tfconstants.AttrPK: {
 							Type:        schema.TypeInt,
 							Computed:    true,
 							Description: "id of the SSH key",
 						},
-						"label": {
+						tfconstants.AttrLabel: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "label (name) of the SSH key",
 						},
-						"ssh_key": {
+						tfconstants.AttrSSHKey: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the SSH key",
 						},
-						e2econstants.AttrCreatedAt: {
+						tfconstants.AttrCreatedAt: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the creation date for the SSH key",
@@ -84,8 +84,8 @@ func dataSourceReadSshKeys(ctx context.Context, d *schema.ResourceData, m interf
 	if err != nil {
 		return diag.Errorf("error finding ssh keys: %v", err)
 	}
-	d.Set("ssh_key_list", flattenSshKeys(sshKeys))
-	d.SetId("ssh_key_list")
+	d.Set(tfconstants.AttrSSHKeyList, flattenSshKeys(sshKeys))
+	d.SetId(tfconstants.AttrSSHKeyList)
 
 	return diags
 }
@@ -97,11 +97,11 @@ func flattenSshKeys(sshKeyList []goe2e.SSHKey) []interface{} {
 
 		for i, sshKey := range sshKeyList {
 			oi := make(map[string]interface{})
-			oi["label"] = sshKey.Label
-			oi["ssh_key"] = sshKey.SSHKey
-			oi["pk"] = sshKey.PK
+			oi[tfconstants.AttrLabel] = sshKey.Label
+			oi[tfconstants.AttrSSHKey] = sshKey.SSHKey
+			oi[tfconstants.AttrPK] = sshKey.PK
 			// Map API's "Timestamp" field to Terraform's "created_at" for consistency
-			oi[e2econstants.AttrCreatedAt] = sshKey.Timestamp
+			oi[tfconstants.AttrCreatedAt] = sshKey.Timestamp
 			ois[i] = oi
 		}
 

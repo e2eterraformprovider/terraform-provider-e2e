@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -28,7 +28,7 @@ func getMinSize(d *schema.ResourceData) int {
 	if v, ok := d.GetOk("min_size"); ok {
 		return v.(int)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrMinNodes); ok {
+	if v, ok := d.GetOk(tfconstants.AttrMinNodes); ok {
 		return v.(int)
 	}
 	return 0
@@ -39,7 +39,7 @@ func getMaxSize(d *schema.ResourceData) int {
 	if v, ok := d.GetOk("max_size"); ok {
 		return v.(int)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrMaxNodes); ok {
+	if v, ok := d.GetOk(tfconstants.AttrMaxNodes); ok {
 		return v.(int)
 	}
 	return 0
@@ -50,7 +50,7 @@ func getDesiredCapacity(d *schema.ResourceData) int {
 	if v, ok := d.GetOk("desired_capacity"); ok {
 		return v.(int)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrDesired); ok {
+	if v, ok := d.GetOk(tfconstants.AttrDesired); ok {
 		return v.(int)
 	}
 	return 0
@@ -72,7 +72,7 @@ func getEnableEncryption(d *schema.ResourceData) bool {
 	if v, ok := d.GetOk("enable_encryption"); ok {
 		return v.(bool)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrIsEncryptionEnabled); ok {
+	if v, ok := d.GetOk(tfconstants.AttrIsEncryptionEnabled); ok {
 		return v.(bool)
 	}
 	return false
@@ -83,7 +83,7 @@ func getAssignPublicIP(d *schema.ResourceData) bool {
 	if v, ok := d.GetOk("assign_public_ip"); ok {
 		return v.(bool)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrPublicIPRequired); ok {
+	if v, ok := d.GetOk(tfconstants.AttrPublicIPRequired); ok {
 		return v.(bool)
 	}
 	return true // default

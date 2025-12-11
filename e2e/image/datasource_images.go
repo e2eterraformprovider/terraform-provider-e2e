@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,9 +20,9 @@ func DataSourceImages() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Image-specific fields
 			"image_list": {
@@ -31,7 +31,7 @@ func DataSourceImages() *schema.Resource {
 				Description: "list of all saved Images",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrTemplateID: {
+						tfconstants.AttrTemplateID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "id of the template used to create a Node from the Image",
@@ -118,7 +118,7 @@ func flattenSavedImages(images []goe2e.SavedImage) []interface{} {
 	ois := make([]interface{}, len(images))
 	for i, image := range images {
 		oi := make(map[string]interface{})
-		oi[e2econstants.AttrTemplateID] = image.TemplateID
+		oi[tfconstants.AttrTemplateID] = image.TemplateID
 		oi["distro"] = image.Distro
 		oi["image_id"] = image.ImageID
 		oi["image_state"] = image.ImageState

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
@@ -54,14 +54,14 @@ func ResourceBlockStorage() *schema.Resource {
 			// ============================================
 			// COMMON INFRASTRUCTURE FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED FIELDS - IMMUTABLE
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
@@ -72,7 +72,7 @@ func ResourceBlockStorage() *schema.Resource {
 			// ============================================
 			// REQUIRED FIELDS - UPGRADABLE
 			// ============================================
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:         schema.TypeFloat,
 				Required:     true,
 				Description:  "size of the block storage in GB (upgradable: can increase, cannot decrease). Valid sizes: " + validBlockStorageSizesString,
@@ -94,7 +94,7 @@ func ResourceBlockStorage() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - PERFORMANCE
 			// ============================================
-			e2econstants.AttrIOPS: {
+			tfconstants.AttrIOPS: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "IOPS (Input/Output Operations Per Second) - calculated as size * 15",
@@ -103,7 +103,7 @@ func ResourceBlockStorage() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "current status of the block storage (available, attached, creating, error, etc.)",
@@ -112,12 +112,12 @@ func ResourceBlockStorage() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - ATTACHMENT
 			// ============================================
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "ID of the node to which the block storage is attached (null if detached)",
 			},
-			e2econstants.AttrVMName: {
+			tfconstants.AttrVMName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the node to which the block storage is attached (null if detached)",
@@ -139,30 +139,30 @@ func ResourceBlockStorage() *schema.Resource {
 func resourceBlockStorageResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrName: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:     schema.TypeFloat,
 				Required: true,
 			},
-			e2econstants.AttrIOPS: {
+			tfconstants.AttrIOPS: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrVMName: {
+			tfconstants.AttrVMName: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -217,8 +217,8 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	log.Printf("[INFO] BLOCK STORAGE CREATE STARTS")
-	name := d.Get(e2econstants.AttrName).(string)
-	size := d.Get(e2econstants.AttrSize).(float64)
+	name := d.Get(tfconstants.AttrName).(string)
+	size := d.Get(tfconstants.AttrSize).(float64)
 
 	iops := CalculateIOPS(size)
 	createReq := &goe2e.BlockStorageCreateRequest{
@@ -238,7 +238,7 @@ func resourceCreateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	log.Printf("[INFO] Block Storage creation | before setting fields")
 	d.SetId(strconv.Itoa(blockStorage.BlockID))
-	d.Set(e2econstants.AttrIOPS, iops)
+	d.Set(tfconstants.AttrIOPS, iops)
 
 	// Initialize empty tags map for state-only tag support
 	if _, ok := d.GetOk("tags"); !ok {
@@ -296,26 +296,26 @@ func resourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	log.Printf("[INFO] BLOCK STORAGE READ | BEFORE SETTING DATA")
-	d.Set(e2econstants.AttrName, blockStorage.Name)
-	d.Set(e2econstants.AttrStatus, blockStorage.Status)
-	d.Set(e2econstants.AttrIOPS, blockStorage.Template.TotalIOPSSec)
+	d.Set(tfconstants.AttrName, blockStorage.Name)
+	d.Set(tfconstants.AttrStatus, blockStorage.Status)
+	d.Set(tfconstants.AttrIOPS, blockStorage.Template.TotalIOPSSec)
 
 	// Handle VM attachment details
 	if blockStorage.VMDetail != nil {
 		if vmID, ok := blockStorage.VMDetail["vm_id"]; ok {
 			vmIDFloat, ok := vmID.(float64)
 			if ok {
-				d.Set(e2econstants.AttrVMID, strconv.Itoa(int(vmIDFloat)))
+				d.Set(tfconstants.AttrVMID, strconv.Itoa(int(vmIDFloat)))
 			}
 		}
 		if vmName, ok := blockStorage.VMDetail["vm_name"]; ok {
 			if vmNameStr, ok := vmName.(string); ok {
-				d.Set(e2econstants.AttrVMName, vmNameStr)
+				d.Set(tfconstants.AttrVMName, vmNameStr)
 			}
 		}
 	} else {
-		d.Set(e2econstants.AttrVMID, nil)
-		d.Set(e2econstants.AttrVMName, nil)
+		d.Set(tfconstants.AttrVMID, nil)
+		d.Set(tfconstants.AttrVMName, nil)
 	}
 
 	// Tags are state-only, preserve existing tags
@@ -353,7 +353,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("Error creating goe2e client: %s", err)
 	}
 
-	status := d.Get(e2econstants.AttrStatus).(string)
+	status := d.Get(tfconstants.AttrStatus).(string)
 
 	if status == goe2econstants.BlockStorageStatusError {
 		return diag.Errorf("Cannot update block storage (ID: %s): block storage is in ERROR state in project (%s), region (%s)", blockStorageID, projectIDStr, region)
@@ -377,20 +377,20 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	// No need for manual checks here
 
 	// Handle size upgrades
-	if d.HasChange(e2econstants.AttrSize) {
-		prevSize, currSize := d.GetChange(e2econstants.AttrSize)
+	if d.HasChange(tfconstants.AttrSize) {
+		prevSize, currSize := d.GetChange(tfconstants.AttrSize)
 		err := validateSize(ctx, d, goe2eClient)
 		if err != nil {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("Error validating block storage (ID: %s) size in project (%s), region (%s): %s", blockStorageID, projectIDStr, region, err)
 		}
 		log.Printf("[INFO] prevSize %v, currSize %v", prevSize, currSize)
 
-		if d.Get(e2econstants.AttrStatus) == goe2econstants.BlockStorageStatusAttached {
+		if d.Get(tfconstants.AttrStatus) == goe2econstants.BlockStorageStatusAttached {
 			tolerance := 1e-6
 			if currSize.(float64) > prevSize.(float64)+tolerance {
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE STARTS")
-				currentName := d.Get(e2econstants.AttrName).(string)
+				currentName := d.Get(tfconstants.AttrName).(string)
 
 				// Get VM ID from block storage
 				var vmID float64
@@ -403,7 +403,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				}
 
 				if vmID == 0 {
-					d.Set(e2econstants.AttrSize, prevSize)
+					d.Set(tfconstants.AttrSize, prevSize)
 					return diag.Errorf("Cannot resize block storage (ID: %s): VM ID not found in block storage details", blockStorageID)
 				}
 
@@ -416,7 +416,7 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 				_, err := goe2eClient.BlockStorage.UpgradeBlockStorage(ctx, blockStorageID, upgradeReq)
 				if err != nil {
-					d.Set(e2econstants.AttrSize, prevSize)
+					d.Set(tfconstants.AttrSize, prevSize)
 					if checkErrorForSpecificMessage(err, goe2econstants.NodeLCMStateDiskResize) || checkErrorForSpecificMessage(err, goe2econstants.NodeLCMStateDiskResizePoweroff) {
 						return diag.Errorf("Cannot resize block storage (ID: %s, name: %s): currently resizing another disk on same virtual machine (VM ID: %.0f). Please wait", blockStorageID, currentName, vmID)
 					}
@@ -425,11 +425,11 @@ func resourceUpdateBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				log.Printf("[INFO] BLOCK STORAGE UPGRADE completed successfully")
 				// Continue to read to refresh state
 			} else {
-				d.Set(e2econstants.AttrSize, prevSize)
+				d.Set(tfconstants.AttrSize, prevSize)
 				return diag.Errorf("Cannot reduce block storage (ID: %s) size: only upgrades (increases) are allowed", blockStorageID)
 			}
 		} else {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("Cannot resize block storage (ID: %s): block storage must be attached to a node", blockStorageID)
 		}
 	}
@@ -472,8 +472,8 @@ func resourceDeleteBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("Error creating goe2e client: %s", err)
 	}
 
-	status := d.Get(e2econstants.AttrStatus).(string)
-	vmID := d.Get(e2econstants.AttrVMID).(string)
+	status := d.Get(tfconstants.AttrStatus).(string)
+	vmID := d.Get(tfconstants.AttrVMID).(string)
 
 	if status == goe2econstants.BlockStorageStatusSaving || status == goe2econstants.BlockStorageStatusCreating {
 		return diag.Errorf("Cannot delete block storage (ID: %s): block storage is in %s state in project (%s), region (%s)", blockStorageID, status, projectIDStr, region)
@@ -551,8 +551,8 @@ func customImportBlockStorage(ctx context.Context, d *schema.ResourceData, m int
 	blockStorageID := parts[2]
 
 	// Set the individual fields with correct schema keys
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 	d.SetId(blockStorageID)
 
 	// Initialize empty tags
@@ -571,7 +571,7 @@ func CalculateIOPS(size float64) string {
 }
 
 func validateSize(ctx context.Context, d *schema.ResourceData, goe2eClient *goe2e.Client) error {
-	requestedSize := d.Get(e2econstants.AttrSize).(float64)
+	requestedSize := d.Get(tfconstants.AttrSize).(float64)
 
 	// Try to get plans from API to validate against available sizes
 	plans, _, err := goe2eClient.BlockStorage.GetBlockStoragePlans(ctx)

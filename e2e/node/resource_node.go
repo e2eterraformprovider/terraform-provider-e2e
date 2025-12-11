@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/util"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
@@ -25,33 +25,33 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "name of the Node",
 				ValidateFunc: ValidateName,
 			},
-			e2econstants.AttrLabel: {
+			tfconstants.AttrLabel: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "the label of the Node",
 				Default:     "default",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
 				Description:  "the plan of the Node",
 				ValidateFunc: ValidatePlanName,
 			},
-			e2econstants.AttrImage: {
+			tfconstants.AttrImage: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
@@ -105,20 +105,20 @@ func ResourceNode() *schema.Resource {
 				ForceNew:    true,
 				Description: "the script to be run when the Node is first created",
 			},
-			e2econstants.AttrReserveIP: {
+			tfconstants.AttrReserveIP: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Deprecated:    "Use reserve_ip_id instead. This field will be removed in v4.0",
 				Description:   "id of the reserved IP to attach to the Node (DEPRECATED: use reserve_ip_id)",
-				ConflictsWith: []string{e2econstants.AttrReserveIPID},
+				ConflictsWith: []string{tfconstants.AttrReserveIPID},
 			},
-			e2econstants.AttrReserveIPID: {
+			tfconstants.AttrReserveIPID: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Description:   "id of the reserved IP to attach to the Node",
-				ConflictsWith: []string{e2econstants.AttrReserveIP},
+				ConflictsWith: []string{tfconstants.AttrReserveIP},
 			},
-			e2econstants.AttrVPCID: {
+			tfconstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "id of the VPC for the Node",
@@ -130,7 +130,7 @@ func ResourceNode() *schema.Resource {
 				Description: "the template id of the saved image (required when is_saved_image is true)",
 				Default:     nil,
 			},
-			e2econstants.AttrSecurityGroupIDs: {
+			tfconstants.AttrSecurityGroupIDs: {
 				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "list of security group ids to attach to the Node",
@@ -185,7 +185,7 @@ func ResourceNode() *schema.Resource {
 				Description: "structured network configuration for the Node",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrVPCID: {
+						tfconstants.AttrVPCID: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Description: "id of the VPC for the Node",
@@ -202,7 +202,7 @@ func ResourceNode() *schema.Resource {
 							Default:     false,
 							Description: "whether to enable IPv6 for the Node",
 						},
-						e2econstants.AttrSecurityGroupIDs: {
+						tfconstants.AttrSecurityGroupIDs: {
 							Type:        schema.TypeList,
 							Optional:    true,
 							Description: "list of security group IDs",
@@ -215,19 +215,19 @@ func ResourceNode() *schema.Resource {
 				},
 			},
 
-			e2econstants.AttrRootDisk: {
+			tfconstants.AttrRootDisk: {
 				Type:        schema.TypeList,
 				Optional:    true,
 				MaxItems:    1,
 				Description: "structured root disk configuration",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrSizeGB: {
+						tfconstants.AttrSizeGB: {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "the size of the root disk in gigabytes (sent to API as 'disk' field)",
 						},
-						e2econstants.AttrDiskType: {
+						tfconstants.AttrDiskType: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Computed:    true,
@@ -241,7 +241,7 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - MANAGEMENT
 			// ============================================
-			e2econstants.AttrPowerStatus: {
+			tfconstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     goe2econstants.NodePowerStatusOn,
@@ -251,7 +251,7 @@ func ResourceNode() *schema.Resource {
 					goe2econstants.NodePowerStatusOn,
 				}, false),
 			},
-			e2econstants.AttrLockNode: {
+			tfconstants.AttrLockNode: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
@@ -261,7 +261,7 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// ACTION FIELDS
 			// ============================================
-			e2econstants.AttrRebootNode: {
+			tfconstants.AttrRebootNode: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
@@ -287,12 +287,12 @@ func ResourceNode() *schema.Resource {
 				Computed:    true,
 				Description: "whether the Node is active",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the Node",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the Node instance",
@@ -306,12 +306,12 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the Nodes public ipv4 address",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the Nodes private ipv4 address",
@@ -325,17 +325,17 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - RESOURCES
 			// ============================================
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the VM",
 			},
-			e2econstants.AttrMemory: {
+			tfconstants.AttrMemory: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "memory of the Node in megabytes",
 			},
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the disk information of the Node",
@@ -349,7 +349,7 @@ func ResourceNode() *schema.Resource {
 			// ============================================
 			// OPTIONAL STRUCTURED BLOCKS - BACKUP
 			// ============================================
-			e2econstants.AttrBackupConfig: {
+			tfconstants.AttrBackupConfig: {
 				Type:        schema.TypeList,
 				Optional:    true,
 				MaxItems:    1,
@@ -362,12 +362,12 @@ func ResourceNode() *schema.Resource {
 							Default:     false,
 							Description: "whether backup is enabled",
 						},
-						e2econstants.AttrBackupPlanID: {
+						tfconstants.AttrBackupPlanID: {
 							Type:        schema.TypeInt,
 							Required:    true,
 							Description: "id of the backup plan",
 						},
-						e2econstants.AttrBackupType: {
+						tfconstants.AttrBackupType: {
 							Type:        schema.TypeString,
 							Required:    true,
 							Description: "backup frequency type (HOURLY, DAILY, WEEKLY, MONTHLY)",
@@ -375,19 +375,19 @@ func ResourceNode() *schema.Resource {
 								"HOURLY", "DAILY", "WEEKLY", "MONTHLY",
 							}, false),
 						},
-						e2econstants.AttrBackupExcludePaths: {
+						tfconstants.AttrBackupExcludePaths: {
 							Type:        schema.TypeList,
 							Optional:    true,
 							Description: "list of paths to exclude from backup",
 							Elem:        &schema.Schema{Type: schema.TypeString},
 						},
-						e2econstants.AttrBackupNow: {
+						tfconstants.AttrBackupNow: {
 							Type:        schema.TypeBool,
 							Optional:    true,
 							Default:     false,
 							Description: "whether to take a backup immediately",
 						},
-						e2econstants.AttrCompressionType: {
+						tfconstants.AttrCompressionType: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Description: "compression type for backup (ZLib, GZip, None)",
@@ -395,7 +395,7 @@ func ResourceNode() *schema.Resource {
 								"ZLib", "GZip", "None",
 							}, false),
 						},
-						e2econstants.AttrCompressionLevel: {
+						tfconstants.AttrCompressionLevel: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Description: "compression level (Low, Medium, High)",
@@ -403,19 +403,19 @@ func ResourceNode() *schema.Resource {
 								"Low", "Medium", "High",
 							}, false),
 						},
-						e2econstants.AttrEncryptionEnabled: {
+						tfconstants.AttrEncryptionEnabled: {
 							Type:        schema.TypeBool,
 							Optional:    true,
 							Default:     false,
 							Description: "whether to encrypt backups",
 						},
-						e2econstants.AttrEncryptionKey: {
+						tfconstants.AttrEncryptionKey: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Sensitive:   true,
 							Description: "encryption passphrase for backups",
 						},
-						e2econstants.AttrHoursOfDay: {
+						tfconstants.AttrHoursOfDay: {
 							Type:        schema.TypeList,
 							Optional:    true,
 							Description: "hours of day to run backups (0-23)",
@@ -427,24 +427,24 @@ func ResourceNode() *schema.Resource {
 										"20", "21", "22", "23"}, false),
 							},
 						},
-						e2econstants.AttrStartingMinute: {
+						tfconstants.AttrStartingMinute: {
 							Type:         schema.TypeInt,
 							Optional:     true,
 							Description:  "starting minute of the hour (0-59)",
 							ValidateFunc: validation.IntBetween(0, 59),
 						},
-						e2econstants.AttrDBEnabled: {
+						tfconstants.AttrDBEnabled: {
 							Type:        schema.TypeBool,
 							Optional:    true,
 							Default:     false,
 							Description: "whether to enable database backup",
 						},
-						e2econstants.AttrDBUsername: {
+						tfconstants.AttrDBUsername: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Description: "database username for backup",
 						},
-						e2econstants.AttrDBPassword: {
+						tfconstants.AttrDBPassword: {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Sensitive:   true,
@@ -454,24 +454,24 @@ func ResourceNode() *schema.Resource {
 				},
 			},
 
-			e2econstants.AttrBackupStatus: {
+			tfconstants.AttrBackupStatus: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				MaxItems:    1,
 				Description: "current backup status of the Node",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "current backup status",
 						},
-						e2econstants.AttrBackupStatusDetail: {
+						tfconstants.AttrBackupStatusDetail: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "detailed status message",
 						},
-						e2econstants.AttrLastRecoveryPoint: {
+						tfconstants.AttrLastRecoveryPoint: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "timestamp of last recovery point",
@@ -515,11 +515,11 @@ func ValidateName(v interface{}, k string) (ws []string, es []error) {
 
 func resourceNodeCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 	// Emit warnings for deprecated fields
-	if _, ok := d.GetOk(e2econstants.AttrSSHKeys); ok {
+	if _, ok := d.GetOk(tfconstants.AttrSSHKeys); ok {
 		log.Printf("[WARN] The ssh_keys field is deprecated and will be removed in v4.0. Please use ssh_key_ids instead.")
 	}
 
-	if _, ok := d.GetOk(e2econstants.AttrReserveIP); ok {
+	if _, ok := d.GetOk(tfconstants.AttrReserveIP); ok {
 		log.Printf("[WARN] The reserve_ip field is deprecated and will be removed in v4.0. Please use reserve_ip_id instead.")
 	}
 
@@ -530,9 +530,9 @@ func resourceNodeCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m in
 	}
 
 	// Validate C2 plan restrictions at plan time
-	if plan, ok := d.GetOk(e2econstants.AttrPlan); ok {
+	if plan, ok := d.GetOk(tfconstants.AttrPlan); ok {
 		planStr := plan.(string)
-		if len(planStr) >= 2 && planStr[0:2] == e2econstants.PREFIX_C2_NODE {
+		if len(planStr) >= 2 && planStr[0:2] == tfconstants.PREFIX_C2_NODE {
 			// Check if trying to attach block storage to C2 node
 			if blockStorageIDs, ok := d.GetOk("block_storage_ids"); ok {
 				if len(blockStorageIDs.([]interface{})) > 0 {
@@ -565,7 +565,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	var sshKeysForAPI []interface{}
 	var originalSSHKeys interface{} // Store original for state restore
 
-	if sshKeyIDs, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
+	if sshKeyIDs, ok := d.GetOk(tfconstants.AttrSSHKeyIDs); ok {
 		// New way: using ssh_key_ids (direct resource IDs)
 		// IMPORTANT: API expects actual SSH key content strings, not IDs!
 		originalSSHKeys = sshKeyIDs
@@ -578,7 +578,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 		sshKeysForAPI = sshKeyContents
 		log.Printf("[INFO] Converted %d ssh_key_ids to key content for API", len(sshKeysForAPI))
-	} else if sshKeyLabels, ok := d.GetOk(e2econstants.AttrSSHKeys); ok {
+	} else if sshKeyLabels, ok := d.GetOk(tfconstants.AttrSSHKeys); ok {
 		// Old way: using ssh_keys (labels) - DEPRECATED
 		log.Printf("[WARN] ssh_keys field is deprecated. Use ssh_key_ids instead. This field will be removed in v4.0")
 		originalSSHKeys = sshKeyLabels
@@ -587,7 +587,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if Err != nil {
 			return Err
 		}
-		d.Set(e2econstants.AttrSSHKeys, new_SSH_keys)
+		d.Set(tfconstants.AttrSSHKeys, new_SSH_keys)
 		sshKeysForAPI = new_SSH_keys
 	}
 
@@ -632,13 +632,13 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("default_sg", defaultSG)
 
 	security_group := defaultSG
-	if securityGroupsList, ok := d.GetOk(e2econstants.AttrSecurityGroupIDs); ok {
+	if securityGroupsList, ok := d.GetOk(tfconstants.AttrSecurityGroupIDs); ok {
 		if securityGroupsList != nil {
 			if securityGroups, ok := securityGroupsList.([]interface{}); ok && len(securityGroups) > 0 {
 				security_group = securityGroups[0].(int)
 				if len(securityGroups) > 1 {
 					log.Printf("Can only attach a single security group while node creation. Only the first Security Group will be attached")
-					d.Set(e2econstants.AttrSecurityGroupIDs, []int{security_group})
+					d.Set(tfconstants.AttrSecurityGroupIDs, []int{security_group})
 				}
 			}
 		}
@@ -646,10 +646,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	// Handle reserve_ip - support both old and new fields
 	reserveIP := ""
-	if reserveIPID, ok := d.GetOk(e2econstants.AttrReserveIPID); ok {
+	if reserveIPID, ok := d.GetOk(tfconstants.AttrReserveIPID); ok {
 		// New way: using reserve_ip_id
 		reserveIP = reserveIPID.(string)
-	} else if oldReserveIP, ok := d.GetOk(e2econstants.AttrReserveIP); ok {
+	} else if oldReserveIP, ok := d.GetOk(tfconstants.AttrReserveIP); ok {
 		// Old way: using reserve_ip - DEPRECATED
 		log.Printf("[WARN] reserve_ip field is deprecated. Use reserve_ip_id instead. This field will be removed in v4.0")
 		reserveIP = oldReserveIP.(string)
@@ -660,7 +660,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	var niVPCID string
 	var niAssignPublicIP, niEnableIPv6 bool
 	var niSecurityGroupIDs []int
-	if niList, ok := d.GetOk(e2econstants.AttrNetworkInterface); ok {
+	if niList, ok := d.GetOk(tfconstants.AttrNetworkInterface); ok {
 		niVPCID, niAssignPublicIP, niEnableIPv6, niSecurityGroupIDs = expandNetworkInterface(niList.([]interface{}))
 		log.Printf("[INFO] Using network_interface block: vpc_id=%s, assign_public_ip=%v, enable_ipv6=%v, security_groups=%v",
 			niVPCID, niAssignPublicIP, niEnableIPv6, niSecurityGroupIDs)
@@ -673,7 +673,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	// Parse root_disk block if provided (V3 structured config - maps to API 'disk' field)
 	var rootDiskSize int
-	if rdList, ok := d.GetOk(e2econstants.AttrRootDisk); ok {
+	if rdList, ok := d.GetOk(tfconstants.AttrRootDisk); ok {
 		sizeGB, diskType := expandRootDisk(rdList.([]interface{}))
 		if sizeGB > 0 {
 			rootDiskSize = sizeGB
@@ -682,7 +682,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	// Use network_interface values if provided, otherwise use individual fields
-	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+	vpcID := d.Get(tfconstants.AttrVPCID).(string)
 	if niVPCID != "" {
 		vpcID = niVPCID
 	}
@@ -711,9 +711,9 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	// Convert models.NodeCreate to goe2e.NodeCreateRequest
 	createReq := &goe2e.NodeCreateRequest{
 		Name:                 d.Get("name").(string),
-		Label:                d.Get(e2econstants.AttrLabel).(string),
+		Label:                d.Get(tfconstants.AttrLabel).(string),
 		Plan:                 d.Get("plan").(string),
-		Image:                d.Get(e2econstants.AttrImage).(string),
+		Image:                d.Get(tfconstants.AttrImage).(string),
 		Backup:               d.Get("backup").(bool),
 		DefaultPublicIP:      d.Get("default_public_ip").(bool),
 		DisablePassword:      d.Get("disable_password").(bool),
@@ -758,13 +758,13 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		fullNode, _, err := goe2eClient.Nodes.GetNode(ctx, createdNode.ID)
 		if err == nil && fullNode != nil {
 			d.Set("is_active", fullNode.IsActive)
-			d.Set(e2econstants.AttrCreatedAt, fullNode.CreatedAt)
-			d.Set(e2econstants.AttrMemory, fullNode.Memory)
-			d.Set(e2econstants.AttrStatus, fullNode.Status)
-			d.Set(e2econstants.AttrDisk, fullNode.Disk)
+			d.Set(tfconstants.AttrCreatedAt, fullNode.CreatedAt)
+			d.Set(tfconstants.AttrMemory, fullNode.Memory)
+			d.Set(tfconstants.AttrStatus, fullNode.Status)
+			d.Set(tfconstants.AttrDisk, fullNode.Disk)
 			d.Set("price", fullNode.Price)
 			if fullNode.VMID > 0 {
-				d.Set(e2econstants.AttrVMID, fullNode.VMID)
+				d.Set(tfconstants.AttrVMID, fullNode.VMID)
 			}
 		}
 	} else {
@@ -775,10 +775,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	// Restore original SSH keys to state (either ssh_keys or ssh_key_ids)
 	if originalSSHKeys != nil {
-		if _, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
-			d.Set(e2econstants.AttrSSHKeyIDs, originalSSHKeys)
+		if _, ok := d.GetOk(tfconstants.AttrSSHKeyIDs); ok {
+			d.Set(tfconstants.AttrSSHKeyIDs, originalSSHKeys)
 		} else {
-			d.Set(e2econstants.AttrSSHKeys, originalSSHKeys)
+			d.Set(tfconstants.AttrSSHKeys, originalSSHKeys)
 		}
 	}
 	return diags
@@ -825,44 +825,44 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	log.Printf("[info] node Resource read | before setting data")
 	log.Printf("[info] node Resource read | data = %+v", node)
 	d.Set("name", node.Name)
-	d.Set(e2econstants.AttrLabel, node.Label)
-	d.Set(e2econstants.AttrPlan, node.Plan)
-	d.Set(e2econstants.AttrCreatedAt, node.CreatedAt)
-	d.Set(e2econstants.AttrMemory, node.Memory)
-	d.Set(e2econstants.AttrStatus, node.Status)
-	d.Set(e2econstants.AttrDisk, node.Disk)
+	d.Set(tfconstants.AttrLabel, node.Label)
+	d.Set(tfconstants.AttrPlan, node.Plan)
+	d.Set(tfconstants.AttrCreatedAt, node.CreatedAt)
+	d.Set(tfconstants.AttrMemory, node.Memory)
+	d.Set(tfconstants.AttrStatus, node.Status)
+	d.Set(tfconstants.AttrDisk, node.Disk)
 	d.Set("price", node.Price)
-	d.Set(e2econstants.AttrLockNode, node.IsLocked)
-	d.Set(e2econstants.AttrPublicIPAddress, node.PublicIPAddress)
-	d.Set(e2econstants.AttrPrivateIPAddress, node.PrivateIPAddress)
+	d.Set(tfconstants.AttrLockNode, node.IsLocked)
+	d.Set(tfconstants.AttrPublicIPAddress, node.PublicIPAddress)
+	d.Set(tfconstants.AttrPrivateIPAddress, node.PrivateIPAddress)
 
 	// Set IPv6 address if available
 	if node.IPv6Address != "" {
-		d.Set(e2econstants.AttrIPv6Address, node.IPv6Address)
+		d.Set(tfconstants.AttrIPv6Address, node.IPv6Address)
 	}
 
 	d.Set("is_bitninja_license_active", node.BitNinjaLicenseActive)
 
 	// Preserve SSH keys in state (don't overwrite with API response)
 	// The API returns the actual keys, but we want to keep the original reference (labels or IDs)
-	if _, ok := d.GetOk(e2econstants.AttrSSHKeyIDs); ok {
+	if _, ok := d.GetOk(tfconstants.AttrSSHKeyIDs); ok {
 		// Using ssh_key_ids - keep as-is
 	} else {
 		// Using ssh_keys - keep original labels
-		d.Set(e2econstants.AttrSSHKeys, copy_ssh_keys)
+		d.Set(tfconstants.AttrSSHKeys, copy_ssh_keys)
 	}
 
 	// Convert VMID from string to int if needed
 	if node.VMID > 0 {
-		d.Set(e2econstants.AttrVMID, node.VMID)
+		d.Set(tfconstants.AttrVMID, node.VMID)
 	}
 
 	log.Printf("[info] node Resource read | after setting data")
 	if node.Status == goe2econstants.NodeStatusRunning || node.Status == goe2econstants.NodeStatusCreating {
-		d.Set(e2econstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn)
+		d.Set(tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn)
 	}
 	if node.Status == goe2econstants.NodeStatusPoweredOff {
-		d.Set(e2econstants.AttrPowerStatus, goe2econstants.NodePowerStatusOff)
+		d.Set(tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOff)
 	}
 	securityGroups, _, err := goe2eClient.Nodes.GetSecurityGroupList(ctx)
 	if err != nil {
@@ -898,7 +898,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.Errorf("Error creating goe2e client: %s", err)
 	}
 
-	status := d.Get(e2econstants.AttrStatus).(string)
+	status := d.Get(tfconstants.AttrStatus).(string)
 	if status == goe2econstants.NodeStatusFailed {
 		rollbackChanges(d)
 		return diag.Errorf("Cannot update node (ID: %s): node is in %s state in project (%s), region (%s). Please contact support at cloud-platform@e2enetworks.com", nodeId, status, projectID, region)
@@ -925,18 +925,18 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange(e2econstants.AttrPowerStatus) {
-		nodestatus := d.Get(e2econstants.AttrStatus).(string)
+	if d.HasChange(tfconstants.AttrPowerStatus) {
+		nodestatus := d.Get(tfconstants.AttrStatus).(string)
 		if nodestatus == goe2econstants.NodeStatusCreating || nodestatus == goe2econstants.NodeStatusReinstalling {
 			prevBlockIDArray, _ := d.GetChange("block_storage_ids")
 			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.Errorf("Cannot change power status for node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, nodestatus, projectID, region)
 		}
-		if d.Get(e2econstants.AttrLockNode).(bool) {
+		if d.Get(tfconstants.AttrLockNode).(bool) {
 			return diag.Errorf("Cannot change power status for node (ID: %s): node is locked", nodeId)
 		}
-		log.Printf("[INFO] %s ", d.Get(e2econstants.AttrPowerStatus).(string))
-		powerStatus := d.Get(e2econstants.AttrPowerStatus).(string)
+		log.Printf("[INFO] %s ", d.Get(tfconstants.AttrPowerStatus).(string))
+		powerStatus := d.Get(tfconstants.AttrPowerStatus).(string)
 		if powerStatus == goe2econstants.NodePowerStatusOn {
 			_, err = goe2eClient.Nodes.PowerOn(ctx, nodeId)
 		} else if powerStatus == goe2econstants.NodePowerStatusOff {
@@ -949,17 +949,17 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange(e2econstants.AttrLockNode) {
-		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
-			return diag.Errorf("Cannot update node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(e2econstants.AttrStatus).(string), projectID, region)
+	if d.HasChange(tfconstants.AttrLockNode) {
+		if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+			return diag.Errorf("Cannot update node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(tfconstants.AttrStatus).(string), projectID, region)
 		}
-		if d.Get(e2econstants.AttrLockNode).(bool) {
+		if d.Get(tfconstants.AttrLockNode).(bool) {
 			_, err := goe2eClient.Nodes.LockNode(ctx, nodeId)
 			if err != nil {
 				return diag.Errorf("Error locking node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 			}
 		}
-		if !d.Get(e2econstants.AttrLockNode).(bool) {
+		if !d.Get(tfconstants.AttrLockNode).(bool) {
 			_, err := goe2eClient.Nodes.UnlockNode(ctx, nodeId)
 			if err != nil {
 				return diag.Errorf("Error unlocking node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
@@ -967,15 +967,15 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange(e2econstants.AttrRebootNode) {
+	if d.HasChange(tfconstants.AttrRebootNode) {
 
-		if d.Get(e2econstants.AttrRebootNode).(bool) {
-			d.Set(e2econstants.AttrRebootNode, false)
-			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
-				return diag.Errorf("Cannot reboot node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(e2econstants.AttrStatus).(string), projectID, region)
+		if d.Get(tfconstants.AttrRebootNode).(bool) {
+			d.Set(tfconstants.AttrRebootNode, false)
+			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating || d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+				return diag.Errorf("Cannot reboot node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, d.Get(tfconstants.AttrStatus).(string), projectID, region)
 			}
-			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
-				return diag.Errorf("Cannot reboot node (ID: %s): node must be powered on (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
+			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
+				return diag.Errorf("Cannot reboot node (ID: %s): node must be powered on (current state: %s)", nodeId, d.Get(tfconstants.AttrStatus).(string))
 			}
 			_, err := goe2eClient.Nodes.Reboot(ctx, nodeId)
 			if err != nil {
@@ -984,23 +984,23 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 	if d.HasChange("reinstall_node") {
-		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating {
+		if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusCreating {
 			return diag.Errorf("Cannot reinstall node (ID: %s): node is in creating state", nodeId)
 		}
-		if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+		if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
 			return diag.Errorf("Cannot reinstall node (ID: %s): node is already being reinstalled", nodeId)
 		}
 		if d.Get("reinstall_node").(bool) {
-			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
+			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Cannot reinstall node (ID: %s): node must be powered on (current state: %s)", nodeId, goe2econstants.NodeStatusPoweredOff)
 			}
-			if d.Get(e2econstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
+			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
 				d.Set("reinstall_node", false)
 				return diag.Errorf("Cannot reinstall node (ID: %s): node is already being reinstalled", nodeId)
 			}
 			reinstallReq := &goe2e.NodeReinstallRequest{
-				Image: d.Get(e2econstants.AttrImage).(string),
+				Image: d.Get(tfconstants.AttrImage).(string),
 			}
 			_, err := goe2eClient.Nodes.Reinstall(ctx, nodeId, reinstallReq)
 			d.Set("reinstall_node", false)
@@ -1028,16 +1028,16 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange(e2econstants.AttrSecurityGroupIDs) {
-		oldSGData, newSGData := d.GetChange(e2econstants.AttrSecurityGroupIDs)
-		if d.Get(e2econstants.AttrStatus).(string) != goe2econstants.NodeStatusRunning {
-			d.Set(e2econstants.AttrSecurityGroupIDs, oldSGData)
-			return diag.Errorf("Cannot update security groups for node (ID: %s): node must be in running state (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
+	if d.HasChange(tfconstants.AttrSecurityGroupIDs) {
+		oldSGData, newSGData := d.GetChange(tfconstants.AttrSecurityGroupIDs)
+		if d.Get(tfconstants.AttrStatus).(string) != goe2econstants.NodeStatusRunning {
+			d.Set(tfconstants.AttrSecurityGroupIDs, oldSGData)
+			return diag.Errorf("Cannot update security groups for node (ID: %s): node must be in running state (current state: %s)", nodeId, d.Get(tfconstants.AttrStatus).(string))
 		}
-		security_groups_list := d.Get(e2econstants.AttrSecurityGroupIDs).([]interface{})
+		security_groups_list := d.Get(tfconstants.AttrSecurityGroupIDs).([]interface{})
 
 		if len(security_groups_list) <= 0 {
-			d.Set(e2econstants.AttrSecurityGroupIDs, oldSGData)
+			d.Set(tfconstants.AttrSecurityGroupIDs, oldSGData)
 			return diag.Errorf("At least one security group must be attached to node (ID: %s)", nodeId)
 		}
 		oldSGList := oldSGData.([]interface{})
@@ -1081,10 +1081,10 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	if d.HasChange(e2econstants.AttrLabel) {
-		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get(e2econstants.AttrLabel).(string))
+	if d.HasChange(tfconstants.AttrLabel) {
+		log.Printf("[INFO] nodeId = %v changed label = %s ", d.Id(), d.Get(tfconstants.AttrLabel).(string))
 		updateReq := &goe2e.NodeUpdateRequest{
-			Label: d.Get(e2econstants.AttrLabel).(string),
+			Label: d.Get(tfconstants.AttrLabel).(string),
 		}
 		_, _, err = goe2eClient.Nodes.UpdateNode(ctx, nodeId, updateReq)
 		if err != nil {
@@ -1124,41 +1124,41 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		d.Set("region", prevLocation)
 		return diag.Errorf("Cannot update region: this field is immutable after node creation")
 	}
-	if d.HasChange(e2econstants.AttrImage) {
-		prevImage, currImage := d.GetChange(e2econstants.AttrImage)
+	if d.HasChange(tfconstants.AttrImage) {
+		prevImage, currImage := d.GetChange(tfconstants.AttrImage)
 		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
-		d.Set(e2econstants.AttrImage, prevImage.(string))
+		d.Set(tfconstants.AttrImage, prevImage.(string))
 		return diag.Errorf("Cannot update image: this field is immutable after node creation")
 	}
-	if d.HasChange(e2econstants.AttrPlan) {
-		prevPlan, currPlan := d.GetChange(e2econstants.AttrPlan)
+	if d.HasChange(tfconstants.AttrPlan) {
+		prevPlan, currPlan := d.GetChange(tfconstants.AttrPlan)
 
-		if d.HasChange(e2econstants.AttrPowerStatus) {
+		if d.HasChange(tfconstants.AttrPowerStatus) {
 			_ = util.WaitForNodePowerState(m, nodeId, projectID, region)
 		}
 
 		log.Printf("[INFO] prevPlan %s, currPlan %s", prevPlan.(string), currPlan.(string))
 
-		if d.Get(e2econstants.AttrStatus).(string) != goe2econstants.NodeStatusPoweredOff {
-			d.Set(e2econstants.AttrPlan, prevPlan)
-			return diag.Errorf("Cannot upgrade plan for node (ID: %s): node must be powered off (current state: %s)", nodeId, d.Get(e2econstants.AttrStatus).(string))
+		if d.Get(tfconstants.AttrStatus).(string) != goe2econstants.NodeStatusPoweredOff {
+			d.Set(tfconstants.AttrPlan, prevPlan)
+			return diag.Errorf("Cannot upgrade plan for node (ID: %s): node must be powered off (current state: %s)", nodeId, d.Get(tfconstants.AttrStatus).(string))
 		}
 		upgradeReq := &goe2e.NodePlanUpgradeRequest{
-			Plan:  d.Get(e2econstants.AttrPlan).(string),
-			Image: d.Get(e2econstants.AttrImage).(string),
+			Plan:  d.Get(tfconstants.AttrPlan).(string),
+			Image: d.Get(tfconstants.AttrImage).(string),
 		}
 		_, err = goe2eClient.Nodes.UpgradePlan(ctx, nodeId, upgradeReq)
 
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, prevPlan)
+			d.Set(tfconstants.AttrPlan, prevPlan)
 			return diag.Errorf("Error upgrading plan for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
 		}
 	}
 
 	if d.HasChange("block_storage_ids") {
 
-		log.Printf("[INFO] Power_status changing is = %v", d.HasChange(e2econstants.AttrPowerStatus))
-		if d.HasChange(e2econstants.AttrPowerStatus) {
+		log.Printf("[INFO] Power_status changing is = %v", d.HasChange(tfconstants.AttrPowerStatus))
+		if d.HasChange(tfconstants.AttrPowerStatus) {
 			err := util.WaitForNodePowerState(m, nodeId, projectID, region)
 			if err != nil {
 				return diag.Errorf("Error waiting for node (ID: %s) power state change in project (%s), region (%s): %s", nodeId, projectID, region, err)
@@ -1167,7 +1167,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		prevBlockIDArray, currBlockIDArray := d.GetChange("block_storage_ids")
 
-		if d.Get(e2econstants.AttrPlan).(string)[0:2] == e2econstants.PREFIX_C2_NODE {
+		if d.Get(tfconstants.AttrPlan).(string)[0:2] == tfconstants.PREFIX_C2_NODE {
 			d.Set("block_storage_ids", prevBlockIDArray)
 			return diag.Errorf("Cannot attach block storage to node (ID: %s): C2 plan nodes do not support block storage attachment", nodeId)
 		}
@@ -1235,8 +1235,8 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	// Handle tag_ids changes (attach/detach tags via label API)
-	if d.HasChange(e2econstants.AttrTagIDs) {
-		oldTagIDs, newTagIDs := d.GetChange(e2econstants.AttrTagIDs)
+	if d.HasChange(tfconstants.AttrTagIDs) {
+		oldTagIDs, newTagIDs := d.GetChange(tfconstants.AttrTagIDs)
 		oldList := oldTagIDs.([]interface{})
 		newList := newTagIDs.([]interface{})
 
@@ -1301,7 +1301,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 		return diag.FromErr(err)
 	}
 
-	node_status := d.Get(e2econstants.AttrStatus).(string)
+	node_status := d.Get(tfconstants.AttrStatus).(string)
 	if node_status == goe2econstants.NodeStatusSaving || node_status == goe2econstants.NodeStatusCreating {
 		return diag.Errorf("Cannot delete node (ID: %s): node is in %s state in project (%s), region (%s)", nodeId, node_status, projectID, region)
 	}
@@ -1364,7 +1364,7 @@ func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.Res
 	nodeID := parts[2]
 
 	// Set the individual fields
-	d.Set(e2econstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrProjectID, projectID)
 	d.Set("region", region)
 
 	// Use node ID as actual Terraform resource ID
@@ -1488,13 +1488,13 @@ func ValidateInteger(v interface{}, k string) (ws []string, es []error) {
 }
 
 func rollbackChanges(d *schema.ResourceData) {
-	prevImage, _ := d.GetChange(e2econstants.AttrImage)
-	prevName, _ := d.GetChange(e2econstants.AttrName)
-	prevPlan, _ := d.GetChange(e2econstants.AttrPlan)
-	prevLocation, _ := d.GetChange(e2econstants.AttrLocation)
-	prevProjectId, _ := d.GetChange(e2econstants.AttrProjectID)
-	prevRegion, _ := d.GetChange(e2econstants.AttrRegion)
-	prevLabel, _ := d.GetChange(e2econstants.AttrLabel)
+	prevImage, _ := d.GetChange(tfconstants.AttrImage)
+	prevName, _ := d.GetChange(tfconstants.AttrName)
+	prevPlan, _ := d.GetChange(tfconstants.AttrPlan)
+	prevLocation, _ := d.GetChange(tfconstants.AttrLocation)
+	prevProjectId, _ := d.GetChange(tfconstants.AttrProjectID)
+	prevRegion, _ := d.GetChange(tfconstants.AttrRegion)
+	prevLabel, _ := d.GetChange(tfconstants.AttrLabel)
 	prevBackup, _ := d.GetChange("backup")
 	prevDefaultPublicIp, _ := d.GetChange("default_public_ip")
 	prevDisablePassword, _ := d.GetChange("disable_password")
@@ -1504,21 +1504,21 @@ func rollbackChanges(d *schema.ResourceData) {
 	prevReserveIp, _ := d.GetChange("reserve_ip")
 	prevSavedImageTemplateId, _ := d.GetChange("saved_image_template_id")
 	prevSshKey, _ := d.GetChange("ssh_keys")
-	prevVpcId, _ := d.GetChange(e2econstants.AttrVPCID)
+	prevVpcId, _ := d.GetChange(tfconstants.AttrVPCID)
 	prevBlockStorageIds, _ := d.GetChange("block_storage_ids")
-	prevSecurityGroupIds, _ := d.GetChange(e2econstants.AttrSecurityGroupIDs)
-	prevLockNode, _ := d.GetChange(e2econstants.AttrLockNode)
-	prevPowerStatus, _ := d.GetChange(e2econstants.AttrPowerStatus)
-	prevRebootNode, _ := d.GetChange(e2econstants.AttrRebootNode)
+	prevSecurityGroupIds, _ := d.GetChange(tfconstants.AttrSecurityGroupIDs)
+	prevLockNode, _ := d.GetChange(tfconstants.AttrLockNode)
+	prevPowerStatus, _ := d.GetChange(tfconstants.AttrPowerStatus)
+	prevRebootNode, _ := d.GetChange(tfconstants.AttrRebootNode)
 	prevReinstallNode, _ := d.GetChange("reinstall_node")
 
-	d.Set(e2econstants.AttrImage, prevImage)
-	d.Set(e2econstants.AttrName, prevName)
-	d.Set(e2econstants.AttrPlan, prevPlan)
-	d.Set(e2econstants.AttrLocation, prevLocation)
-	d.Set(e2econstants.AttrProjectID, prevProjectId)
-	d.Set(e2econstants.AttrRegion, prevRegion)
-	d.Set(e2econstants.AttrLabel, prevLabel)
+	d.Set(tfconstants.AttrImage, prevImage)
+	d.Set(tfconstants.AttrName, prevName)
+	d.Set(tfconstants.AttrPlan, prevPlan)
+	d.Set(tfconstants.AttrLocation, prevLocation)
+	d.Set(tfconstants.AttrProjectID, prevProjectId)
+	d.Set(tfconstants.AttrRegion, prevRegion)
+	d.Set(tfconstants.AttrLabel, prevLabel)
 	d.Set("backup", prevBackup)
 	d.Set("default_public_ip", prevDefaultPublicIp)
 	d.Set("disable_password", prevDisablePassword)
@@ -1528,12 +1528,12 @@ func rollbackChanges(d *schema.ResourceData) {
 	d.Set("reserve_ip", prevReserveIp)
 	d.Set("saved_image_template_id", prevSavedImageTemplateId)
 	d.Set("ssh_keys", prevSshKey)
-	d.Set(e2econstants.AttrVPCID, prevVpcId)
+	d.Set(tfconstants.AttrVPCID, prevVpcId)
 	d.Set("block_storage_ids", prevBlockStorageIds)
-	d.Set(e2econstants.AttrSecurityGroupIDs, prevSecurityGroupIds)
+	d.Set(tfconstants.AttrSecurityGroupIDs, prevSecurityGroupIds)
 
-	d.Set(e2econstants.AttrLockNode, prevLockNode)
-	d.Set(e2econstants.AttrPowerStatus, prevPowerStatus)
-	d.Set(e2econstants.AttrRebootNode, prevRebootNode)
+	d.Set(tfconstants.AttrLockNode, prevLockNode)
+	d.Set(tfconstants.AttrPowerStatus, prevPowerStatus)
+	d.Set(tfconstants.AttrRebootNode, prevRebootNode)
 	d.Set("reinstall_node", prevReinstallNode)
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -27,14 +27,14 @@ func ResourceObjectStore() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS (Immutable)
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -93,12 +93,12 @@ func ResourceObjectStore() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the object store bucket",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the object store bucket",
@@ -107,12 +107,12 @@ func ResourceObjectStore() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - CONFIGURATION
 			// ============================================
-			e2econstants.AttrVersioningStatus: {
+			tfconstants.AttrVersioningStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the versioning state of the bucket",
 			},
-			e2econstants.AttrLifecycleConfigurationStatus: {
+			tfconstants.AttrLifecycleConfigurationStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the lifecycle configuration state of the bucket",
@@ -176,10 +176,10 @@ func ResourceObjectStore() *schema.Resource {
 func resourceObjectStoreResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrName: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -189,19 +189,19 @@ func resourceObjectStoreResourceV0() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrVersioningStatus: {
+			tfconstants.AttrVersioningStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrLifecycleConfigurationStatus: {
+			tfconstants.AttrLifecycleConfigurationStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -357,7 +357,7 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 		if err != nil {
 			return diag.Errorf("Error updating versioning (%s) for object storage bucket (name: %s) in project (%s), region (%s): %s", action, bucketName, projectIDStr, region, err)
 		}
-		resourceData.Set(e2econstants.AttrVersioningStatus, bucketVersioning.VersioningStatus)
+		resourceData.Set(tfconstants.AttrVersioningStatus, bucketVersioning.VersioningStatus)
 		resourceData.Set("versioning_enabled", versioningEnabled)
 		resourceData.Set("enabling_versioning", versioningEnabled) // Also update deprecated field for backwards compat
 	}
@@ -415,16 +415,16 @@ func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData
 func setObjectStoreDataFromAPI(resourceData *schema.ResourceData, bucket *goe2e.Bucket, versioningEnabled bool) error {
 	// Status fields
 	if bucket.CreatedAt != "" {
-		resourceData.Set(e2econstants.AttrCreatedAt, bucket.CreatedAt)
+		resourceData.Set(tfconstants.AttrCreatedAt, bucket.CreatedAt)
 	}
 	if bucket.Status != "" {
 		resourceData.Set("status", bucket.Status)
 	}
 	if bucket.VersioningStatus != "" {
-		resourceData.Set(e2econstants.AttrVersioningStatus, bucket.VersioningStatus)
+		resourceData.Set(tfconstants.AttrVersioningStatus, bucket.VersioningStatus)
 	}
 	if bucket.LifecycleConfigurationStatus != "" {
-		resourceData.Set(e2econstants.AttrLifecycleConfigurationStatus, bucket.LifecycleConfigurationStatus)
+		resourceData.Set(tfconstants.AttrLifecycleConfigurationStatus, bucket.LifecycleConfigurationStatus)
 	}
 
 	// Bucket size
@@ -470,13 +470,13 @@ func resourceObjectStoreImport(ctx context.Context, d *schema.ResourceData, meta
 		return nil, fmt.Errorf("invalid import ID format: expected 'bucket_name' or 'project_id:region:bucket_name', got '%s'", d.Id())
 	}
 
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, err
 	}
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return nil, err
 	}
-	if err := d.Set(e2econstants.AttrName, bucketName); err != nil {
+	if err := d.Set(tfconstants.AttrName, bucketName); err != nil {
 		return nil, err
 	}
 

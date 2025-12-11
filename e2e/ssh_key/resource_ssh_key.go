@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -24,22 +25,22 @@ import (
 func resourceSshKeyResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrLabel: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrLabel: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "label of the SSH Key",
 			},
-			e2econstants.AttrSSHKey: {
+			tfconstants.AttrSSHKey: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the SSH public key content",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "timestamp when the SSH Key was created",
@@ -70,7 +71,7 @@ func resourceSshKeyStateUpgradeV0toV1(
 
 	// Extract values from deprecated fields for new preferred fields
 	// Users can gradually migrate by updating their HCL
-	if label, ok := rawState[e2econstants.AttrLabel]; ok && label != "" {
+	if label, ok := rawState[tfconstants.AttrLabel]; ok && label != "" {
 		// Don't auto-set 'name' - let users explicitly migrate
 		log.Printf("[INFO] Upgraded SSH key state from v0 to v1: id=%s, label=%s",
 			rawState["id"], label)
@@ -94,45 +95,45 @@ func ResourceSshKey() *schema.Resource {
 			// ============================================
 			// COMMON INFRASTRUCTURE FIELDS
 			// ============================================
-			e2econstants.AttrRegion: {
+			tfconstants.AttrRegion: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Computed:      true,
 				ForceNew:      true,
-				ConflictsWith: []string{e2econstants.AttrLocation},
+				ConflictsWith: []string{tfconstants.AttrLocation},
 				Description:   "region where the SSH key is stored",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
-			e2econstants.AttrLocation: {
+			tfconstants.AttrLocation: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Computed:      true,
 				ForceNew:      true,
 				Deprecated:    "Use 'region' instead. This field will be removed in v4.0.0.",
-				ConflictsWith: []string{e2econstants.AttrRegion},
+				ConflictsWith: []string{tfconstants.AttrRegion},
 				Description:   "location where the SSH key is stored (deprecated, use region)",
 			},
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED IDENTIFICATION FIELDS (V3 Preferred)
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
-				ConflictsWith: []string{e2econstants.AttrLabel},
-				ExactlyOneOf:  []string{e2econstants.AttrName, e2econstants.AttrLabel},
+				ConflictsWith: []string{tfconstants.AttrLabel},
+				ExactlyOneOf:  []string{tfconstants.AttrName, tfconstants.AttrLabel},
 				Description:   "name of the SSH key",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
-			"public_key": {
+			tfconstants.AttrPublicKey: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
 				Sensitive:     false, // Public keys are not sensitive
-				ConflictsWith: []string{e2econstants.AttrSSHKey},
-				ExactlyOneOf:  []string{"public_key", e2econstants.AttrSSHKey},
+				ConflictsWith: []string{tfconstants.AttrSSHKey},
+				ExactlyOneOf:  []string{tfconstants.AttrPublicKey, tfconstants.AttrSSHKey},
 				Description:   "the public key material",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
@@ -140,24 +141,24 @@ func ResourceSshKey() *schema.Resource {
 			// ============================================
 			// DEPRECATED FIELDS (V2 Compatibility)
 			// ============================================
-			e2econstants.AttrLabel: {
+			tfconstants.AttrLabel: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
 				Deprecated:    "Use 'name' instead. This field will be removed in v5.0.0.",
-				ConflictsWith: []string{e2econstants.AttrName},
-				ExactlyOneOf:  []string{e2econstants.AttrName, e2econstants.AttrLabel},
+				ConflictsWith: []string{tfconstants.AttrName},
+				ExactlyOneOf:  []string{tfconstants.AttrName, tfconstants.AttrLabel},
 				Description:   "label of the SSH key (deprecated, use name)",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
-			e2econstants.AttrSSHKey: {
+			tfconstants.AttrSSHKey: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
 				Sensitive:     false,
 				Deprecated:    "Use 'public_key' instead. This field will be removed in v5.0.0.",
-				ConflictsWith: []string{"public_key"},
-				ExactlyOneOf:  []string{"public_key", e2econstants.AttrSSHKey},
+				ConflictsWith: []string{tfconstants.AttrPublicKey},
+				ExactlyOneOf:  []string{tfconstants.AttrPublicKey, tfconstants.AttrSSHKey},
 				Description:   "the SSH public key content (deprecated, use public_key)",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
@@ -165,7 +166,7 @@ func ResourceSshKey() *schema.Resource {
 			// ============================================
 			// V3 OPTIONAL FIELDS
 			// ============================================
-			"tags": {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Description: "map of tags to assign to the resource (state-only, API support pending)",
@@ -177,12 +178,12 @@ func ResourceSshKey() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS
 			// ============================================
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "timestamp when the SSH key was created",
 			},
-			e2econstants.AttrProjectName: {
+			tfconstants.AttrProjectName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the project associated with the SSH key",
@@ -205,10 +206,10 @@ func ResourceSshKey() *schema.Resource {
 // compatibility - existing configs using 'label' continue to work while
 // new configs can use the preferred 'name' field.
 func getKeyName(d *schema.ResourceData) string {
-	if name, ok := d.GetOk(e2econstants.AttrName); ok {
+	if name, ok := d.GetOk(tfconstants.AttrName); ok {
 		return name.(string)
 	}
-	return d.Get(e2econstants.AttrLabel).(string)
+	return d.Get(tfconstants.AttrLabel).(string)
 }
 
 // getPublicKey returns the public key material, preferring the new V3 'public_key' field
@@ -216,10 +217,10 @@ func getKeyName(d *schema.ResourceData) string {
 // compatibility - existing configs using 'ssh_key' continue to work while
 // new configs can use the preferred AWS-aligned 'public_key' field.
 func getPublicKey(d *schema.ResourceData) string {
-	if pk, ok := d.GetOk("public_key"); ok {
+	if pk, ok := d.GetOk(tfconstants.AttrPublicKey); ok {
 		return pk.(string)
 	}
-	return d.Get(e2econstants.AttrSSHKey).(string)
+	return d.Get(tfconstants.AttrSSHKey).(string)
 }
 
 // setKeyName sets both the new V3 'name' field and the deprecated V2 'label' field.
@@ -228,11 +229,11 @@ func getPublicKey(d *schema.ResourceData) string {
 // warnings separately when deprecated fields are used.
 func setKeyName(d *schema.ResourceData, name string) error {
 	// Set the preferred V3 field
-	if err := d.Set(e2econstants.AttrName, name); err != nil {
+	if err := d.Set(tfconstants.AttrName, name); err != nil {
 		return err
 	}
 	// Also set deprecated V2 field for backward compatibility
-	return d.Set(e2econstants.AttrLabel, name)
+	return d.Set(tfconstants.AttrLabel, name)
 }
 
 // setPublicKey sets both the new V3 'public_key' field and the deprecated V2 'ssh_key' field.
@@ -241,11 +242,11 @@ func setKeyName(d *schema.ResourceData, name string) error {
 // warnings separately when deprecated fields are used.
 func setPublicKey(d *schema.ResourceData, publicKey string) error {
 	// Set the preferred V3 field
-	if err := d.Set("public_key", publicKey); err != nil {
+	if err := d.Set(tfconstants.AttrPublicKey, publicKey); err != nil {
 		return err
 	}
 	// Also set deprecated V2 field for backward compatibility
-	return d.Set(e2econstants.AttrSSHKey, publicKey)
+	return d.Set(tfconstants.AttrSSHKey, publicKey)
 }
 
 func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -292,22 +293,22 @@ func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	// Set computed fields
-	if err := d.Set(e2econstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set region in both V3 preferred field and V2 deprecated field
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrLocation, region); err != nil {
+	if err := d.Set(tfconstants.AttrLocation, region); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Initialize empty tags map for state-only tag support
 	// Tags are not persisted to the API in V3.0 but are stored in Terraform state
-	if _, ok := d.GetOk("tags"); !ok {
-		if err := d.Set("tags", make(map[string]interface{})); err != nil {
+	if _, ok := d.GetOk(tfconstants.AttrTags); !ok {
+		if err := d.Set(tfconstants.AttrTags, make(map[string]interface{})); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -332,7 +333,7 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	sshKey, _, err := goe2eClient.SSHKeys.GetSSHKey(ctx, pk)
 	if err != nil {
 		// Check if it's a "not found" error
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.SSHKeyNotFoundSubstring) {
 			log.Printf("[WARN] SSH key with ID %s not found, removing from state", pk)
 			d.SetId("")
 			return diag.Diagnostics{{
@@ -361,22 +362,22 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	if err := setPublicKey(d, sshKey.SSHKey); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set region (store the value from state or config)
 	region, _ := cfg.GetRegionOrDefault(d)
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrLocation, region); err != nil {
+	if err := d.Set(tfconstants.AttrLocation, region); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Tags are state-only, preserve existing tags
-	if tags, ok := d.GetOk("tags"); ok {
-		if err := d.Set("tags", tags); err != nil {
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -394,11 +395,11 @@ func resourceUpdateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	log.Printf("[DEBUG] Updating SSH key: id=%s", pk)
 
 	// Only tags are updateable (state-only, not sent to API)
-	if d.HasChange("tags") {
-		oldTags, newTags := d.GetChange("tags")
+	if d.HasChange(tfconstants.AttrTags) {
+		oldTags, newTags := d.GetChange(tfconstants.AttrTags)
 		log.Printf("[DEBUG] SSH key tags changed. Old: %v, New: %v", oldTags, newTags)
 		// Tags are stored in state only, no API call needed
-		if err := d.Set("tags", newTags); err != nil {
+		if err := d.Set(tfconstants.AttrTags, newTags); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -425,7 +426,7 @@ func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	_, err := goe2eClient.SSHKeys.DeleteSSHKey(ctx, pk)
 	if err != nil {
 		// Check if key not found (treat as success since we want it gone)
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.SSHKeyNotFoundSubstring) {
 			log.Printf("[WARN] SSH key not found during delete (already deleted), treating as success")
 			d.SetId("")
 			return diags
@@ -453,14 +454,14 @@ func resourceSshKeyImport(ctx context.Context, d *schema.ResourceData, m interfa
 		// Get default region from config
 		region = cfg.DefaultRegion
 		if region == "" {
-			return nil, fmt.Errorf("region must be specified in import ID or provider default_region must be set. Use format: project_id:region:ssh_key_id")
+			return nil, fmt.Errorf(tfconstants.SSHKeyImportIDRegionRequired)
 		}
 	} else if len(parts) == 3 {
 		projectID = parts[0]
 		region = parts[1]
 		sshKeyID = parts[2]
 	} else {
-		return nil, fmt.Errorf("invalid import ID format. Expected: project_id:ssh_key_id or project_id:region:ssh_key_id")
+		return nil, fmt.Errorf(tfconstants.SSHKeyImportIDInvalidFormat)
 	}
 
 	// Fetch SSH key from API to populate all fields
@@ -485,18 +486,18 @@ func resourceSshKeyImport(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	// Set infrastructure fields
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, err
 	}
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return nil, err
 	}
-	if err := d.Set(e2econstants.AttrLocation, region); err != nil {
+	if err := d.Set(tfconstants.AttrLocation, region); err != nil {
 		return nil, err
 	}
 
 	// Set computed fields
-	if err := d.Set(e2econstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, sshKey.Timestamp); err != nil {
 		return nil, err
 	}
 

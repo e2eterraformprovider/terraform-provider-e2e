@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 )
 
 func TestExpandNetworkInterface(t *testing.T) {
@@ -28,10 +28,10 @@ func TestExpandNetworkInterface(t *testing.T) {
 			name: "full network interface",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrVPCID:            "vpc-123",
-					e2econstants.AttrAssignPublicIP:   true,
-					e2econstants.AttrEnableIPv6:       true,
-					e2econstants.AttrSecurityGroupIDs: []interface{}{100, 200, 300},
+					tfconstants.AttrVPCID:            "vpc-123",
+					tfconstants.AttrAssignPublicIP:   true,
+					tfconstants.AttrEnableIPv6:       true,
+					tfconstants.AttrSecurityGroupIDs: []interface{}{100, 200, 300},
 				},
 			},
 			expectedVPCID:            "vpc-123",
@@ -43,7 +43,7 @@ func TestExpandNetworkInterface(t *testing.T) {
 			name: "partial network interface - vpc only",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrVPCID: "vpc-456",
+					tfconstants.AttrVPCID: "vpc-456",
 				},
 			},
 			expectedVPCID:            "vpc-456",
@@ -55,8 +55,8 @@ func TestExpandNetworkInterface(t *testing.T) {
 			name: "partial network interface - no vpc",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrAssignPublicIP:   true,
-					e2econstants.AttrSecurityGroupIDs: []interface{}{999},
+					tfconstants.AttrAssignPublicIP:   true,
+					tfconstants.AttrSecurityGroupIDs: []interface{}{999},
 				},
 			},
 			expectedVPCID:            "",
@@ -68,8 +68,8 @@ func TestExpandNetworkInterface(t *testing.T) {
 			name: "network interface with empty security groups",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrVPCID:            "vpc-789",
-					e2econstants.AttrSecurityGroupIDs: []interface{}{},
+					tfconstants.AttrVPCID:            "vpc-789",
+					tfconstants.AttrSecurityGroupIDs: []interface{}{},
 				},
 			},
 			expectedVPCID:            "vpc-789",
@@ -175,7 +175,7 @@ func TestFlattenNetworkInterface(t *testing.T) {
 				ni := result[0].(map[string]interface{})
 
 				// Check VPC ID
-				vpcID, hasVPC := ni[e2econstants.AttrVPCID]
+				vpcID, hasVPC := ni[tfconstants.AttrVPCID]
 				if tt.expectedVPCID != "" {
 					if !hasVPC || vpcID != tt.expectedVPCID {
 						t.Errorf("vpcID = %v, want %v", vpcID, tt.expectedVPCID)
@@ -183,20 +183,20 @@ func TestFlattenNetworkInterface(t *testing.T) {
 				}
 
 				// Check assign_public_ip
-				assignPublicIP := ni[e2econstants.AttrAssignPublicIP].(bool)
+				assignPublicIP := ni[tfconstants.AttrAssignPublicIP].(bool)
 				if assignPublicIP != tt.expectedPublicIP {
 					t.Errorf("assign_public_ip = %v, want %v", assignPublicIP, tt.expectedPublicIP)
 				}
 
 				// Check enable_ipv6
-				enableIPv6 := ni[e2econstants.AttrEnableIPv6].(bool)
+				enableIPv6 := ni[tfconstants.AttrEnableIPv6].(bool)
 				if enableIPv6 != tt.expectedIPv6 {
 					t.Errorf("enable_ipv6 = %v, want %v", enableIPv6, tt.expectedIPv6)
 				}
 
 				// Check security groups
 				if tt.expectedSGCount > 0 {
-					sgList, hasSG := ni[e2econstants.AttrSecurityGroupIDs]
+					sgList, hasSG := ni[tfconstants.AttrSecurityGroupIDs]
 					if !hasSG {
 						t.Errorf("Expected security_group_ids to exist")
 					} else {
@@ -228,8 +228,8 @@ func TestExpandRootVolume(t *testing.T) {
 			name: "full root volume",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrSizeGB:   100,
-					e2econstants.AttrDiskType: "ssd",
+					tfconstants.AttrSizeGB:   100,
+					tfconstants.AttrDiskType: "ssd",
 				},
 			},
 			expectedSizeGB:     100,
@@ -239,7 +239,7 @@ func TestExpandRootVolume(t *testing.T) {
 			name: "size only",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrSizeGB: 250,
+					tfconstants.AttrSizeGB: 250,
 				},
 			},
 			expectedSizeGB:     250,
@@ -249,7 +249,7 @@ func TestExpandRootVolume(t *testing.T) {
 			name: "type only",
 			input: []interface{}{
 				map[string]interface{}{
-					e2econstants.AttrDiskType: "nvme",
+					tfconstants.AttrDiskType: "nvme",
 				},
 			},
 			expectedSizeGB:     0,
@@ -323,13 +323,13 @@ func TestFlattenRootVolume(t *testing.T) {
 				rv := result[0].(map[string]interface{})
 
 				// Check volume type
-				volumeType := rv[e2econstants.AttrDiskType].(string)
+				volumeType := rv[tfconstants.AttrDiskType].(string)
 				if volumeType != tt.expectedVolumeType {
 					t.Errorf("volume_type = %v, want %v", volumeType, tt.expectedVolumeType)
 				}
 
 				// Check size_gb exists (even if 0)
-				if _, hasSizeGB := rv[e2econstants.AttrSizeGB]; !hasSizeGB {
+				if _, hasSizeGB := rv[tfconstants.AttrSizeGB]; !hasSizeGB {
 					t.Errorf("Expected size_gb to exist in root_volume")
 				}
 			}

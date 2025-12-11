@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -27,11 +27,11 @@ func ResourceTag() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
@@ -71,7 +71,7 @@ func resourceTagCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 
 	// Prepare request
-	name := d.Get(e2econstants.AttrName).(string)
+	name := d.Get(tfconstants.AttrName).(string)
 	metadata := d.Get("metadata").(string)
 
 	createReq := &goe2e.TagCreateRequest{
@@ -91,8 +91,8 @@ func resourceTagCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	labelIDStr := strconv.Itoa(tag.LabelID)
 	d.SetId(labelIDStr)
 	d.Set("label_id", tag.LabelID)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 
 	log.Printf("[INFO] Created tag: %s (ID: %s)", name, labelIDStr)
 
@@ -103,8 +103,8 @@ func resourceTagRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	cfg := m.(*config.Config)
 	client := cfg.Goe2eClient()
 
-	projectID := d.Get(e2econstants.AttrProjectID).(string)
-	region := d.Get(e2econstants.AttrRegion).(string)
+	projectID := d.Get(tfconstants.AttrProjectID).(string)
+	region := d.Get(tfconstants.AttrRegion).(string)
 	tagID := d.Id()
 
 	log.Printf("[DEBUG] Reading tag: id=%s, project=%s, region=%s", tagID, projectID, region)
@@ -121,7 +121,7 @@ func resourceTagRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	}
 
 	// Update state
-	d.Set(e2econstants.AttrName, tag.LabelName)
+	d.Set(tfconstants.AttrName, tag.LabelName)
 	d.Set("metadata", tag.Metadata)
 	d.Set("label_id", tag.LabelID)
 
@@ -138,8 +138,8 @@ func resourceTagDelete(ctx context.Context, d *schema.ResourceData, m interface{
 	cfg := m.(*config.Config)
 	client := cfg.Goe2eClient()
 
-	projectID := d.Get(e2econstants.AttrProjectID).(string)
-	region := d.Get(e2econstants.AttrRegion).(string)
+	projectID := d.Get(tfconstants.AttrProjectID).(string)
+	region := d.Get(tfconstants.AttrRegion).(string)
 	tagID := d.Id()
 
 	log.Printf("[DEBUG] Deleting tag: id=%s, project=%s, region=%s", tagID, projectID, region)
@@ -168,18 +168,18 @@ func resourceTagImport(ctx context.Context, d *schema.ResourceData, m interface{
 	cfg := m.(*config.Config)
 
 	if len(parts) == 3 {
-		d.Set(e2econstants.AttrProjectID, parts[0])
-		d.Set(e2econstants.AttrRegion, parts[1])
+		d.Set(tfconstants.AttrProjectID, parts[0])
+		d.Set(tfconstants.AttrRegion, parts[1])
 		d.SetId(parts[2])
 	} else if len(parts) == 1 {
 		// Use provider defaults
 		if cfg.DefaultProjectID != "" {
-			d.Set(e2econstants.AttrProjectID, cfg.DefaultProjectID)
+			d.Set(tfconstants.AttrProjectID, cfg.DefaultProjectID)
 		} else {
 			return nil, fmt.Errorf("project_id is required for import when not set in provider config")
 		}
 		if cfg.DefaultRegion != "" {
-			d.Set(e2econstants.AttrRegion, cfg.DefaultRegion)
+			d.Set(tfconstants.AttrRegion, cfg.DefaultRegion)
 		} else {
 			return nil, fmt.Errorf("region is required for import when not set in provider config")
 		}
