@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-)
 
-const (
-	sshKeysPath      = "ssh_keys"
-	deleteSshKeyPath = "delete_ssh_key"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 )
 
 // SSHKeyService is an interface for interacting with SSH key endpoints
@@ -71,7 +68,7 @@ func (s *SSHKeyServiceOp) CreateSSHKey(ctx context.Context, createReq *SSHKeyCre
 		return nil, nil, NewArgError("ssh_key", "cannot be empty")
 	}
 
-	path := sshKeysPath + "/"
+	path := goe2econstants.SSHKeysPath + "/"
 	req, err := s.client.NewRequest(ctx, http.MethodPost, path, createReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request for creating SSH key (%s): %w", createReq.Label, err)
@@ -97,7 +94,7 @@ func (s *SSHKeyServiceOp) GetSSHKey(ctx context.Context, pk string) (*SSHKey, *R
 		return nil, nil, NewArgError("pk", "cannot be empty")
 	}
 
-	path := sshKeysPath + "/"
+	path := goe2econstants.SSHKeysPath + "/"
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request for getting SSH key (%s): %w", pk, err)
@@ -123,7 +120,7 @@ func (s *SSHKeyServiceOp) GetSSHKey(ctx context.Context, pk string) (*SSHKey, *R
 		}
 	}
 
-	return nil, resp, fmt.Errorf("SSH key with ID %s not found", pk)
+	return nil, resp, fmt.Errorf("SSH key with ID %s %s", pk, goe2econstants.SSHKeyNotFoundSubstring)
 }
 
 // GetSSHKeyByLabel retrieves an SSH key by its label
@@ -132,7 +129,7 @@ func (s *SSHKeyServiceOp) GetSSHKeyByLabel(ctx context.Context, label string) (*
 		return nil, nil, NewArgError("label", "cannot be empty")
 	}
 
-	path := sshKeysPath + "/"
+	path := goe2econstants.SSHKeysPath + "/"
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request for getting SSH key by label (%s): %w", label, err)
@@ -158,12 +155,12 @@ func (s *SSHKeyServiceOp) GetSSHKeyByLabel(ctx context.Context, label string) (*
 		}
 	}
 
-	return nil, resp, fmt.Errorf("SSH key with label %s not found", label)
+	return nil, resp, fmt.Errorf("SSH key with label %s %s", label, goe2econstants.SSHKeyNotFoundSubstring)
 }
 
 // ListSSHKeys retrieves all SSH keys for a project and location
 func (s *SSHKeyServiceOp) ListSSHKeys(ctx context.Context) ([]SSHKey, *Response, error) {
-	path := sshKeysPath + "/"
+	path := goe2econstants.SSHKeysPath + "/"
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request for listing SSH keys: %w", err)
@@ -184,7 +181,7 @@ func (s *SSHKeyServiceOp) DeleteSSHKey(ctx context.Context, pk string) (*Respons
 		return nil, NewArgError("pk", "cannot be empty")
 	}
 
-	path := deleteSshKeyPath + "/"
+	path := goe2econstants.DeleteSSHKeyPath + "/"
 	req, err := s.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for deleting SSH key (%s): %w", pk, err)

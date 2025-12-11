@@ -61,8 +61,8 @@ func TestGetPublicKey(t *testing.T) {
 		{
 			name: "prefers_public_key_over_ssh_key",
 			data: map[string]interface{}{
-				"public_key":            "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
-				e2econstants.AttrSSHKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA_old...",
+				e2econstants.AttrPublicKey: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
+				e2econstants.AttrSSHKey:    "ssh-rsa AAAAB3NzaC1yc2EAAAA_old...",
 			},
 			expected: "ssh-rsa AAAAB3NzaC1yc2EAAAA...",
 		},
@@ -76,7 +76,7 @@ func TestGetPublicKey(t *testing.T) {
 		{
 			name: "returns_public_key_when_only_public_key_set",
 			data: map[string]interface{}{
-				"public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
+				e2econstants.AttrPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
 			},
 			expected: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...",
 		},
@@ -123,7 +123,7 @@ func TestSetPublicKey(t *testing.T) {
 	}
 
 	// Verify both fields are set
-	if pk, ok := d.GetOk("public_key"); !ok || pk != pubKey {
+	if pk, ok := d.GetOk(e2econstants.AttrPublicKey); !ok || pk != pubKey {
 		t.Errorf("public_key field not set correctly: got %v", pk)
 	}
 

@@ -126,13 +126,13 @@ func ResourceSshKey() *schema.Resource {
 				Description:   "name of the SSH key",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
-			"public_key": {
+			e2econstants.AttrPublicKey: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				ForceNew:      true,
 				Sensitive:     false, // Public keys are not sensitive
 				ConflictsWith: []string{e2econstants.AttrSSHKey},
-				ExactlyOneOf:  []string{"public_key", e2econstants.AttrSSHKey},
+				ExactlyOneOf:  []string{e2econstants.AttrPublicKey, e2econstants.AttrSSHKey},
 				Description:   "the public key material",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
@@ -156,8 +156,8 @@ func ResourceSshKey() *schema.Resource {
 				ForceNew:      true,
 				Sensitive:     false,
 				Deprecated:    "Use 'public_key' instead. This field will be removed in v5.0.0.",
-				ConflictsWith: []string{"public_key"},
-				ExactlyOneOf:  []string{"public_key", e2econstants.AttrSSHKey},
+				ConflictsWith: []string{e2econstants.AttrPublicKey},
+				ExactlyOneOf:  []string{e2econstants.AttrPublicKey, e2econstants.AttrSSHKey},
 				Description:   "the SSH public key content (deprecated, use public_key)",
 				ValidateFunc:  validation.StringIsNotEmpty,
 			},
@@ -165,7 +165,7 @@ func ResourceSshKey() *schema.Resource {
 			// ============================================
 			// V3 OPTIONAL FIELDS
 			// ============================================
-			"tags": {
+			e2econstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Description: "map of tags to assign to the resource (state-only, API support pending)",
@@ -216,7 +216,7 @@ func getKeyName(d *schema.ResourceData) string {
 // compatibility - existing configs using 'ssh_key' continue to work while
 // new configs can use the preferred AWS-aligned 'public_key' field.
 func getPublicKey(d *schema.ResourceData) string {
-	if pk, ok := d.GetOk("public_key"); ok {
+	if pk, ok := d.GetOk(e2econstants.AttrPublicKey); ok {
 		return pk.(string)
 	}
 	return d.Get(e2econstants.AttrSSHKey).(string)
@@ -241,7 +241,7 @@ func setKeyName(d *schema.ResourceData, name string) error {
 // warnings separately when deprecated fields are used.
 func setPublicKey(d *schema.ResourceData, publicKey string) error {
 	// Set the preferred V3 field
-	if err := d.Set("public_key", publicKey); err != nil {
+	if err := d.Set(e2econstants.AttrPublicKey, publicKey); err != nil {
 		return err
 	}
 	// Also set deprecated V2 field for backward compatibility
@@ -306,8 +306,8 @@ func resourceCreateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 
 	// Initialize empty tags map for state-only tag support
 	// Tags are not persisted to the API in V3.0 but are stored in Terraform state
-	if _, ok := d.GetOk("tags"); !ok {
-		if err := d.Set("tags", make(map[string]interface{})); err != nil {
+	if _, ok := d.GetOk(e2econstants.AttrTags); !ok {
+		if err := d.Set(e2econstants.AttrTags, make(map[string]interface{})); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -332,7 +332,7 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	sshKey, _, err := goe2eClient.SSHKeys.GetSSHKey(ctx, pk)
 	if err != nil {
 		// Check if it's a "not found" error
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), e2econstants.SSHKeyNotFoundCheckSubstring) {
 			log.Printf("[WARN] SSH key with ID %s not found, removing from state", pk)
 			d.SetId("")
 			return diag.Diagnostics{{
@@ -375,8 +375,8 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	// Tags are state-only, preserve existing tags
-	if tags, ok := d.GetOk("tags"); ok {
-		if err := d.Set("tags", tags); err != nil {
+	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
+		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -394,11 +394,11 @@ func resourceUpdateSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	log.Printf("[DEBUG] Updating SSH key: id=%s", pk)
 
 	// Only tags are updateable (state-only, not sent to API)
-	if d.HasChange("tags") {
-		oldTags, newTags := d.GetChange("tags")
+	if d.HasChange(e2econstants.AttrTags) {
+		oldTags, newTags := d.GetChange(e2econstants.AttrTags)
 		log.Printf("[DEBUG] SSH key tags changed. Old: %v, New: %v", oldTags, newTags)
 		// Tags are stored in state only, no API call needed
-		if err := d.Set("tags", newTags); err != nil {
+		if err := d.Set(e2econstants.AttrTags, newTags); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -425,7 +425,7 @@ func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	_, err := goe2eClient.SSHKeys.DeleteSSHKey(ctx, pk)
 	if err != nil {
 		// Check if key not found (treat as success since we want it gone)
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), e2econstants.SSHKeyNotFoundCheckSubstring) {
 			log.Printf("[WARN] SSH key not found during delete (already deleted), treating as success")
 			d.SetId("")
 			return diags
@@ -453,14 +453,14 @@ func resourceSshKeyImport(ctx context.Context, d *schema.ResourceData, m interfa
 		// Get default region from config
 		region = cfg.DefaultRegion
 		if region == "" {
-			return nil, fmt.Errorf("region must be specified in import ID or provider default_region must be set. Use format: project_id:region:ssh_key_id")
+			return nil, fmt.Errorf(e2econstants.SSHKeyImportIDRegionRequired)
 		}
 	} else if len(parts) == 3 {
 		projectID = parts[0]
 		region = parts[1]
 		sshKeyID = parts[2]
 	} else {
-		return nil, fmt.Errorf("invalid import ID format. Expected: project_id:ssh_key_id or project_id:region:ssh_key_id")
+		return nil, fmt.Errorf(e2econstants.SSHKeyImportIDInvalidFormat)
 	}
 
 	// Fetch SSH key from API to populate all fields

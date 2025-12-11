@@ -15,17 +15,20 @@ const (
 	AttrPlan = "plan"
 
 	// Common metadata and state attributes
-	AttrCreatedAt = "created_at"
-	AttrUpdatedAt = "updated_at"
-	AttrStatus    = "status"
-	AttrLabel     = "label"
-	AttrGroup     = "group"
-	AttrTimestamp = "timestamp"
-	AttrSSHKey    = "ssh_key"
-	AttrSSHKeys   = "ssh_keys"
-	AttrSSHKeyIDs = "ssh_key_ids"
-	AttrTags      = "tags"
-	AttrTagIDs    = "tag_ids"
+	AttrCreatedAt  = "created_at"
+	AttrUpdatedAt  = "updated_at"
+	AttrStatus     = "status"
+	AttrLabel      = "label"
+	AttrGroup      = "group"
+	AttrTimestamp  = "timestamp"
+	AttrSSHKey     = "ssh_key"
+	AttrSSHKeys    = "ssh_keys"
+	AttrSSHKeyIDs  = "ssh_key_ids"
+	AttrPublicKey  = "public_key"   // V3+ preferred field name for SSH public key material
+	AttrPK         = "pk"           // Primary key identifier (especially for SSH keys)
+	AttrSSHKeyList = "ssh_key_list" // List of SSH keys in data source responses
+	AttrTags       = "tags"
+	AttrTagIDs     = "tag_ids"
 
 	// Network and connectivity attributes
 	AttrVPCID             = "vpc_id"

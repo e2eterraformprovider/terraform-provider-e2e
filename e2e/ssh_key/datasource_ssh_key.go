@@ -39,7 +39,7 @@ func DataSourceSshKey() *schema.Resource {
 				Computed:    true,
 				Description: "the SSH public key content",
 			},
-			"public_key": {
+			e2econstants.AttrPublicKey: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the public key material",

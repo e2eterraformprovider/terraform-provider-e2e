@@ -24,23 +24,23 @@ func DataSourceSshKeys() *schema.Resource {
 			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
-			"ssh_key_list": {
+			e2econstants.AttrSSHKeyList: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Description: "list of SSH keys which can be used to launch resources",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"pk": {
+						e2econstants.AttrPK: {
 							Type:        schema.TypeInt,
 							Computed:    true,
 							Description: "id of the SSH key",
 						},
-						"label": {
+						e2econstants.AttrLabel: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "label (name) of the SSH key",
 						},
-						"ssh_key": {
+						e2econstants.AttrSSHKey: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the SSH key",
@@ -84,8 +84,8 @@ func dataSourceReadSshKeys(ctx context.Context, d *schema.ResourceData, m interf
 	if err != nil {
 		return diag.Errorf("error finding ssh keys: %v", err)
 	}
-	d.Set("ssh_key_list", flattenSshKeys(sshKeys))
-	d.SetId("ssh_key_list")
+	d.Set(e2econstants.AttrSSHKeyList, flattenSshKeys(sshKeys))
+	d.SetId(e2econstants.AttrSSHKeyList)
 
 	return diags
 }
@@ -97,9 +97,9 @@ func flattenSshKeys(sshKeyList []goe2e.SSHKey) []interface{} {
 
 		for i, sshKey := range sshKeyList {
 			oi := make(map[string]interface{})
-			oi["label"] = sshKey.Label
-			oi["ssh_key"] = sshKey.SSHKey
-			oi["pk"] = sshKey.PK
+			oi[e2econstants.AttrLabel] = sshKey.Label
+			oi[e2econstants.AttrSSHKey] = sshKey.SSHKey
+			oi[e2econstants.AttrPK] = sshKey.PK
 			// Map API's "Timestamp" field to Terraform's "created_at" for consistency
 			oi[e2econstants.AttrCreatedAt] = sshKey.Timestamp
 			ois[i] = oi

@@ -30,6 +30,27 @@ const (
 	// PREFIX_C2_NODE is the prefix used to identify C2 node plans in Terraform resource logic.
 	// This is used for Terraform-specific plan validation and resource behavior.
 	PREFIX_C2_NODE = "C2"
+
+	// ============================================================================
+	// SSH Key Import and Error Handling Constants
+	// ============================================================================
+	// These are Terraform provider-specific constants for SSH key resource import
+	// and error checking, not part of the API contract.
+
+	// SSHKeyImportIDFormatDescription describes the expected format for importing SSH keys
+	// into Terraform. Users must provide either two or three colon-separated parts.
+	SSHKeyImportIDFormatDescription = "project_id:ssh_key_id or project_id:region:ssh_key_id"
+
+	// SSHKeyImportIDRegionRequired is the error message shown when region is not specified
+	// in the import ID and no default region is configured in the provider
+	SSHKeyImportIDRegionRequired = "region must be specified in import ID or provider default_region must be set. Use format: project_id:region:ssh_key_id"
+
+	// SSHKeyImportIDInvalidFormat is the error message shown when the import ID format is invalid
+	SSHKeyImportIDInvalidFormat = "invalid import ID format. Expected: project_id:ssh_key_id or project_id:region:ssh_key_id"
+
+	// SSHKeyNotFoundCheckSubstring is used to detect "not found" errors in API responses.
+	// This substring appears in error messages when an SSH key resource cannot be found.
+	SSHKeyNotFoundCheckSubstring = "not found"
 )
 
 // State change wait configuration constants
