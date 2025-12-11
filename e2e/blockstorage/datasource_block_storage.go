@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -17,9 +17,9 @@ func DataSourceBlockStorage() *schema.Resource {
 		ReadContext: dataSourceReadBlockStorage,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Block storage-specific fields
 			"block_id": {
@@ -27,32 +27,32 @@ func DataSourceBlockStorage() *schema.Resource {
 				Required:    true,
 				Description: "id of the Block Storage",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the Block Storage",
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:        schema.TypeFloat,
 				Computed:    true,
 				Description: "the size of the Block Storage in gigabytes",
 			},
-			e2econstants.AttrIOPS: {
+			tfconstants.AttrIOPS: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the IOPS of the Block Storage",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the Block Storage instance",
 			},
-			e2econstants.AttrVMID: {
+			tfconstants.AttrVMID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "ID of the node to which the block storage is attached (null if detached)",
 			},
-			e2econstants.AttrVMName: {
+			tfconstants.AttrVMName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the node to which the block storage is attached (null if detached)",
@@ -110,26 +110,26 @@ func dataSourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 
 	// Set fields from the BlockStorage struct
 	// Note: Size from API is in GB (int), convert to float64 for schema
-	d.Set(e2econstants.AttrSize, float64(blockStorage.Size))
-	d.Set(e2econstants.AttrName, blockStorage.Name)
-	d.Set(e2econstants.AttrStatus, blockStorage.Status)
-	d.Set(e2econstants.AttrIOPS, blockStorage.Template.TotalIOPSSec)
+	d.Set(tfconstants.AttrSize, float64(blockStorage.Size))
+	d.Set(tfconstants.AttrName, blockStorage.Name)
+	d.Set(tfconstants.AttrStatus, blockStorage.Status)
+	d.Set(tfconstants.AttrIOPS, blockStorage.Template.TotalIOPSSec)
 
 	// Handle VM attachment details if present
 	if blockStorage.VMDetail != nil {
 		if vmID, ok := blockStorage.VMDetail["vm_id"]; ok {
 			if vmIDFloat, ok := vmID.(float64); ok {
-				d.Set(e2econstants.AttrVMID, strconv.Itoa(int(vmIDFloat)))
+				d.Set(tfconstants.AttrVMID, strconv.Itoa(int(vmIDFloat)))
 			}
 		}
 		if vmName, ok := blockStorage.VMDetail["vm_name"]; ok {
 			if vmNameStr, ok := vmName.(string); ok {
-				d.Set(e2econstants.AttrVMName, vmNameStr)
+				d.Set(tfconstants.AttrVMName, vmNameStr)
 			}
 		}
 	} else {
-		d.Set(e2econstants.AttrVMID, nil)
-		d.Set(e2econstants.AttrVMName, nil)
+		d.Set(tfconstants.AttrVMID, nil)
+		d.Set(tfconstants.AttrVMName, nil)
 	}
 
 	log.Printf("[INFO] BLOCK STORAGE DATA SOURCE | d : %+v", d)

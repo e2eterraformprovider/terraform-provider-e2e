@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -15,12 +15,12 @@ func DataSourceKubernetesService() *schema.Resource {
 		ReadContext: dataSourceReadKubernetes,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Kubernetes-specific fields
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "name of the Kubernetes service",
@@ -31,18 +31,18 @@ func DataSourceKubernetesService() *schema.Resource {
 				Required:    true,
 				Description: "id of the Kubernetes service",
 			},
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the version of the Kubernetes service",
 				ForceNew:    true,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the Kubernetes service instance",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the Kubernetes service",
@@ -94,8 +94,8 @@ func dataSourceReadKubernetes(ctx context.Context, d *schema.ResourceData, m int
 	log.Printf("[INFO] KUBERNETES READ | BEFORE SETTING DATA")
 	d.SetId(kubernetes.ServiceID)
 	d.Set("name", kubernetes.ServiceName)
-	d.Set(e2econstants.AttrStatus, kubernetes.State)
-	d.Set(e2econstants.AttrVersion, kubernetes.Version)
+	d.Set(tfconstants.AttrStatus, kubernetes.State)
+	d.Set(tfconstants.AttrVersion, kubernetes.Version)
 	d.Set("created_at", kubernetes.CreatedAt)
 	// Note: master_node_id is not available in goe2e.KubernetesCluster struct
 	// This field may need to be removed or fetched from a different endpoint

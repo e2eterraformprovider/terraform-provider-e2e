@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -29,18 +29,18 @@ func ResourceScalerGroup() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// Autoscaling-specific fields
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "name of the Scaler Group",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -178,7 +178,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Computed:    true,
 				Description: "id of the Security Group to attach to the Scaler Group (if not provided, a default will be fetched from the API)",
 			},
-			e2econstants.AttrSecurityGroupIDs: {
+			tfconstants.AttrSecurityGroupIDs: {
 				Type:        schema.TypeList,
 				Optional:    true,
 				Computed:    true,
@@ -186,7 +186,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Description: "list of Security Group ids currently attached to the Scaler Group",
 			},
 
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:          schema.TypeBool,
 				Optional:      true,
 				Default:       false,
@@ -200,17 +200,17 @@ func ResourceScalerGroup() *schema.Resource {
 				Optional:      true,
 				Default:       false,
 				ForceNew:      true,
-				ConflictsWith: []string{e2econstants.AttrIsEncryptionEnabled},
+				ConflictsWith: []string{tfconstants.AttrIsEncryptionEnabled},
 				Description:   "whether to enable encryption for the Scaler Group (V3 field name, preferred over 'is_encryption_enabled')",
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
 				ForceNew:    true,
 				Description: "passphrase for encryption (if enabled)",
 			},
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:          schema.TypeBool,
 				Optional:      true,
 				Default:       true,
@@ -222,7 +222,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Type:          schema.TypeBool,
 				Optional:      true,
 				Default:       true,
-				ConflictsWith: []string{e2econstants.AttrPublicIPRequired},
+				ConflictsWith: []string{tfconstants.AttrPublicIPRequired},
 				Description:   "whether to assign a public IP to nodes (V3 field name, preferred over 'is_public_ip_required'). Can only be updated when the Scaler Group is stopped and a VPC is attached.",
 			},
 
@@ -244,7 +244,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Description:   "the status of the Scaler Group (V3 field name, preferred over 'provision_status'). Set to 'stopped' to stop, or 'running' to start.",
 			},
 
-			e2econstants.AttrMinNodes: {
+			tfconstants.AttrMinNodes: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				Deprecated:    "Use 'min_size' field instead. This field will be removed in v4.0.",
@@ -261,7 +261,7 @@ func ResourceScalerGroup() *schema.Resource {
 			"min_size": {
 				Type:          schema.TypeInt,
 				Optional:      true,
-				ConflictsWith: []string{e2econstants.AttrMinNodes},
+				ConflictsWith: []string{tfconstants.AttrMinNodes},
 				Description:   "the minimum number of nodes in the Scaler Group (V3 field name, preferred over 'min_nodes')",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
@@ -272,7 +272,7 @@ func ResourceScalerGroup() *schema.Resource {
 				},
 			},
 
-			e2econstants.AttrMaxNodes: {
+			tfconstants.AttrMaxNodes: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				Deprecated:    "Use 'max_size' field instead. This field will be removed in v4.0.",
@@ -282,10 +282,10 @@ func ResourceScalerGroup() *schema.Resource {
 			"max_size": {
 				Type:          schema.TypeInt,
 				Optional:      true,
-				ConflictsWith: []string{e2econstants.AttrMaxNodes},
+				ConflictsWith: []string{tfconstants.AttrMaxNodes},
 				Description:   "the maximum number of nodes in the Scaler Group (V3 field name, preferred over 'max_nodes')",
 			},
-			e2econstants.AttrDesired: {
+			tfconstants.AttrDesired: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				Deprecated:    "Use 'desired_capacity' field instead. This field will be removed in v4.0.",
@@ -295,7 +295,7 @@ func ResourceScalerGroup() *schema.Resource {
 			"desired_capacity": {
 				Type:          schema.TypeInt,
 				Optional:      true,
-				ConflictsWith: []string{e2econstants.AttrDesired},
+				ConflictsWith: []string{tfconstants.AttrDesired},
 				Description:   "the desired number of nodes in the Scaler Group (V3 field name, preferred over 'desired')",
 			},
 			"policy_type": {
@@ -588,19 +588,19 @@ func ResourceScalerGroup() *schema.Resource {
 			}
 
 			// Validate that at least one of each V2/V3 field pair is set
-			hasMinNodes := diff.Get(e2econstants.AttrMinNodes) != nil && diff.Get(e2econstants.AttrMinNodes).(int) > 0
+			hasMinNodes := diff.Get(tfconstants.AttrMinNodes) != nil && diff.Get(tfconstants.AttrMinNodes).(int) > 0
 			hasMinSize := diff.Get("min_size") != nil && diff.Get("min_size").(int) > 0
 			if !hasMinNodes && !hasMinSize {
 				return fmt.Errorf("either 'min_nodes' or 'min_size' must be specified")
 			}
 
-			hasMaxNodes := diff.Get(e2econstants.AttrMaxNodes) != nil && diff.Get(e2econstants.AttrMaxNodes).(int) > 0
+			hasMaxNodes := diff.Get(tfconstants.AttrMaxNodes) != nil && diff.Get(tfconstants.AttrMaxNodes).(int) > 0
 			hasMaxSize := diff.Get("max_size") != nil && diff.Get("max_size").(int) > 0
 			if !hasMaxNodes && !hasMaxSize {
 				return fmt.Errorf("either 'max_nodes' or 'max_size' must be specified")
 			}
 
-			hasDesired := diff.Get(e2econstants.AttrDesired) != nil && diff.Get(e2econstants.AttrDesired).(int) > 0
+			hasDesired := diff.Get(tfconstants.AttrDesired) != nil && diff.Get(tfconstants.AttrDesired).(int) > 0
 			hasDesiredCapacity := diff.Get("desired_capacity") != nil && diff.Get("desired_capacity").(int) > 0
 			if !hasDesired && !hasDesiredCapacity {
 				return fmt.Errorf("either 'desired' or 'desired_capacity' must be specified")
@@ -611,7 +611,7 @@ func ResourceScalerGroup() *schema.Resource {
 			if hasMinSize {
 				min = diff.Get("min_size").(int)
 			} else if hasMinNodes {
-				min = diff.Get(e2econstants.AttrMinNodes).(int)
+				min = diff.Get(tfconstants.AttrMinNodes).(int)
 			}
 
 			// Get desired capacity (handle both V2 and V3 fields)
@@ -619,7 +619,7 @@ func ResourceScalerGroup() *schema.Resource {
 			if hasDesiredCapacity {
 				desired = diff.Get("desired_capacity").(int)
 			} else if hasDesired {
-				desired = diff.Get(e2econstants.AttrDesired).(int)
+				desired = diff.Get(tfconstants.AttrDesired).(int)
 			}
 
 			// Get max size (handle both V2 and V3 fields)
@@ -627,7 +627,7 @@ func ResourceScalerGroup() *schema.Resource {
 			if hasMaxSize {
 				max = diff.Get("max_size").(int)
 			} else if hasMaxNodes {
-				max = diff.Get(e2econstants.AttrMaxNodes).(int)
+				max = diff.Get(tfconstants.AttrMaxNodes).(int)
 			}
 
 			// Validate min <= desired <= max
@@ -640,7 +640,7 @@ func ResourceScalerGroup() *schema.Resource {
 			}
 
 			// Validate state requirements for security group updates
-			if diff.HasChange(e2econstants.AttrSecurityGroupIDs) {
+			if diff.HasChange(tfconstants.AttrSecurityGroupIDs) {
 				status := getStatusFromDiff(diff)
 				if status != "" && status != "Running" && status != "running" {
 					return fmt.Errorf("security group updates require scaler group to be in 'Running' state, current: %s", status)
@@ -656,7 +656,7 @@ func ResourceScalerGroup() *schema.Resource {
 			}
 
 			// Validate state + VPC requirements for public IP updates
-			if diff.HasChange("assign_public_ip") || diff.HasChange(e2econstants.AttrPublicIPRequired) {
+			if diff.HasChange("assign_public_ip") || diff.HasChange(tfconstants.AttrPublicIPRequired) {
 				status := getStatusFromDiff(diff)
 				if status != "" && status != "Stopped" && status != "stopped" {
 					return fmt.Errorf("public IP updates require scaler group to be in 'Stopped' state, current: %s", status)
@@ -679,8 +679,8 @@ func ResourceScalerGroup() *schema.Resource {
 							return fmt.Errorf("cannot set both 'network_config.assign_public_ip' and 'assign_public_ip' fields")
 						}
 					}
-					if diff.Get(e2econstants.AttrPublicIPRequired) != nil && diff.Get(e2econstants.AttrPublicIPRequired) != "" {
-						if diff.Get(e2econstants.AttrPublicIPRequired).(bool) != networkConfig.AssignPublicIP {
+					if diff.Get(tfconstants.AttrPublicIPRequired) != nil && diff.Get(tfconstants.AttrPublicIPRequired) != "" {
+						if diff.Get(tfconstants.AttrPublicIPRequired).(bool) != networkConfig.AssignPublicIP {
 							return fmt.Errorf("cannot set both 'network_config.assign_public_ip' and 'is_public_ip_required' fields")
 						}
 					}
@@ -698,7 +698,7 @@ func ResourceScalerGroup() *schema.Resource {
 
 				// Check for security group conflicts
 				if len(networkConfig.SecurityGroups) > 0 {
-					if diff.Get(e2econstants.AttrSecurityGroupIDs) != nil {
+					if diff.Get(tfconstants.AttrSecurityGroupIDs) != nil {
 						return fmt.Errorf("cannot set both 'network_config.security_groups' and 'security_group_ids' fields")
 					}
 				}
@@ -820,7 +820,7 @@ func resourceCreateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 		}
 	}
 
-	if err := d.Set(e2econstants.AttrSecurityGroupIDs, securityGroupIDs); err != nil {
+	if err := d.Set(tfconstants.AttrSecurityGroupIDs, securityGroupIDs); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set security_group_ids: %v", err))
 	}
 
@@ -903,7 +903,7 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 	if err := d.Set("name", group.Name); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set name: %v", err))
 	}
-	if err := d.Set(e2econstants.AttrPlan, group.PlanName); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, group.PlanName); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set plan: %v", err))
 	}
 	if err := d.Set("plan_id", strconv.Itoa(group.PlanID)); err != nil {
@@ -920,19 +920,19 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Set size fields (handle V2/V3)
-	if err := d.Set(e2econstants.AttrDesired, group.Desired); err != nil {
+	if err := d.Set(tfconstants.AttrDesired, group.Desired); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set desired: %v", err))
 	}
 	if err := d.Set("desired_capacity", group.Desired); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set desired_capacity: %v", err))
 	}
-	if err := d.Set(e2econstants.AttrMinNodes, group.MinNodes); err != nil {
+	if err := d.Set(tfconstants.AttrMinNodes, group.MinNodes); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set min_nodes: %v", err))
 	}
 	if err := d.Set("min_size", group.MinNodes); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set min_size: %v", err))
 	}
-	if err := d.Set(e2econstants.AttrMaxNodes, group.MaxNodes); err != nil {
+	if err := d.Set(tfconstants.AttrMaxNodes, group.MaxNodes); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set max_nodes: %v", err))
 	}
 	if err := d.Set("max_size", group.MaxNodes); err != nil {
@@ -1001,13 +1001,13 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 		// Fallback to state value if API call failed
 		if v, ok := d.GetOk("assign_public_ip"); ok {
 			assignPublicIP = v.(bool)
-		} else if v, ok := d.GetOk(e2econstants.AttrPublicIPRequired); ok {
+		} else if v, ok := d.GetOk(tfconstants.AttrPublicIPRequired); ok {
 			assignPublicIP = v.(bool)
 		}
 	} else {
 		assignPublicIP = ipStatus.IsPublicIPRequired
 		// Set both V2 and V3 fields
-		if err := d.Set(e2econstants.AttrPublicIPRequired, ipStatus.IsPublicIPRequired); err != nil {
+		if err := d.Set(tfconstants.AttrPublicIPRequired, ipStatus.IsPublicIPRequired); err != nil {
 			return diag.FromErr(fmt.Errorf("failed to set is_public_ip_required: %v", err))
 		}
 		if err := d.Set("assign_public_ip", ipStatus.IsPublicIPRequired); err != nil {
@@ -1017,7 +1017,7 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 
 	// Get security group IDs
 	var securityGroupIDs []int
-	if sgIDsRaw, ok := d.GetOk(e2econstants.AttrSecurityGroupIDs); ok {
+	if sgIDsRaw, ok := d.GetOk(tfconstants.AttrSecurityGroupIDs); ok {
 		sgIDsList := sgIDsRaw.([]interface{})
 		securityGroupIDs = make([]int, len(sgIDsList))
 		for i, v := range sgIDsList {
@@ -1097,7 +1097,7 @@ func resourceDeleteScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 // expandCreateScalerGroupRequestV3 creates a GoE2E ScalerGroupCreateRequest from schema data
 // Handles both V2 and V3 field names, and new structured blocks including network_config
 func expandCreateScalerGroupRequestV3(ctx context.Context, d *schema.ResourceData, cfg *config.Config, client *goe2e.Client, projectID, region string, sgID int, savedImage *goe2e.SavedImage, networkConfig *NetworkConfig) (*goe2e.ScalerGroupCreateRequest, error) {
-	planName := d.Get(e2econstants.AttrPlan).(string)
+	planName := d.Get(tfconstants.AttrPlan).(string)
 	imageName, _ := getImageName(d)
 
 	// Get plan details (temporary: using old client for this until GoE2E has equivalent)
@@ -1113,7 +1113,7 @@ func expandCreateScalerGroupRequestV3(ctx context.Context, d *schema.ResourceDat
 
 	// Get encryption flag (handle V2/V3)
 	enableEncryption := getEnableEncryption(d)
-	encryptionPassphrase := d.Get(e2econstants.AttrEncryptionPassphrase).(string)
+	encryptionPassphrase := d.Get(tfconstants.AttrEncryptionPassphrase).(string)
 
 	// Get public IP flag (network_config takes precedence)
 	var assignPublicIP bool
@@ -1238,9 +1238,9 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	// If only desired changed, call separate API
-	hasDesiredChange := d.HasChange(e2econstants.AttrDesired) || d.HasChange("desired_capacity")
-	hasOtherChanges := d.HasChange(e2econstants.AttrMinNodes) || d.HasChange("min_size") ||
-		d.HasChange(e2econstants.AttrMaxNodes) || d.HasChange("max_size") ||
+	hasDesiredChange := d.HasChange(tfconstants.AttrDesired) || d.HasChange("desired_capacity")
+	hasOtherChanges := d.HasChange(tfconstants.AttrMinNodes) || d.HasChange("min_size") ||
+		d.HasChange(tfconstants.AttrMaxNodes) || d.HasChange("max_size") ||
 		d.HasChange("policy_type") || d.HasChange("policy") || d.HasChange("scaling_policy") ||
 		d.HasChange("scheduled_policy") || d.HasChange("scheduled_action") ||
 		d.HasChange("network_config") // network_config changes handled separately above
@@ -1398,7 +1398,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 				newSGIDs = newConfig.SecurityGroups
 			} else {
 				// Fallback to individual field if network_config removed
-				if v, ok := d.GetOk(e2econstants.AttrSecurityGroupIDs); ok {
+				if v, ok := d.GetOk(tfconstants.AttrSecurityGroupIDs); ok {
 					sgIDsList := v.([]interface{})
 					newSGIDs = make([]int, len(sgIDsList))
 					for i, v := range sgIDsList {
@@ -1428,7 +1428,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			if oldConfig != nil {
 				oldSGIDs = oldConfig.SecurityGroups
 			} else {
-				oldRaw, _ := d.GetChange(e2econstants.AttrSecurityGroupIDs)
+				oldRaw, _ := d.GetChange(tfconstants.AttrSecurityGroupIDs)
 				oldList := expandIntList(oldRaw.([]interface{}))
 				oldSGIDs = oldList
 			}
@@ -1460,7 +1460,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	// Handle individual security_group_ids changes (only if network_config didn't change)
-	if d.HasChange(e2econstants.AttrSecurityGroupIDs) && !d.HasChange("network_config") {
+	if d.HasChange(tfconstants.AttrSecurityGroupIDs) && !d.HasChange("network_config") {
 		log.Printf("[INFO] Detected change in security_group_ids for Scaler Group %s", id)
 
 		group, _, err := goe2eClient.Autoscaling.GetScalerGroup(ctx, id)
@@ -1475,7 +1475,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			return diag.Errorf("Scaler group must be in 'Running' state to update security groups. Current: %s", group.ProvisionStatus)
 		}
 
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrSecurityGroupIDs)
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrSecurityGroupIDs)
 		oldList := expandIntList(oldRaw.([]interface{}))
 		newList := expandIntList(newRaw.([]interface{}))
 
@@ -1615,12 +1615,12 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	// Handle individual public IP changes (only if network_config didn't change)
-	if (d.HasChange(e2econstants.AttrPublicIPRequired) || d.HasChange("assign_public_ip")) && !d.HasChange("network_config") {
+	if (d.HasChange(tfconstants.AttrPublicIPRequired) || d.HasChange("assign_public_ip")) && !d.HasChange("network_config") {
 		var newVal bool
 		if d.HasChange("assign_public_ip") {
 			newVal = d.Get("assign_public_ip").(bool)
 		} else {
-			newVal = d.Get(e2econstants.AttrPublicIPRequired).(bool)
+			newVal = d.Get(tfconstants.AttrPublicIPRequired).(bool)
 		}
 
 		log.Printf("[INFO] assign_public_ip/is_public_ip_required changed to %v", newVal)
@@ -1662,8 +1662,8 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	// Check if there are other changes (size, policies)
-	hasSizeChange := d.HasChange(e2econstants.AttrMinNodes) || d.HasChange("min_size") ||
-		d.HasChange(e2econstants.AttrMaxNodes) || d.HasChange("max_size")
+	hasSizeChange := d.HasChange(tfconstants.AttrMinNodes) || d.HasChange("min_size") ||
+		d.HasChange(tfconstants.AttrMaxNodes) || d.HasChange("max_size")
 	hasPolicyChange := d.HasChange("policy_type") || d.HasChange("policy") || d.HasChange("scaling_policy") ||
 		d.HasChange("scheduled_policy") || d.HasChange("scheduled_action")
 
@@ -1860,17 +1860,17 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// Core identity
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -1909,7 +1909,7 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
-			e2econstants.AttrSecurityGroupIDs: {
+			tfconstants.AttrSecurityGroupIDs: {
 				Type:     schema.TypeList,
 				Optional: true,
 				Computed: true,
@@ -1917,12 +1917,12 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 			},
 
 			// Encryption (V2 only)
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:     schema.TypeBool,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:      schema.TypeString,
 				Optional:  true,
 				Default:   "",
@@ -1931,7 +1931,7 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 			},
 
 			// Public IP (V2 only)
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  true,
@@ -1946,15 +1946,15 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 			},
 
 			// Size (V2 only)
-			e2econstants.AttrMinNodes: {
+			tfconstants.AttrMinNodes: {
 				Type:     schema.TypeInt,
 				Required: true,
 			},
-			e2econstants.AttrMaxNodes: {
+			tfconstants.AttrMaxNodes: {
 				Type:     schema.TypeInt,
 				Required: true,
 			},
-			e2econstants.AttrDesired: {
+			tfconstants.AttrDesired: {
 				Type:     schema.TypeInt,
 				Required: true,
 			},

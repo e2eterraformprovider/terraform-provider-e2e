@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -30,20 +30,20 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED IMMUTABLE FIELDS
 			// ============================================
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the MySQL version to use (e.g., 5.6, 5.7, 8.0)",
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:        schema.TypeList,
 				Required:    true,
 				MaxItems:    1,
@@ -78,7 +78,7 @@ func ResourceMySql() *schema.Resource {
 					},
 				},
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "the plan name for the MySQL DBaaS instance",
@@ -114,7 +114,7 @@ func ResourceMySql() *schema.Resource {
 				Sensitive:   true,
 				Description: "encryption passphrase (required if encryption enabled)",
 			},
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "Default",
@@ -125,24 +125,24 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - MUTABLE
 			// ============================================
-			e2econstants.AttrVPCs: {
+			tfconstants.AttrVPCs: {
 				Type:        schema.TypeSet,
 				Elem:        &schema.Schema{Type: schema.TypeInt},
 				Optional:    true,
 				Description: "list of VPC ids to attach to the MySQL DBaaS instance",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "id of the parameter group to attach",
 			},
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 				Description: "whether to attach a public IP to the MySQL DBaaS instance",
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "additional disk size in gigabytes to attach (cumulative across updates)",
@@ -151,7 +151,7 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// POWER MANAGEMENT
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -177,7 +177,7 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - RESOURCES
 			// ============================================
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the total disk size of the MySQL DBaaS instance after expansions",
@@ -186,12 +186,12 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MySQL instance public IPv4 address (if public IP attached)",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MySQL instance private IPv4 address",
@@ -230,8 +230,8 @@ func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	softwareName := "MySQL"
-	softwareVersion := d.Get(e2econstants.AttrVersion).(string)
-	planName := d.Get(e2econstants.AttrPlan).(string)
+	softwareVersion := d.Get(tfconstants.AttrVersion).(string)
+	planName := d.Get(tfconstants.AttrPlan).(string)
 
 	// Get software ID using goe2e client
 	softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, softwareName, softwareVersion)
@@ -261,13 +261,13 @@ func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	d.SetId(strconv.Itoa(mysql.ID))
 
 	// Set computed fields from create response
-	if err := d.Set(e2econstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
@@ -300,7 +300,7 @@ func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Set status
-	if err := d.Set(e2econstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, normalizeStatus(mysql.Status)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -314,20 +314,20 @@ func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 	if mysql.MasterNode.Database.PGDetail.ID != 0 {
 		pgID = mysql.MasterNode.Database.PGDetail.ID
 	}
-	if err := d.Set(e2econstants.AttrParameterGroupID, pgID); err != nil {
+	if err := d.Set(tfconstants.AttrParameterGroupID, pgID); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set disk size
-	if err := d.Set(e2econstants.AttrDisk, mysql.MasterNode.Disk); err != nil {
+	if err := d.Set(tfconstants.AttrDisk, mysql.MasterNode.Disk); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set network information
-	if err := d.Set(e2econstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, mysql.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
@@ -371,8 +371,8 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle VPC changes
-	if d.HasChange(e2econstants.AttrVPCs) {
-		prevRaw, newRaw := d.GetChange(e2econstants.AttrVPCs)
+	if d.HasChange(tfconstants.AttrVPCs) {
+		prevRaw, newRaw := d.GetChange(tfconstants.AttrVPCs)
 		prevSet := prevRaw.(*schema.Set)
 		newSet := newRaw.(*schema.Set)
 
@@ -394,7 +394,7 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 			log.Printf("[INFO] Attaching VPCs to MySQL cluster %s: %v", id, added)
 			vpcDetails, err := expandVPCList(ctx, goe2eClient, added)
 			if err != nil {
-				d.Set(e2econstants.AttrVPCs, prevSet)
+				d.Set(tfconstants.AttrVPCs, prevSet)
 				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
 			}
 			attachReq := &goe2e.MySQLVPCAttachRequest{
@@ -402,7 +402,7 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 				VPCs:   vpcDetails,
 			}
 			if _, err := goe2eClient.DBaaSMySQL.AttachVPC(ctx, id, attachReq); err != nil {
-				d.Set(e2econstants.AttrVPCs, prevSet)
+				d.Set(tfconstants.AttrVPCs, prevSet)
 				return diag.Errorf("error attaching VPC to MySQL DBaaS (ID: %s): %s", id, err)
 			}
 		}
@@ -412,7 +412,7 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 			log.Printf("[INFO] Detaching VPCs from MySQL cluster %s: %v", id, removed)
 			vpcDetails, err := expandVPCList(ctx, goe2eClient, removed)
 			if err != nil {
-				d.Set(e2econstants.AttrVPCs, prevSet)
+				d.Set(tfconstants.AttrVPCs, prevSet)
 				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
 			}
 			detachReq := &goe2e.MySQLVPCDetachRequest{
@@ -420,15 +420,15 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 				VPCs:   vpcDetails,
 			}
 			if _, err := goe2eClient.DBaaSMySQL.DetachVPC(ctx, id, detachReq); err != nil {
-				d.Set(e2econstants.AttrVPCs, prevSet)
+				d.Set(tfconstants.AttrVPCs, prevSet)
 				return diag.Errorf("error detaching VPC from MySQL DBaaS (ID: %s): %s", id, err)
 			}
 		}
 	}
 
 	// Handle parameter group changes
-	if d.HasChange(e2econstants.AttrParameterGroupID) {
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrParameterGroupID)
+	if d.HasChange(tfconstants.AttrParameterGroupID) {
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrParameterGroupID)
 		oldPGID := oldRaw.(int)
 		newPGID := newRaw.(int)
 
@@ -451,8 +451,8 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle public IP changes
-	if d.HasChange(e2econstants.AttrPublicIPRequired) {
-		newVal := d.Get(e2econstants.AttrPublicIPRequired).(bool)
+	if d.HasChange(tfconstants.AttrPublicIPRequired) {
+		newVal := d.Get(tfconstants.AttrPublicIPRequired).(bool)
 		log.Printf("[INFO] Public IP change detected for MySQL cluster %s: %v", id, newVal)
 
 		if newVal {
@@ -481,7 +481,7 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 		}
 
 		// Get version for software ID lookup
-		version := d.Get(e2econstants.AttrVersion).(string)
+		version := d.Get(tfconstants.AttrVersion).(string)
 
 		// Get software ID and template ID
 		softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, "MySQL", version)
@@ -509,8 +509,8 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle disk expansion
-	if d.HasChange(e2econstants.AttrSize) {
-		additionalSize := d.Get(e2econstants.AttrSize).(int)
+	if d.HasChange(tfconstants.AttrSize) {
+		additionalSize := d.Get(tfconstants.AttrSize).(int)
 
 		if additionalSize > 0 {
 			log.Printf("[INFO] Disk expansion requested for MySQL cluster %s: +%d GB", id, additionalSize)
@@ -520,14 +520,14 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 				Size: additionalSize,
 			}
 			if _, err := goe2eClient.DBaaSMySQL.ExpandDisk(ctx, id, expandReq); err != nil {
-				d.Set(e2econstants.AttrSize, 0)
+				d.Set(tfconstants.AttrSize, 0)
 				return diag.Errorf("error expanding MySQL DBaaS (ID: %s) disk by %d GB: %s", id, additionalSize, err)
 			}
 
 			log.Printf("[INFO] Successfully expanded disk by %d GB for MySQL cluster %s", additionalSize, id)
 
 			// Reset size to 0 after expansion (cumulative behavior)
-			if err := d.Set(e2econstants.AttrSize, 0); err != nil {
+			if err := d.Set(tfconstants.AttrSize, 0); err != nil {
 				return diag.FromErr(err)
 			}
 		} else {
@@ -579,7 +579,7 @@ func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.Res
 	projectID := parts[0]
 	dbaasID := parts[1]
 
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, err
 	}
 	d.SetId(dbaasID)
@@ -598,19 +598,19 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED IMMUTABLE FIELDS
 			// ============================================
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:     schema.TypeList,
 				Required: true,
 				MaxItems: 1,
@@ -640,7 +640,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 					},
 				},
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -671,7 +671,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 				ForceNew:  true,
 				Sensitive: true,
 			},
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "Default",
@@ -681,21 +681,21 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - MUTABLE
 			// ============================================
-			e2econstants.AttrVPCs: {
+			tfconstants.AttrVPCs: {
 				Type:     schema.TypeSet,
 				Elem:     &schema.Schema{Type: schema.TypeInt},
 				Optional: true,
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  true,
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
@@ -703,7 +703,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// POWER MANAGEMENT
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -716,7 +716,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - RESOURCES
 			// ============================================
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -724,11 +724,11 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

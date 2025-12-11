@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,9 +20,9 @@ func DataSourceNodes() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
 			"nodes_list": {
@@ -31,32 +31,32 @@ func DataSourceNodes() *schema.Resource {
 				Description: "list of all Nodes in your account",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrID: {
+						tfconstants.AttrID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "id of the Node",
 						},
-						e2econstants.AttrName: {
+						tfconstants.AttrName: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "name of the Node",
 						},
-						e2econstants.AttrIsLocked: {
+						tfconstants.AttrIsLocked: {
 							Type:        schema.TypeBool,
 							Computed:    true,
 							Description: "whether the Node is locked",
 						},
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "state of the Node instance",
 						},
-						e2econstants.AttrPrivateIPAddress: {
+						tfconstants.AttrPrivateIPAddress: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the Nodes private ipv4 address",
 						},
-						e2econstants.AttrPublicIPAddress: {
+						tfconstants.AttrPublicIPAddress: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the Nodes public ipv4 address",
@@ -117,17 +117,17 @@ func flattenNodes(nodes []goe2e.Node) []interface{} {
 			oi := make(map[string]interface{})
 			// Convert ID from string to float64 for compatibility
 			if id, err := strconv.ParseFloat(node.ID, 64); err == nil {
-				oi[e2econstants.AttrID] = id
+				oi[tfconstants.AttrID] = id
 			} else {
-				oi[e2econstants.AttrID] = 0.0
+				oi[tfconstants.AttrID] = 0.0
 			}
-			oi[e2econstants.AttrName] = node.Name
-			oi[e2econstants.AttrIsLocked] = node.IsLocked
-			oi[e2econstants.AttrPrivateIPAddress] = node.PrivateIPAddress
-			oi[e2econstants.AttrPublicIPAddress] = node.PublicIPAddress
+			oi[tfconstants.AttrName] = node.Name
+			oi[tfconstants.AttrIsLocked] = node.IsLocked
+			oi[tfconstants.AttrPrivateIPAddress] = node.PrivateIPAddress
+			oi[tfconstants.AttrPublicIPAddress] = node.PublicIPAddress
 			// RescueModeStatus is not available in goe2e.Node, set empty string
 			oi["rescue_mode_status"] = ""
-			oi[e2econstants.AttrStatus] = node.Status
+			oi[tfconstants.AttrStatus] = node.Status
 			ois[i] = oi
 		}
 

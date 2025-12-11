@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -22,9 +22,9 @@ func DataSourceSfs() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
 			"sfs_list": {
@@ -33,27 +33,27 @@ func DataSourceSfs() *schema.Resource {
 				Description: "list of all the SFS instances in the account",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						e2econstants.AttrID: {
+						tfconstants.AttrID: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the id of the SFS",
 						},
-						e2econstants.AttrName: {
+						tfconstants.AttrName: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the name of the SFS",
 						},
-						e2econstants.AttrSizeGB: {
+						tfconstants.AttrSizeGB: {
 							Type:        schema.TypeInt,
 							Computed:    true,
 							Description: "the size of the SFS volume in gigabytes",
 						},
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the API status of the SFS instance",
 						},
-						e2econstants.AttrState: {
+						tfconstants.AttrState: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the normalized state of the SFS instance",
@@ -63,7 +63,7 @@ func DataSourceSfs() *schema.Resource {
 							Computed:    true,
 							Description: "the NFS mount endpoint for the SFS",
 						},
-						e2econstants.AttrPlan: {
+						tfconstants.AttrPlan: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the plan of the SFS",
@@ -73,17 +73,17 @@ func DataSourceSfs() *schema.Resource {
 							Computed:    true,
 							Description: "whether backups are enabled for the SFS",
 						},
-						e2econstants.AttrIOPS: {
+						tfconstants.AttrIOPS: {
 							Type:        schema.TypeInt,
 							Computed:    true,
 							Description: "the IOPS value of the SFS",
 						},
-						e2econstants.AttrVPCID: {
+						tfconstants.AttrVPCID: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the id of the VPC for the SFS",
 						},
-						e2econstants.AttrEncryptionEnabled: {
+						tfconstants.AttrEncryptionEnabled: {
 							Type:        schema.TypeBool,
 							Computed:    true,
 							Description: "whether encryption is enabled for the SFS",
@@ -146,22 +146,22 @@ func flattenSfsList(sfsList []goe2e.Sfs) []interface{} {
 
 	for i, sfs := range sfsList {
 		oi := make(map[string]interface{})
-		oi[e2econstants.AttrID] = sfs.ID
-		oi[e2econstants.AttrName] = sfs.Name
-		oi[e2econstants.AttrStatus] = sfs.Status
-		oi[e2econstants.AttrState] = normalizeSfsState(sfs.Status)
-		oi[e2econstants.AttrPlan] = sfs.PlanName
+		oi[tfconstants.AttrID] = sfs.ID
+		oi[tfconstants.AttrName] = sfs.Name
+		oi[tfconstants.AttrStatus] = sfs.Status
+		oi[tfconstants.AttrState] = normalizeSfsState(sfs.Status)
+		oi[tfconstants.AttrPlan] = sfs.PlanName
 		oi["private_endpoint"] = sfs.PrivateIPAddress
 		oi["is_backup_enabled"] = sfs.IsBackupEnabled
-		oi[e2econstants.AttrIOPS] = sfs.DiskIOPS
-		oi[e2econstants.AttrVPCID] = sfs.VPCID
-		oi[e2econstants.AttrEncryptionEnabled] = sfs.IsEncryptionEnabled
+		oi[tfconstants.AttrIOPS] = sfs.DiskIOPS
+		oi[tfconstants.AttrVPCID] = sfs.VPCID
+		oi[tfconstants.AttrEncryptionEnabled] = sfs.IsEncryptionEnabled
 
 		// Parse disk size from string (e.g., "100GB")
 		if sfs.DiskSize != "" {
 			diskSizeStr := strings.TrimSpace(strings.ReplaceAll(sfs.DiskSize, "GB", ""))
 			if sizeInt, err := strconv.Atoi(diskSizeStr); err == nil {
-				oi[e2econstants.AttrSizeGB] = sizeInt
+				oi[tfconstants.AttrSizeGB] = sizeInt
 			}
 		}
 

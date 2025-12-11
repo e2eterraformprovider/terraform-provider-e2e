@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -41,13 +41,13 @@ func WaitForState(
 	notFoundChecks int,
 ) error {
 	if delay == 0 {
-		delay = e2econstants.StateChangeDefaultDelay
+		delay = tfconstants.StateChangeDefaultDelay
 	}
 	if minTimeout == 0 {
-		minTimeout = e2econstants.StateChangeRetryBackoff
+		minTimeout = tfconstants.StateChangeRetryBackoff
 	}
 	if notFoundChecks == 0 {
-		notFoundChecks = e2econstants.DefaultNotFoundChecks
+		notFoundChecks = tfconstants.DefaultNotFoundChecks
 	}
 
 	stateConf := &resource.StateChangeConf{
@@ -98,12 +98,12 @@ func WaitForFunctionReady(ctx context.Context, client *goe2e.Client, functionID 
 	err := WaitForState(
 		ctx,
 		refreshFunc,
-		e2econstants.FaaSPendingStates,
+		tfconstants.FaaSPendingStates,
 		[]string{goe2econstants.FaaSStatusReady},
 		timeout,
-		e2econstants.StateChangePollInterval,
-		e2econstants.StateChangeRetryBackoff,
-		e2econstants.DefaultNotFoundChecks,
+		tfconstants.StateChangePollInterval,
+		tfconstants.StateChangeRetryBackoff,
+		tfconstants.DefaultNotFoundChecks,
 	)
 
 	if err != nil {
@@ -138,18 +138,18 @@ func WaitForNodePowerState(m interface{}, nodeID string, projectID string, regio
 		if err != nil {
 			if IsNotFoundError(err) {
 				log.Printf("[DEBUG] Node %s not found (may have been deleted)", nodeID)
-				return nil, e2econstants.WaitStateDeleted, nil
+				return nil, tfconstants.WaitStateDeleted, nil
 			}
 			return nil, "", fmt.Errorf("error retrieving node: %w", err)
 		}
 
 		if node == nil {
-			return nil, e2econstants.WaitStateDeleted, nil
+			return nil, tfconstants.WaitStateDeleted, nil
 		}
 
 		status := node.Status
 		if status == "" {
-			return node, e2econstants.WaitStateUnknown, fmt.Errorf("node status is empty or not found in API response")
+			return node, tfconstants.WaitStateUnknown, fmt.Errorf("node status is empty or not found in API response")
 		}
 
 		log.Printf("[DEBUG] Node %s current status: %s", nodeID, status)
@@ -165,12 +165,12 @@ func WaitForNodePowerState(m interface{}, nodeID string, projectID string, regio
 	err = WaitForState(
 		ctx,
 		refreshFunc,
-		append([]string{goe2econstants.NodeStatusCreating}, e2econstants.NodePowerPendingStates...),
+		append([]string{goe2econstants.NodeStatusCreating}, tfconstants.NodePowerPendingStates...),
 		[]string{goe2econstants.NodeStatusRunning, goe2econstants.NodeStatusPoweredOff},
-		e2econstants.StateChangeTimeoutDefault,
-		e2econstants.StateChangePollInterval,
-		e2econstants.StateChangeRetryBackoff,
-		e2econstants.DefaultNotFoundChecks,
+		tfconstants.StateChangeTimeoutDefault,
+		tfconstants.StateChangePollInterval,
+		tfconstants.StateChangeRetryBackoff,
+		tfconstants.DefaultNotFoundChecks,
 	)
 
 	if err != nil {
@@ -227,18 +227,18 @@ func WaitForNodeLCMState(m interface{}, nodeID string, projectID string, region 
 		}
 
 		// State is not in exclude list, we've reached target
-		return lcmState, e2econstants.NodeLCMReadyState, nil
+		return lcmState, tfconstants.NodeLCMReadyState, nil
 	}
 
 	err = WaitForState(
 		ctx,
 		refreshFunc,
 		excludeStates, // pending states (keep waiting while in these)
-		e2econstants.NodeLCMReadyTargetStates,
-		e2econstants.StateChangeTimeoutDefault,
-		e2econstants.StateChangePollInterval,
-		e2econstants.StateChangeRetryBackoff,
-		e2econstants.DefaultNotFoundChecks,
+		tfconstants.NodeLCMReadyTargetStates,
+		tfconstants.StateChangeTimeoutDefault,
+		tfconstants.StateChangePollInterval,
+		tfconstants.StateChangeRetryBackoff,
+		tfconstants.DefaultNotFoundChecks,
 	)
 
 	if err != nil {
@@ -283,12 +283,12 @@ func WaitForDBaaSPowerState(m interface{}, dbaasID string, projectID string, reg
 	err = WaitForState(
 		ctx,
 		refreshFunc,
-		e2econstants.DBaaSSuspendPendingStates,
-		e2econstants.DBaaSSuspendTargetStates,
-		e2econstants.StateChangeTimeoutShort,
-		e2econstants.StateChangePollInterval,
-		e2econstants.StateChangeRetryBackoff,
-		e2econstants.DefaultNotFoundChecks,
+		tfconstants.DBaaSSuspendPendingStates,
+		tfconstants.DBaaSSuspendTargetStates,
+		tfconstants.StateChangeTimeoutShort,
+		tfconstants.StateChangePollInterval,
+		tfconstants.StateChangeRetryBackoff,
+		tfconstants.DefaultNotFoundChecks,
 	)
 
 	if err != nil {

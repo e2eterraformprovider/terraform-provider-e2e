@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -21,25 +21,25 @@ func ResourceSfs() *schema.Resource {
 		SchemaVersion: 1,
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// Resource identity and configuration
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
 				Description:  "name of the SFS",
 				ValidateFunc: validateName,
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the plan of the SFS",
 			},
-			e2econstants.AttrVPCID: {
+			tfconstants.AttrVPCID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -47,14 +47,14 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// V3 Storage fields (preferred)
-			e2econstants.AttrSizeGB: {
+			tfconstants.AttrSizeGB: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				ForceNew:      true,
-				ConflictsWith: []string{e2econstants.AttrDiskSize},
+				ConflictsWith: []string{tfconstants.AttrDiskSize},
 				Description:   "the size of the SFS volume in gigabytes",
 			},
-			e2econstants.AttrIOPS: {
+			tfconstants.AttrIOPS: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				ForceNew:      true,
@@ -63,12 +63,12 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// V2 Storage fields (deprecated)
-			e2econstants.AttrDiskSize: {
+			tfconstants.AttrDiskSize: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				ForceNew:      true,
 				Deprecated:    "Use size_gb instead. This field will be removed in v4.0.",
-				ConflictsWith: []string{e2econstants.AttrSizeGB},
+				ConflictsWith: []string{tfconstants.AttrSizeGB},
 				Description:   "DEPRECATED: Use size_gb instead. The size of the disk in gigabytes.",
 			},
 			"disk_iops": {
@@ -76,33 +76,33 @@ func ResourceSfs() *schema.Resource {
 				Optional:      true,
 				ForceNew:      true,
 				Deprecated:    "Use iops instead. This field will be removed in v4.0.",
-				ConflictsWith: []string{e2econstants.AttrIOPS},
+				ConflictsWith: []string{tfconstants.AttrIOPS},
 				Description:   "DEPRECATED: Use iops instead. The IOPS of the disk.",
 			},
 
 			// V3 Encryption field (preferred)
-			e2econstants.AttrEncryptionEnabled: {
+			tfconstants.AttrEncryptionEnabled: {
 				Type:          schema.TypeBool,
 				Optional:      true,
 				ForceNew:      true,
 				Default:       false,
-				ConflictsWith: []string{e2econstants.AttrIsEncryptionEnabled},
+				ConflictsWith: []string{tfconstants.AttrIsEncryptionEnabled},
 				Description:   "whether to enable encryption for the SFS",
 			},
 
 			// V2 Encryption field (deprecated)
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:          schema.TypeBool,
 				Optional:      true,
 				ForceNew:      true,
 				Default:       false,
 				Deprecated:    "Use encryption_enabled instead. This field will be removed in v4.0.",
-				ConflictsWith: []string{e2econstants.AttrEncryptionEnabled},
+				ConflictsWith: []string{tfconstants.AttrEncryptionEnabled},
 				Description:   "DEPRECATED: Use encryption_enabled instead. Whether encryption is enabled.",
 			},
 
 			// Encryption passphrase (shared by both versions)
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
@@ -112,7 +112,7 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// Tags (state-only until API support)
-			e2econstants.AttrTags: {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -120,12 +120,12 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// Computed fields - Status
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the API status of the SFS instance (Creating, Active, Error, Deleting)",
 			},
-			e2econstants.AttrState: {
+			tfconstants.AttrState: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the normalized state of the SFS instance (creating, active, error, deleting)",
@@ -151,7 +151,7 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// Computed fields - Metadata
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation timestamp of the SFS",
@@ -212,43 +212,43 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 
 	log.Printf("[INFO] SFS CREATE STARTS")
 
-	name := d.Get(e2econstants.AttrName).(string)
-	plan := d.Get(e2econstants.AttrPlan).(string)
-	vpcID := d.Get(e2econstants.AttrVPCID).(string)
+	name := d.Get(tfconstants.AttrName).(string)
+	plan := d.Get(tfconstants.AttrPlan).(string)
+	vpcID := d.Get(tfconstants.AttrVPCID).(string)
 
 	// Get size: prefer V3 field size_gb over V2 field disk_size
-	sizeGB := getEffectiveSizeGB(d, e2econstants.AttrSizeGB, e2econstants.AttrDiskSize, 0)
+	sizeGB := getEffectiveSizeGB(d, tfconstants.AttrSizeGB, tfconstants.AttrDiskSize, 0)
 	if sizeGB == 0 {
 		return diag.Errorf("Error creating SFS (name: %s): size_gb or disk_size must be specified", name)
 	}
 
 	// Log deprecation warning if old field is used
-	if _, ok := d.GetOk(e2econstants.AttrDiskSize); ok && !d.HasChanges(e2econstants.AttrDiskSize) {
-		if _, ok2 := d.GetOk(e2econstants.AttrSizeGB); !ok2 {
-			logDeprecationWarning(e2econstants.AttrDiskSize, e2econstants.AttrSizeGB)
+	if _, ok := d.GetOk(tfconstants.AttrDiskSize); ok && !d.HasChanges(tfconstants.AttrDiskSize) {
+		if _, ok2 := d.GetOk(tfconstants.AttrSizeGB); !ok2 {
+			logDeprecationWarning(tfconstants.AttrDiskSize, tfconstants.AttrSizeGB)
 		}
 	}
 
 	// Get IOPS: prefer V3 field iops over V2 field disk_iops
-	iops := getEffectiveIOPS(d, e2econstants.AttrIOPS, "disk_iops", 0)
+	iops := getEffectiveIOPS(d, tfconstants.AttrIOPS, "disk_iops", 0)
 	if iops == 0 {
 		return diag.Errorf("Error creating SFS (name: %s): iops or disk_iops must be specified", name)
 	}
 
 	// Log deprecation warning if old field is used
 	if _, ok := d.GetOk("disk_iops"); ok && !d.HasChanges("disk_iops") {
-		if _, ok2 := d.GetOk(e2econstants.AttrIOPS); !ok2 {
-			logDeprecationWarning("disk_iops", e2econstants.AttrIOPS)
+		if _, ok2 := d.GetOk(tfconstants.AttrIOPS); !ok2 {
+			logDeprecationWarning("disk_iops", tfconstants.AttrIOPS)
 		}
 	}
 
 	// Get encryption: prefer V3 field encryption_enabled over V2 field is_encryption_enabled
-	isEncrypted := getEffectiveEncryptionEnabled(d, e2econstants.AttrEncryptionEnabled, e2econstants.AttrIsEncryptionEnabled)
+	isEncrypted := getEffectiveEncryptionEnabled(d, tfconstants.AttrEncryptionEnabled, tfconstants.AttrIsEncryptionEnabled)
 
 	// Log deprecation warning if old encryption field is used
-	if _, ok := d.GetOk(e2econstants.AttrIsEncryptionEnabled); ok && !d.HasChanges(e2econstants.AttrIsEncryptionEnabled) {
-		if _, ok2 := d.GetOk(e2econstants.AttrEncryptionEnabled); !ok2 {
-			logDeprecationWarning(e2econstants.AttrIsEncryptionEnabled, e2econstants.AttrEncryptionEnabled)
+	if _, ok := d.GetOk(tfconstants.AttrIsEncryptionEnabled); ok && !d.HasChanges(tfconstants.AttrIsEncryptionEnabled) {
+		if _, ok2 := d.GetOk(tfconstants.AttrEncryptionEnabled); !ok2 {
+			logDeprecationWarning(tfconstants.AttrIsEncryptionEnabled, tfconstants.AttrEncryptionEnabled)
 		}
 	}
 
@@ -261,7 +261,7 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 		IsEncryptionEnabled: isEncrypted,
 	}
 
-	if pass, ok := d.GetOk(e2econstants.AttrEncryptionPassphrase); ok {
+	if pass, ok := d.GetOk(tfconstants.AttrEncryptionPassphrase); ok {
 		createReq.EncryptionPassphrase = pass.(string)
 	}
 
@@ -279,8 +279,8 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	d.SetId(sfs.ID)
 
 	// Store tags in state (state-only until API supports it)
-	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
 		}
 	}
@@ -333,13 +333,13 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	}
 
 	// Set core identity fields
-	if err := d.Set(e2econstants.AttrName, sfs.Name); err != nil {
+	if err := d.Set(tfconstants.AttrName, sfs.Name); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting name: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrPlan, sfs.PlanName); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, sfs.PlanName); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting plan: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrVPCID, sfs.VPCID); err != nil {
+	if err := d.Set(tfconstants.AttrVPCID, sfs.VPCID); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting vpc_id: %w", err))
 	}
 
@@ -348,17 +348,17 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 		diskSizeStr := strings.TrimSpace(strings.ReplaceAll(sfs.DiskSize, "GB", ""))
 		if sizeInt, err := strconv.Atoi(diskSizeStr); err == nil {
 			// Set both V3 and V2 fields for backwards compatibility
-			if err := d.Set(e2econstants.AttrSizeGB, sizeInt); err != nil {
+			if err := d.Set(tfconstants.AttrSizeGB, sizeInt); err != nil {
 				return diag.FromErr(fmt.Errorf("error setting size_gb: %w", err))
 			}
-			if err := d.Set(e2econstants.AttrDiskSize, sizeInt); err != nil {
+			if err := d.Set(tfconstants.AttrDiskSize, sizeInt); err != nil {
 				return diag.FromErr(fmt.Errorf("error setting disk_size: %w", err))
 			}
 		}
 	}
 
 	// Set IOPS fields - prefer V3 fields but maintain V2 for backwards compatibility
-	if err := d.Set(e2econstants.AttrIOPS, sfs.DiskIOPS); err != nil {
+	if err := d.Set(tfconstants.AttrIOPS, sfs.DiskIOPS); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting iops: %w", err))
 	}
 	if err := d.Set("disk_iops", sfs.DiskIOPS); err != nil {
@@ -366,21 +366,21 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	}
 
 	// Set encryption fields - prefer V3 fields but maintain V2 for backwards compatibility
-	if err := d.Set(e2econstants.AttrEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting encryption_enabled: %w", err))
 	}
-	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting is_encryption_enabled: %w", err))
 	}
 
 	// Set computed fields
-	if err := d.Set(e2econstants.AttrStatus, sfs.Status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, sfs.Status); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
 	}
 
 	// Normalize and set state field
 	normalizedState := normalizeSfsState(sfs.Status)
-	if err := d.Set(e2econstants.AttrState, normalizedState); err != nil {
+	if err := d.Set(tfconstants.AttrState, normalizedState); err != nil {
 		return diag.FromErr(fmt.Errorf("error setting state: %w", err))
 	}
 
@@ -416,7 +416,7 @@ func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 
 	// Check if SFS is in Creating state
-	status := d.Get(e2econstants.AttrStatus).(string)
+	status := d.Get(tfconstants.AttrStatus).(string)
 	if status == "Creating" {
 		return diag.Errorf("Cannot delete SFS (ID: %s): SFS is in Creating state in project (%s), region (%s). Please wait for SFS creation to complete", sfsID, projectID, region)
 	}

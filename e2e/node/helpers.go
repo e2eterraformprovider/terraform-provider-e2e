@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -123,22 +123,22 @@ func expandNetworkInterface(niList []interface{}) (string, bool, bool, []int) {
 	ni := niList[0].(map[string]interface{})
 
 	vpcID := ""
-	if v, ok := ni[e2econstants.AttrVPCID]; ok {
+	if v, ok := ni[tfconstants.AttrVPCID]; ok {
 		vpcID = v.(string)
 	}
 
 	assignPublicIP := false
-	if v, ok := ni[e2econstants.AttrAssignPublicIP]; ok {
+	if v, ok := ni[tfconstants.AttrAssignPublicIP]; ok {
 		assignPublicIP = v.(bool)
 	}
 
 	enableIPv6 := false
-	if v, ok := ni[e2econstants.AttrEnableIPv6]; ok {
+	if v, ok := ni[tfconstants.AttrEnableIPv6]; ok {
 		enableIPv6 = v.(bool)
 	}
 
 	var securityGroupIDs []int
-	if v, ok := ni[e2econstants.AttrSecurityGroupIDs]; ok && v != nil {
+	if v, ok := ni[tfconstants.AttrSecurityGroupIDs]; ok && v != nil {
 		sgList := v.([]interface{})
 		securityGroupIDs = make([]int, len(sgList))
 		for i, sg := range sgList {
@@ -154,21 +154,21 @@ func flattenNetworkInterface(vpcID string, publicIP string, ipv6Address string, 
 	ni := make(map[string]interface{})
 
 	if vpcID != "" {
-		ni[e2econstants.AttrVPCID] = vpcID
+		ni[tfconstants.AttrVPCID] = vpcID
 	}
 
 	// Infer assign_public_ip from presence of public IP
-	ni[e2econstants.AttrAssignPublicIP] = publicIP != ""
+	ni[tfconstants.AttrAssignPublicIP] = publicIP != ""
 
 	// Infer enable_ipv6 from presence of IPv6 address
-	ni[e2econstants.AttrEnableIPv6] = ipv6Address != ""
+	ni[tfconstants.AttrEnableIPv6] = ipv6Address != ""
 
 	if len(securityGroupIDs) > 0 {
 		sgList := make([]interface{}, len(securityGroupIDs))
 		for i, sg := range securityGroupIDs {
 			sgList[i] = sg
 		}
-		ni[e2econstants.AttrSecurityGroupIDs] = sgList
+		ni[tfconstants.AttrSecurityGroupIDs] = sgList
 	}
 
 	return []interface{}{ni}
@@ -184,12 +184,12 @@ func expandRootDisk(rdList []interface{}) (int, string) {
 	rd := rdList[0].(map[string]interface{})
 
 	sizeGB := 0
-	if v, ok := rd[e2econstants.AttrSizeGB]; ok {
+	if v, ok := rd[tfconstants.AttrSizeGB]; ok {
 		sizeGB = v.(int)
 	}
 
 	diskType := "standard"
-	if v, ok := rd[e2econstants.AttrDiskType]; ok && v != nil {
+	if v, ok := rd[tfconstants.AttrDiskType]; ok && v != nil {
 		diskType = v.(string)
 	}
 
@@ -203,9 +203,9 @@ func flattenRootDisk(diskInfo string, diskType string) []interface{} {
 	// Parse disk info to extract size (format may vary: "100 GB", "100GB", etc.)
 	// For now, store as computed field - actual size extraction needs API format
 	// TODO: Parse actual size from disk info string when API format is known
-	rd[e2econstants.AttrSizeGB] = 0 // Computed from API (default to 0 until parsed)
+	rd[tfconstants.AttrSizeGB] = 0 // Computed from API (default to 0 until parsed)
 
-	rd[e2econstants.AttrDiskType] = diskType
+	rd[tfconstants.AttrDiskType] = diskType
 
 	return []interface{}{rd}
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -34,14 +34,14 @@ func ResourceSecurityGroup() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED FIELDS - IMMUTABLE
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -150,7 +150,7 @@ func ResourceSecurityGroup() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS
 			// ============================================
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "id of the Security Group",
@@ -183,13 +183,13 @@ func customImportSecurityGroup(ctx context.Context, d *schema.ResourceData, m in
 	sgName := parts[2]
 
 	// Set the basic fields
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, fmt.Errorf("error setting project_id: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+	if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 		return nil, fmt.Errorf("error setting region: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrName, sgName); err != nil {
+	if err := d.Set(tfconstants.AttrName, sgName); err != nil {
 		return nil, fmt.Errorf("error setting name: %w", err)
 	}
 
@@ -525,10 +525,10 @@ func expandRulesWithIDs(rawRules []interface{}) []goe2e.Rule {
 func resourceSecurityGroupResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrName: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -580,7 +580,7 @@ func resourceSecurityGroupResourceV0() *schema.Resource {
 				Type:     schema.TypeBool,
 				Optional: true,
 			},
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

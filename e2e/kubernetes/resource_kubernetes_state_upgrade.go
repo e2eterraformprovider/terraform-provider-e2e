@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -16,29 +16,29 @@ func resourceKubernetesResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// Required input fields (V2 - before V3 aliases)
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrVPCID: {
+			tfconstants.AttrVPCID: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
 
 			// Node pools (V2 schema - before V3 aliases)
-			e2econstants.AttrNodePools: {
+			tfconstants.AttrNodePools: {
 				Type:     schema.TypeList,
 				Required: true,
 				Elem: &schema.Resource{
@@ -66,12 +66,12 @@ func resourceKubernetesResourceV0() *schema.Resource {
 							Type:     schema.TypeInt,
 							Optional: true,
 						},
-						e2econstants.AttrMinVMs: {
+						tfconstants.AttrMinVMs: {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Default:  0,
 						},
-						e2econstants.AttrMaxVMs: {
+						tfconstants.AttrMaxVMs: {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Default:  0,
@@ -230,11 +230,11 @@ func resourceKubernetesResourceV0() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

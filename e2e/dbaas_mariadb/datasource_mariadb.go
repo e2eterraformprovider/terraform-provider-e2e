@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -16,47 +16,47 @@ func DataSourceMariaDB() *schema.Resource {
 		ReadContext: dataSourceReadMariaDB,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// MariaDB-specific fields
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the MariaDB DBaaS instance",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the MariaDB DBaaS instance",
 			},
-			e2econstants.AttrDatabaseID: {
+			tfconstants.AttrDatabaseID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the database",
 			},
-			e2econstants.AttrDatabaseName: {
+			tfconstants.AttrDatabaseName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the database",
 			},
-			e2econstants.AttrDatabaseUser: {
+			tfconstants.AttrDatabaseUser: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the database username",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the MariaDB DBaaS instance",
 			},
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MariaDB DBaaS instances public ipv4 address",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MariaDB DBaaS instances private ipv4 address",
@@ -71,7 +71,7 @@ func DataSourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "the disk size of the MariaDB DBaaS instance",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the plan name of the MariaDB DBaaS instance",
@@ -81,12 +81,12 @@ func DataSourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "the MariaDB software version",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the attached parameter group",
 			},
-			e2econstants.AttrPowerStatus: {
+			tfconstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the power status of the MariaDB DBaaS instance (e.g., Running, Stopped)",
@@ -126,18 +126,18 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	d.SetId(strconv.Itoa(maria.ID))
 
 	// Set basic fields
-	if err := d.Set(e2econstants.AttrName, maria.Name); err != nil {
+	if err := d.Set(tfconstants.AttrName, maria.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set database fields
-	if err := d.Set(e2econstants.AttrDatabaseID, db.ID); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseID, db.ID); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDatabaseName, db.Database); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseName, db.Database); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDatabaseUser, db.Username); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseUser, db.Username); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -146,15 +146,15 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set network fields
-	if err := d.Set(e2econstants.AttrPublicIPAddress, master.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, master.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("is_public_ip_attached", master.PublicIPAddress != ""); err != nil {
@@ -167,7 +167,7 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Set plan field
-	if err := d.Set(e2econstants.AttrPlan, plan.Name); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, plan.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -177,13 +177,13 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Set power status
-	if err := d.Set(e2econstants.AttrPowerStatus, master.Status); err != nil {
+	if err := d.Set(tfconstants.AttrPowerStatus, master.Status); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set parameter group ID if present
 	if db.PGDetail.ID != 0 {
-		if err := d.Set(e2econstants.AttrParameterGroupID, db.PGDetail.ID); err != nil {
+		if err := d.Set(tfconstants.AttrParameterGroupID, db.PGDetail.ID); err != nil {
 			return diag.FromErr(err)
 		}
 	}

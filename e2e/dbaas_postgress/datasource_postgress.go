@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -16,27 +16,27 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 		ReadContext: dataSourceReadPostgres,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Postgres-specific fields
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the PostgreSQL DBaaS instance",
 			},
-			e2econstants.AttrDatabaseID: {
+			tfconstants.AttrDatabaseID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the database",
 			},
-			e2econstants.AttrDatabaseName: {
+			tfconstants.AttrDatabaseName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the database",
 			},
-			e2econstants.AttrDatabaseUser: {
+			tfconstants.AttrDatabaseUser: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the database username",
@@ -47,7 +47,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Description: "full parameter group detail map",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the PostgreSQL DBaaS instance",
@@ -58,12 +58,12 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Description: "list of available status actions",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the PostgreSQL DBaaS instances public ipv4 address",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the PostgreSQL DBaaS instances private ipv4 address",
@@ -73,7 +73,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "whether a public IP is attached to the PostgreSQL DBaaS instance",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the plan name of the PostgreSQL DBaaS instance",
@@ -83,17 +83,17 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the PostgreSQL version",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the attached parameter group",
 			},
-			e2econstants.AttrDiskSize: {
+			tfconstants.AttrDiskSize: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the size of the attached disk",
 			},
-			e2econstants.AttrPowerStatus: {
+			tfconstants.AttrPowerStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the power status of the PostgreSQL DBaaS instance",
@@ -149,13 +149,13 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	software := plan.Software
 
 	// Set database fields
-	if err := d.Set(e2econstants.AttrDatabaseID, db.ID); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseID, db.ID); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDatabaseName, db.Database); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseName, db.Database); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDatabaseUser, db.Username); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseUser, db.Username); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -164,7 +164,7 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -173,10 +173,10 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set network fields
-	if err := d.Set(e2econstants.AttrPublicIPAddress, master.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, master.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("is_public_ip_attached", master.PublicIPAddress != ""); err != nil {
@@ -184,12 +184,12 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set disk field
-	if err := d.Set(e2econstants.AttrDiskSize, master.Disk); err != nil {
+	if err := d.Set(tfconstants.AttrDiskSize, master.Disk); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set plan field
-	if err := d.Set(e2econstants.AttrPlan, plan.Name); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, plan.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -199,13 +199,13 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set power status
-	if err := d.Set(e2econstants.AttrPowerStatus, master.Status); err != nil {
+	if err := d.Set(tfconstants.AttrPowerStatus, master.Status); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set parameter group ID if present
 	if db.PGDetail.ID != 0 {
-		if err := d.Set(e2econstants.AttrParameterGroupID, db.PGDetail.ID); err != nil {
+		if err := d.Set(tfconstants.AttrParameterGroupID, db.PGDetail.ID); err != nil {
 			return diag.FromErr(err)
 		}
 	}

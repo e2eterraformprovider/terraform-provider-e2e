@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -30,14 +30,14 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED IMMUTABLE FIELDS
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -55,13 +55,13 @@ func ResourceMariaDB() *schema.Resource {
 				ForceNew:    true,
 				Description: "the software version (e.g., 10.6)",
 			},
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the group name for the MariaDB DBaaS instance (e.g., Default)",
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:        schema.TypeList,
 				Required:    true,
 				MaxItems:    1,
@@ -99,24 +99,24 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// OPTIONAL MUTABLE FIELDS - CONFIGURATION
 			// ============================================
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "the plan name specifying CPU/memory (e.g., DBS.16GB)",
 			},
-			e2econstants.AttrVPCs: {
+			tfconstants.AttrVPCs: {
 				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "list of VPC ids to associate",
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			e2econstants.AttrPublicIPEnabled: {
+			tfconstants.AttrPublicIPEnabled: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 				Description: "whether to attach a public IP during creation or update",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Default:     0,
@@ -126,14 +126,14 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// OPTIONAL IMMUTABLE FIELDS - SECURITY
 			// ============================================
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				ForceNew:    true,
 				Default:     false,
 				Description: "whether to enable encryption at rest for the MariaDB cluster",
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
@@ -145,7 +145,7 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// POWER MANAGEMENT
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -159,7 +159,7 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// DISK MANAGEMENT
 			// ============================================
-			e2econstants.AttrDiskSize: {
+			tfconstants.AttrDiskSize: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "additional disk size in gigabytes to expand during update",
@@ -185,7 +185,7 @@ func ResourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "id of the software",
 			},
-			e2econstants.AttrTemplateID: {
+			tfconstants.AttrTemplateID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the template",
@@ -203,12 +203,12 @@ func ResourceMariaDB() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MariaDB DBaaS instances public ipv4 address",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MariaDB DBaaS instances private ipv4 address",
@@ -257,7 +257,7 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 
 	softwareName := d.Get("software_name").(string)
 	softwareVersion := d.Get("software_version").(string)
-	planName := d.Get(e2econstants.AttrPlan).(string)
+	planName := d.Get(tfconstants.AttrPlan).(string)
 
 	// Get software ID using goe2e client
 	softwareID, err := goe2eClient.MariaDB.GetSoftwareID(ctx, softwareName, softwareVersion)
@@ -272,12 +272,12 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Extract database configuration
-	dbConfigList := d.Get(e2econstants.AttrDatabase).([]interface{})
+	dbConfigList := d.Get(tfconstants.AttrDatabase).([]interface{})
 	dbConfigMap := dbConfigList[0].(map[string]interface{})
 
 	// Extract VPC IDs
 	var vpcIDs []string
-	for _, v := range d.Get(e2econstants.AttrVPCs).([]interface{}) {
+	for _, v := range d.Get(tfconstants.AttrVPCs).([]interface{}) {
 		vpcIDs = append(vpcIDs, v.(string))
 	}
 
@@ -290,20 +290,20 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 		}
 	}
 
-	publicIPEnabled := d.Get(e2econstants.AttrPublicIPEnabled).(bool)
+	publicIPEnabled := d.Get(tfconstants.AttrPublicIPEnabled).(bool)
 
 	parameterGroupID := 0
-	if v, ok := d.GetOk(e2econstants.AttrParameterGroupID); ok {
+	if v, ok := d.GetOk(tfconstants.AttrParameterGroupID); ok {
 		parameterGroupID = v.(int)
 	}
 
 	isEncryptionEnabled := false
-	if v, ok := d.GetOk(e2econstants.AttrIsEncryptionEnabled); ok {
+	if v, ok := d.GetOk(tfconstants.AttrIsEncryptionEnabled); ok {
 		isEncryptionEnabled = v.(bool)
 	}
 
 	encryptionPassphrase := ""
-	if v, ok := d.GetOk(e2econstants.AttrEncryptionPassphrase); ok {
+	if v, ok := d.GetOk(tfconstants.AttrEncryptionPassphrase); ok {
 		encryptionPassphrase = v.(string)
 	}
 
@@ -313,7 +313,7 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 		SoftwareID:           softwareID,
 		TemplateID:           templateID,
 		PublicIPRequired:     publicIPEnabled,
-		Group:                d.Get(e2econstants.AttrGroup).(string),
+		Group:                d.Get(tfconstants.AttrGroup).(string),
 		VPCs:                 vpcList,
 		PGID:                 parameterGroupID,
 		IsEncryptionEnabled:  isEncryptionEnabled,
@@ -343,14 +343,14 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set(e2econstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", mariaDB.MasterNode.Port); err != nil {
@@ -359,7 +359,7 @@ func resourceCreateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	if err := d.Set("software_id", softwareID); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrTemplateID, templateID); err != nil {
+	if err := d.Set(tfconstants.AttrTemplateID, templateID); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("public_ip_attached", mariaDB.MasterNode.PublicIPAddress != ""); err != nil {
@@ -401,7 +401,7 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -414,15 +414,15 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Set plan information
-	if err := d.Set(e2econstants.AttrPlan, mariaDB.MasterNode.Plan.Name); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, mariaDB.MasterNode.Plan.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set network information
-	if err := d.Set(e2econstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, mariaDB.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, mariaDB.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", mariaDB.MasterNode.Port); err != nil {
@@ -446,7 +446,7 @@ func resourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Set encryption status
-	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, mariaDB.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, mariaDB.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -495,12 +495,12 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 		case "STOPPED":
 			if _, err := goe2eClient.MariaDB.ShutdownMariaDB(ctx, id); err != nil {
 				// Rollback disk_size and plan changes on failure
-				if d.HasChange(e2econstants.AttrDiskSize) {
-					d.Set(e2econstants.AttrDiskSize, 0)
+				if d.HasChange(tfconstants.AttrDiskSize) {
+					d.Set(tfconstants.AttrDiskSize, 0)
 				}
-				if d.HasChange(e2econstants.AttrPlan) {
-					oldPlan, _ := d.GetChange(e2econstants.AttrPlan)
-					d.Set(e2econstants.AttrPlan, oldPlan.(string))
+				if d.HasChange(tfconstants.AttrPlan) {
+					oldPlan, _ := d.GetChange(tfconstants.AttrPlan)
+					d.Set(tfconstants.AttrPlan, oldPlan.(string))
 				}
 				return diag.Errorf("error stopping MariaDB DBaaS (ID: %s): %s", id, err)
 			}
@@ -521,8 +521,8 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle VPC changes
-	if d.HasChange(e2econstants.AttrVPCs) {
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrVPCs)
+	if d.HasChange(tfconstants.AttrVPCs) {
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrVPCs)
 		oldVPCSet := expandStringSet(oldRaw.([]interface{}))
 		newVPCSet := expandStringSet(newRaw.([]interface{}))
 
@@ -560,8 +560,8 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle public IP changes
-	if d.HasChange(e2econstants.AttrPublicIPEnabled) {
-		newVal := d.Get(e2econstants.AttrPublicIPEnabled).(bool)
+	if d.HasChange(tfconstants.AttrPublicIPEnabled) {
+		newVal := d.Get(tfconstants.AttrPublicIPEnabled).(bool)
 		log.Printf("[INFO] Public IP change detected for MariaDB cluster %s: %v", id, newVal)
 
 		if newVal {
@@ -578,8 +578,8 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle parameter group changes
-	if d.HasChange(e2econstants.AttrParameterGroupID) {
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrParameterGroupID)
+	if d.HasChange(tfconstants.AttrParameterGroupID) {
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrParameterGroupID)
 		oldPGID := oldRaw.(int)
 		newPGID := newRaw.(int)
 
@@ -602,14 +602,14 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Handle plan upgrade
-	if d.HasChange(e2econstants.AttrPlan) {
-		oldPlan, newPlan := d.GetChange(e2econstants.AttrPlan)
+	if d.HasChange(tfconstants.AttrPlan) {
+		oldPlan, newPlan := d.GetChange(tfconstants.AttrPlan)
 		log.Printf("[INFO] Plan change detected for MariaDB cluster %s: %s -> %s", id, oldPlan.(string), newPlan.(string))
 
 		// Verify cluster is stopped
 		status := d.Get("status").(string)
 		if strings.ToUpper(status) != "STOPPED" {
-			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
 			return diag.Errorf("cannot upgrade plan for MariaDB DBaaS (ID: %s): database must be in STOPPED state (current state: %s). Please stop the instance first", id, status)
 		}
 
@@ -619,33 +619,33 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 
 		softwareID, err := goe2eClient.MariaDB.GetSoftwareID(ctx, softwareName, softwareVersion)
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
 			return diag.Errorf("error retrieving %s software ID for version (%s) while upgrading plan for DBaaS (ID: %s): %s", softwareName, softwareVersion, id, err)
 		}
 
 		templateID, err := goe2eClient.MariaDB.GetTemplateID(ctx, newPlan.(string), softwareID)
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
 			return diag.Errorf("error retrieving %s template ID for plan (%s) while upgrading DBaaS (ID: %s): %s", softwareName, newPlan.(string), id, err)
 		}
 
 		// Upgrade the plan
 		if _, err := goe2eClient.MariaDB.UpgradePlan(ctx, id, templateID); err != nil {
-			d.Set(e2econstants.AttrPlan, oldPlan.(string))
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
 			return diag.Errorf("error upgrading MariaDB DBaaS (ID: %s) plan from (%s) to (%s): %s", id, oldPlan.(string), newPlan.(string), err)
 		}
 
 		log.Printf("[INFO] Successfully upgraded MariaDB cluster %s to plan %s (template_id=%d)", id, newPlan, templateID)
 
 		// Update template ID in state
-		if err := d.Set(e2econstants.AttrTemplateID, templateID); err != nil {
+		if err := d.Set(tfconstants.AttrTemplateID, templateID); err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
 	// Handle disk expansion
-	if d.HasChange(e2econstants.AttrDiskSize) {
-		additionalSize := d.Get(e2econstants.AttrDiskSize).(int)
+	if d.HasChange(tfconstants.AttrDiskSize) {
+		additionalSize := d.Get(tfconstants.AttrDiskSize).(int)
 
 		if additionalSize > 0 {
 			log.Printf("[INFO] Disk expansion requested for MariaDB cluster %s: +%d GB", id, additionalSize)
@@ -653,20 +653,20 @@ func resourceUpdateMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 			// Verify cluster is stopped
 			status := d.Get("status").(string)
 			if strings.ToUpper(status) != "STOPPED" {
-				d.Set(e2econstants.AttrDiskSize, 0)
+				d.Set(tfconstants.AttrDiskSize, 0)
 				return diag.Errorf("cannot expand disk for MariaDB DBaaS (ID: %s): database must be in STOPPED state (current state: %s)", id, status)
 			}
 
 			// Expand the disk
 			if _, err := goe2eClient.MariaDB.ExpandDisk(ctx, id, additionalSize); err != nil {
-				d.Set(e2econstants.AttrDiskSize, 0)
+				d.Set(tfconstants.AttrDiskSize, 0)
 				return diag.Errorf("error expanding MariaDB DBaaS (ID: %s) disk by %d GB: %s", id, additionalSize, err)
 			}
 
 			log.Printf("[INFO] Successfully expanded disk by %d GB for MariaDB cluster %s", additionalSize, id)
 
 			// Reset disk_size to 0 after expansion
-			if err := d.Set(e2econstants.AttrDiskSize, 0); err != nil {
+			if err := d.Set(tfconstants.AttrDiskSize, 0); err != nil {
 				return diag.FromErr(err)
 			}
 		} else {
@@ -702,14 +702,14 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED IMMUTABLE FIELDS
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -724,12 +724,12 @@ func resourceMariaDBResourceV0() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:     schema.TypeList,
 				Required: true,
 				MaxItems: 1,
@@ -762,21 +762,21 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL MUTABLE FIELDS - CONFIGURATION
 			// ============================================
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			e2econstants.AttrVPCs: {
+			tfconstants.AttrVPCs: {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
-			e2econstants.AttrPublicIPEnabled: {
+			tfconstants.AttrPublicIPEnabled: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  true,
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:     schema.TypeInt,
 				Optional: true,
 				Default:  0,
@@ -785,13 +785,13 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL IMMUTABLE FIELDS - SECURITY
 			// ============================================
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				ForceNew: true,
 				Default:  false,
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:      schema.TypeString,
 				Optional:  true,
 				ForceNew:  true,
@@ -802,7 +802,7 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// POWER MANAGEMENT
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -811,7 +811,7 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// DISK MANAGEMENT
 			// ============================================
-			e2econstants.AttrDiskSize: {
+			tfconstants.AttrDiskSize: {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
@@ -823,7 +823,7 @@ func resourceMariaDBResourceV0() *schema.Resource {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
-			e2econstants.AttrTemplateID: {
+			tfconstants.AttrTemplateID: {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
@@ -839,11 +839,11 @@ func resourceMariaDBResourceV0() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

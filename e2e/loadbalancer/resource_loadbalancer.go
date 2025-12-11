@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
@@ -50,8 +50,8 @@ func customImportStateLoadBalancer(d *schema.ResourceData, m interface{}) ([]*sc
 		return []*schema.ResourceData{d}, nil
 	} else if len(parts) == 3 {
 		// Full format: project_id/region/lb_id
-		d.Set(e2econstants.AttrProjectID, parts[0])
-		d.Set(e2econstants.AttrRegion, parts[1])
+		d.Set(tfconstants.AttrProjectID, parts[0])
+		d.Set(tfconstants.AttrRegion, parts[1])
 		d.SetId(parts[2])
 		return []*schema.ResourceData{d}, nil
 	}
@@ -63,20 +63,20 @@ func customImportStateLoadBalancer(d *schema.ResourceData, m interface{}) ([]*sc
 // Validates field conflicts and emits deprecation warnings
 func resourceLoadBalancerCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 	// Emit deprecation warning if location is used
-	if _, ok := d.GetOk(e2econstants.AttrLocation); ok {
+	if _, ok := d.GetOk(tfconstants.AttrLocation); ok {
 		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
 	}
 
 	// Validate that region and location are not both set (handled by ConflictsWith, but double-check)
-	if _, hasRegion := d.GetOk(e2econstants.AttrRegion); hasRegion {
-		if _, hasLocation := d.GetOk(e2econstants.AttrLocation); hasLocation {
+	if _, hasRegion := d.GetOk(tfconstants.AttrRegion); hasRegion {
+		if _, hasLocation := d.GetOk(tfconstants.AttrLocation); hasLocation {
 			return fmt.Errorf("cannot set both 'region' and 'location' parameters")
 		}
 	}
 
 	// Ensure at least one of name or lb_name is provided
-	_, hasName := d.GetOk(e2econstants.AttrName)
-	_, hasLbName := d.GetOk(e2econstants.AttrLbName)
+	_, hasName := d.GetOk(tfconstants.AttrName)
+	_, hasLbName := d.GetOk(tfconstants.AttrLbName)
 	if !hasName && !hasLbName {
 		return fmt.Errorf("either 'name' or 'lb_name' must be provided")
 	}
@@ -99,18 +99,18 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// COMMON FIELDS
 		// ============================================
-		e2econstants.AttrRegion: config.RegionSchema(),
-		e2econstants.AttrLocation: func() *schema.Schema {
+		tfconstants.AttrRegion: config.RegionSchema(),
+		tfconstants.AttrLocation: func() *schema.Schema {
 			s := config.LocationSchema()
 			s.Deprecated = "The 'location' field is deprecated. Use 'region' instead. This field will be removed in v4.0."
 			return s
 		}(),
-		e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+		tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 		// ============================================
 		// REQUIRED INPUT FIELDS (Immutable)
 		// ============================================
-		e2econstants.AttrPlan: {
+		tfconstants.AttrPlan: {
 			Type:        schema.TypeString,
 			Required:    true,
 			ForceNew:    true,
@@ -122,22 +122,22 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 				"E2E-LB-5",
 			}, false),
 		},
-		e2econstants.AttrName: {
+		tfconstants.AttrName: {
 			Type:          schema.TypeString,
 			Optional:      true,
 			Description:   "name of the Load Balancer (letters, digits, underscores, and hyphens are allowed). This is the recommended field name.",
 			ValidateFunc:  node.ValidateName,
-			ConflictsWith: []string{e2econstants.AttrLbName},
+			ConflictsWith: []string{tfconstants.AttrLbName},
 		},
-		e2econstants.AttrLbName: {
+		tfconstants.AttrLbName: {
 			Type:          schema.TypeString,
 			Optional:      true,
 			Deprecated:    "The 'lb_name' field is deprecated. Use 'name' instead. This field will be removed in v4.0.",
 			Description:   "name of the Load Balancer (letters, digits, underscores, and hyphens are allowed). Deprecated: use 'name' instead.",
 			ValidateFunc:  node.ValidateName,
-			ConflictsWith: []string{e2econstants.AttrName},
+			ConflictsWith: []string{tfconstants.AttrName},
 		},
-		e2econstants.AttrLbMode: {
+		tfconstants.AttrLbMode: {
 			Type:        schema.TypeString,
 			Required:    true,
 			ForceNew:    true,
@@ -152,7 +152,7 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// OPTIONAL INPUT FIELDS - CREATION (Immutable)
 		// ============================================
-		e2econstants.AttrLbType: {
+		tfconstants.AttrLbType: {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "External",
@@ -221,7 +221,7 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 				},
 			},
 		},
-		e2econstants.AttrBackends: {
+		tfconstants.AttrBackends: {
 			Type:        schema.TypeList,
 			Optional:    true,
 			MinItems:    1,
@@ -464,7 +464,7 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// OPTIONAL INPUT FIELDS - MANAGEMENT (Mutable)
 		// ============================================
-		e2econstants.AttrPowerStatus: {
+		tfconstants.AttrPowerStatus: {
 			Type:        schema.TypeString,
 			Optional:    true,
 			Default:     "power_on",
@@ -482,7 +482,7 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 			Default:     "",
 			Description: "the default backend name for the Load Balancer",
 		},
-		e2econstants.AttrTags: {
+		tfconstants.AttrTags: {
 			Type:        schema.TypeMap,
 			Optional:    true,
 			Description: "tags to apply to the Load Balancer (state-only until API support is added)",
@@ -492,12 +492,12 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// COMPUTED FIELDS - STATUS
 		// ============================================
-		e2econstants.AttrStatus: {
+		tfconstants.AttrStatus: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "state of the Load Balancer instance (API value: Creating, Running, Powered off, etc.)",
 		},
-		e2econstants.AttrState: {
+		tfconstants.AttrState: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "normalized state of the Load Balancer (creating, running, stopped, etc.)",
@@ -506,12 +506,12 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// COMPUTED FIELDS - NETWORK
 		// ============================================
-		e2econstants.AttrPublicIPAddress: {
+		tfconstants.AttrPublicIPAddress: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "the Load Balancer's public IPv4 address. This is the recommended field name.",
 		},
-		e2econstants.AttrPrivateIPAddress: {
+		tfconstants.AttrPrivateIPAddress: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "the Load Balancer's private IPv4 address. This is the recommended field name.",
@@ -537,17 +537,17 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		// ============================================
 		// COMPUTED FIELDS - RESOURCES
 		// ============================================
-		e2econstants.AttrRAM: {
+		tfconstants.AttrRAM: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "the RAM allocated to the Load Balancer",
 		},
-		e2econstants.AttrDisk: {
+		tfconstants.AttrDisk: {
 			Type:        schema.TypeString,
 			Computed:    true,
 			Description: "the disk storage allocated to the Load Balancer",
 		},
-		e2econstants.AttrVCPU: {
+		tfconstants.AttrVCPU: {
 			Type:        schema.TypeFloat,
 			Computed:    true,
 			Description: "the number of virtual CPUs allocated to the Load Balancer",
@@ -561,9 +561,9 @@ func CreateLoadBalancerObjectWithGoe2e(ctx context.Context, goe2eClient *goe2e.C
 
 	// Handle name vs lb_name (prefer name, fallback to lb_name)
 	var lbName string
-	if name, ok := d.GetOk(e2econstants.AttrName); ok {
+	if name, ok := d.GetOk(tfconstants.AttrName); ok {
 		lbName = name.(string)
-	} else if lbNameVal, ok := d.GetOk(e2econstants.AttrLbName); ok {
+	} else if lbNameVal, ok := d.GetOk(tfconstants.AttrLbName); ok {
 		lbName = lbNameVal.(string)
 	}
 
@@ -576,11 +576,11 @@ func CreateLoadBalancerObjectWithGoe2e(ctx context.Context, goe2eClient *goe2e.C
 	}
 
 	loadBalancerObj := &goe2e.LoadBalancerCreateRequest{
-		PlanName:         d.Get(e2econstants.AttrPlan).(string),
+		PlanName:         d.Get(tfconstants.AttrPlan).(string),
 		LBName:           lbName,
-		LBType:           d.Get(e2econstants.AttrLbType).(string),
-		LBMode:           d.Get(e2econstants.AttrLbMode).(string),
-		LBPort:           GetLbPort(d.Get(e2econstants.AttrLbMode).(string)),
+		LBType:           d.Get(tfconstants.AttrLbType).(string),
+		LBMode:           d.Get(tfconstants.AttrLbMode).(string),
+		LBPort:           GetLbPort(d.Get(tfconstants.AttrLbMode).(string)),
 		NodeListType:     d.Get("node_list_type").(string),
 		CheckBoxEnable:   d.Get("checkbox_enable").(string),
 		LBReserveIP:      lbReserveIP,
@@ -633,7 +633,7 @@ func CreateLoadBalancerObjectWithGoe2e(ctx context.Context, goe2eClient *goe2e.C
 		loadBalancerObj.TCPBackend = make([]goe2e.LBTCPBackend, 0)
 	}
 
-	backends, ok := d.GetOk(e2econstants.AttrBackends)
+	backends, ok := d.GetOk(tfconstants.AttrBackends)
 	if ok {
 		backendDetail, err := ExpandBackendsWithGoe2e(ctx, backends.([]interface{}), goe2eClient, projectID, region)
 		if err != nil {
@@ -694,9 +694,9 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	// Get lbName for error messages
 	var lbName string
-	if name, ok := d.GetOk(e2econstants.AttrName); ok {
+	if name, ok := d.GetOk(tfconstants.AttrName); ok {
 		lbName = name.(string)
-	} else if lbNameVal, ok := d.GetOk(e2econstants.AttrLbName); ok {
+	} else if lbNameVal, ok := d.GetOk(tfconstants.AttrLbName); ok {
 		lbName = lbNameVal.(string)
 	}
 
@@ -722,13 +722,13 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	// Set both new and deprecated computed fields for backwards compatibility
 	if lb.PublicIPAddress != "" {
-		d.Set(e2econstants.AttrPublicIPAddress, lb.PublicIPAddress)
+		d.Set(tfconstants.AttrPublicIPAddress, lb.PublicIPAddress)
 		d.Set("public_ip", lb.PublicIPAddress) // Deprecated field
 	}
 
 	// Store tags in state if provided
-	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
 		}
 	}
@@ -768,29 +768,29 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 
 	// Set both new and deprecated computed fields for backwards compatibility
 	if apiResponse.Data.NodeDetail.PrivateIP != "" {
-		d.Set(e2econstants.AttrPrivateIPAddress, apiResponse.Data.NodeDetail.PrivateIP)
+		d.Set(tfconstants.AttrPrivateIPAddress, apiResponse.Data.NodeDetail.PrivateIP)
 		d.Set("private_ip", apiResponse.Data.NodeDetail.PrivateIP) // Deprecated field
 	}
 	if apiResponse.Data.NodeDetail.PublicIP != "" {
-		d.Set(e2econstants.AttrPublicIPAddress, apiResponse.Data.NodeDetail.PublicIP)
+		d.Set(tfconstants.AttrPublicIPAddress, apiResponse.Data.NodeDetail.PublicIP)
 		d.Set("public_ip", apiResponse.Data.NodeDetail.PublicIP) // Deprecated field
 	}
-	d.Set(e2econstants.AttrRAM, apiResponse.Data.NodeDetail.RAM)
-	d.Set(e2econstants.AttrDisk, apiResponse.Data.NodeDetail.Disk)
-	d.Set(e2econstants.AttrVCPU, apiResponse.Data.NodeDetail.VCPU)
+	d.Set(tfconstants.AttrRAM, apiResponse.Data.NodeDetail.RAM)
+	d.Set(tfconstants.AttrDisk, apiResponse.Data.NodeDetail.Disk)
+	d.Set(tfconstants.AttrVCPU, apiResponse.Data.NodeDetail.VCPU)
 
 	// Set both name and lb_name for backwards compatibility
 	if apiResponse.Data.Name != "" {
-		d.Set(e2econstants.AttrName, apiResponse.Data.Name)
-		d.Set(e2econstants.AttrLbName, apiResponse.Data.Name) // Deprecated field
+		d.Set(tfconstants.AttrName, apiResponse.Data.Name)
+		d.Set(tfconstants.AttrLbName, apiResponse.Data.Name) // Deprecated field
 	}
 
-	d.Set(e2econstants.AttrPlan, apiResponse.Data.NodeDetail.PlanName)
+	d.Set(tfconstants.AttrPlan, apiResponse.Data.NodeDetail.PlanName)
 
 	// Extract lb_mode and host_target_ipv6 from appliance_instance[0].context
 	if len(apiResponse.Data.ApplianceInstance) > 0 {
 		context := apiResponse.Data.ApplianceInstance[0].Context
-		d.Set(e2econstants.AttrLbMode, context.LBMode)
+		d.Set(tfconstants.AttrLbMode, context.LBMode)
 
 		if d.Get("is_ipv6_attached").(bool) {
 			if context.HostTargetIPv6 != "" {
@@ -816,18 +816,18 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	// Set normalized state field
 	if status, ok := d.GetOk("status"); ok {
 		statusStr := status.(string)
-		d.Set(e2econstants.AttrState, normalizeLoadBalancerState(statusStr))
+		d.Set(tfconstants.AttrState, normalizeLoadBalancerState(statusStr))
 	}
 
 	if d.Get("status").(string) == goe2econstants.LBStatusPoweredOff {
-		d.Set(e2econstants.AttrPowerStatus, "power_off")
+		d.Set(tfconstants.AttrPowerStatus, "power_off")
 	} else {
-		d.Set(e2econstants.AttrPowerStatus, "power_on")
+		d.Set(tfconstants.AttrPowerStatus, "power_on")
 	}
 
 	// Preserve tags in state (state-only until API support)
-	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-		d.Set(e2econstants.AttrTags, tags)
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		d.Set(tfconstants.AttrTags, tags)
 	}
 
 	return diags
@@ -862,7 +862,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		return diag.Errorf("Error retrieving load balancer (ID: %s) in project (%s), region (%s): %s", lbId, projectID, region, err)
 	}
 
-	if d.HasChange(e2econstants.AttrPowerStatus) {
+	if d.HasChange(tfconstants.AttrPowerStatus) {
 		disablePowerStatusList := []string{goe2econstants.LBStatusCreating, goe2econstants.LBStatusDeploying, goe2econstants.LBStatusUpgrading}
 
 		if CheckStatus(disablePowerStatusList, lb_status) {
@@ -870,7 +870,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		}
 
 		actionReq := &goe2e.LoadBalancerActionRequest{
-			Type: d.Get(e2econstants.AttrPowerStatus).(string),
+			Type: d.Get(tfconstants.AttrPowerStatus).(string),
 		}
 		_, err = goe2eClient.LoadBalancer.UpdateLoadBalancerAction(ctx, lbId, actionReq)
 		if err != nil {
@@ -878,7 +878,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		}
 		// Wait for power action to complete
 		var targetStatus string
-		if d.Get(e2econstants.AttrPowerStatus).(string) == "power_on" {
+		if d.Get(tfconstants.AttrPowerStatus).(string) == "power_on" {
 			targetStatus = goe2econstants.LBStateRunning
 		} else {
 			targetStatus = goe2econstants.LBStateStopped
@@ -889,9 +889,9 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		return resourceReadLoadBalancer(ctx, d, m)
 	}
 
-	if d.HasChange(e2econstants.AttrPlan) {
+	if d.HasChange(tfconstants.AttrPlan) {
 		currentPlanName := apiResponse.Data.NodeDetail.PlanName
-		newPlanName := d.Get(e2econstants.AttrPlan).(string)
+		newPlanName := d.Get(tfconstants.AttrPlan).(string)
 		currentNum, err := extractPlanNumber(currentPlanName)
 		if err != nil {
 			return diag.FromErr(err)
@@ -924,11 +924,11 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	// Handle name or lb_name changes
-	if d.HasChange(e2econstants.AttrName) || d.HasChange(e2econstants.AttrLbName) {
+	if d.HasChange(tfconstants.AttrName) || d.HasChange(tfconstants.AttrLbName) {
 		var newName string
-		if name, ok := d.GetOk(e2econstants.AttrName); ok {
+		if name, ok := d.GetOk(tfconstants.AttrName); ok {
 			newName = name.(string)
-		} else if lbName, ok := d.GetOk(e2econstants.AttrLbName); ok {
+		} else if lbName, ok := d.GetOk(tfconstants.AttrLbName); ok {
 			newName = lbName.(string)
 		}
 
@@ -945,10 +945,10 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	// Handle tags updates (state-only)
-	if d.HasChange(e2econstants.AttrTags) {
+	if d.HasChange(tfconstants.AttrTags) {
 		// Tags are state-only, just update state
-		if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-			d.Set(e2econstants.AttrTags, tags)
+		if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+			d.Set(tfconstants.AttrTags, tags)
 		}
 		// Continue to other updates
 	}
@@ -1069,24 +1069,24 @@ func extractPlanNumber(planName string) (int, error) {
 func resourceLoadBalancerResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrPlan: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrLbName: {
+			tfconstants.AttrLbName: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			e2econstants.AttrLbMode: {
+			tfconstants.AttrLbMode: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrLbType: {
+			tfconstants.AttrLbType: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "External",
@@ -1108,7 +1108,7 @@ func resourceLoadBalancerResourceV0() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -1120,11 +1120,11 @@ func resourceLoadBalancerResourceV0() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -1132,15 +1132,15 @@ func resourceLoadBalancerResourceV0() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrRAM: {
+			tfconstants.AttrRAM: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrVCPU: {
+			tfconstants.AttrVCPU: {
 				Type:     schema.TypeFloat,
 				Computed: true,
 			},
@@ -1152,17 +1152,17 @@ func resourceLoadBalancerResourceV0() *schema.Resource {
 // Renames deprecated fields to new fields, adds new computed fields
 func resourceLoadBalancerStateUpgradeV0toV1(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
 	// Rename location to region if location exists and region doesn't
-	if location, ok := rawState[e2econstants.AttrLocation].(string); ok && location != "" {
-		if _, hasRegion := rawState[e2econstants.AttrRegion]; !hasRegion || rawState[e2econstants.AttrRegion] == "" {
-			rawState[e2econstants.AttrRegion] = location
+	if location, ok := rawState[tfconstants.AttrLocation].(string); ok && location != "" {
+		if _, hasRegion := rawState[tfconstants.AttrRegion]; !hasRegion || rawState[tfconstants.AttrRegion] == "" {
+			rawState[tfconstants.AttrRegion] = location
 		}
 		// Keep location in state for backwards compatibility
 	}
 
 	// Rename lb_name to name if lb_name exists and name doesn't
-	if lbName, ok := rawState[e2econstants.AttrLbName].(string); ok && lbName != "" {
-		if _, hasName := rawState[e2econstants.AttrName]; !hasName || rawState[e2econstants.AttrName] == "" {
-			rawState[e2econstants.AttrName] = lbName
+	if lbName, ok := rawState[tfconstants.AttrLbName].(string); ok && lbName != "" {
+		if _, hasName := rawState[tfconstants.AttrName]; !hasName || rawState[tfconstants.AttrName] == "" {
+			rawState[tfconstants.AttrName] = lbName
 		}
 		// Keep lb_name in state for backwards compatibility
 	}
@@ -1177,32 +1177,32 @@ func resourceLoadBalancerStateUpgradeV0toV1(ctx context.Context, rawState map[st
 
 	// Rename public_ip to public_ip_address if public_ip exists and public_ip_address doesn't
 	if publicIP, ok := rawState["public_ip"].(string); ok && publicIP != "" {
-		if _, hasPublicIPAddress := rawState[e2econstants.AttrPublicIPAddress]; !hasPublicIPAddress || rawState[e2econstants.AttrPublicIPAddress] == "" {
-			rawState[e2econstants.AttrPublicIPAddress] = publicIP
+		if _, hasPublicIPAddress := rawState[tfconstants.AttrPublicIPAddress]; !hasPublicIPAddress || rawState[tfconstants.AttrPublicIPAddress] == "" {
+			rawState[tfconstants.AttrPublicIPAddress] = publicIP
 		}
 		// Keep public_ip in state for backwards compatibility
 	}
 
 	// Rename private_ip to private_ip_address if private_ip exists and private_ip_address doesn't
 	if privateIP, ok := rawState["private_ip"].(string); ok && privateIP != "" {
-		if _, hasPrivateIPAddress := rawState[e2econstants.AttrPrivateIPAddress]; !hasPrivateIPAddress || rawState[e2econstants.AttrPrivateIPAddress] == "" {
-			rawState[e2econstants.AttrPrivateIPAddress] = privateIP
+		if _, hasPrivateIPAddress := rawState[tfconstants.AttrPrivateIPAddress]; !hasPrivateIPAddress || rawState[tfconstants.AttrPrivateIPAddress] == "" {
+			rawState[tfconstants.AttrPrivateIPAddress] = privateIP
 		}
 		// Keep private_ip in state for backwards compatibility
 	}
 
 	// Add new computed fields with default values
-	if _, ok := rawState[e2econstants.AttrState]; !ok {
+	if _, ok := rawState[tfconstants.AttrState]; !ok {
 		// Normalize status to state if available
-		if status, ok := rawState[e2econstants.AttrStatus].(string); ok {
-			rawState[e2econstants.AttrState] = normalizeLoadBalancerState(status)
+		if status, ok := rawState[tfconstants.AttrStatus].(string); ok {
+			rawState[tfconstants.AttrState] = normalizeLoadBalancerState(status)
 		} else {
-			rawState[e2econstants.AttrState] = ""
+			rawState[tfconstants.AttrState] = ""
 		}
 	}
 
-	if _, ok := rawState[e2econstants.AttrTags]; !ok {
-		rawState[e2econstants.AttrTags] = map[string]interface{}{}
+	if _, ok := rawState[tfconstants.AttrTags]; !ok {
+		rawState[tfconstants.AttrTags] = map[string]interface{}{}
 	}
 
 	return rawState, nil

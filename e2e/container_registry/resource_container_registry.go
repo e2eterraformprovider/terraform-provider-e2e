@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,14 +20,14 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS (Immutable)
 			// ============================================
-			e2econstants.AttrProjectName: {
+			tfconstants.AttrProjectName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -37,13 +37,13 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - SECURITY SETTINGS
 			// ============================================
-			e2econstants.AttrPreventVulnerabilities: {
+			tfconstants.AttrPreventVulnerabilities: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     false,
 				Description: "whether to prevent vulnerable images",
 			},
-			e2econstants.AttrSeverity: {
+			tfconstants.AttrSeverity: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "low",
@@ -57,7 +57,7 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the Container Registry instance",
@@ -100,12 +100,12 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - TIMESTAMPS
 			// ============================================
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the timestamp when the Container Registry was created",
 			},
-			e2econstants.AttrUpdatedAt: {
+			tfconstants.AttrUpdatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the timestamp when the Container Registry was last updated",
@@ -135,9 +135,9 @@ func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData
 	cfg := m.(*config.Config)
 	apiClient := cfg.Goe2eClient()
 
-	projectName := d.Get(e2econstants.AttrProjectName).(string)
-	preventVul := d.Get(e2econstants.AttrPreventVulnerabilities).(bool)
-	severity := d.Get(e2econstants.AttrSeverity).(string)
+	projectName := d.Get(tfconstants.AttrProjectName).(string)
+	preventVul := d.Get(tfconstants.AttrPreventVulnerabilities).(bool)
+	severity := d.Get(tfconstants.AttrSeverity).(string)
 
 	createReq := &goe2e.ContainerRegistryCreateRequest{
 		ProjectName: projectName,
@@ -206,7 +206,7 @@ func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData
 	cfg := m.(*config.Config)
 	apiClient := cfg.Goe2eClient()
 
-	projectName := d.Get(e2econstants.AttrProjectName).(string)
+	projectName := d.Get(tfconstants.AttrProjectName).(string)
 	crProjectID := d.Id()
 
 	// Get the registry details to extract customer ID
@@ -246,10 +246,10 @@ func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData
 	apiClient := cfg.Goe2eClient()
 
 	// Update security settings if they changed
-	if d.HasChange(e2econstants.AttrPreventVulnerabilities) || d.HasChange(e2econstants.AttrSeverity) {
-		projectName := d.Get(e2econstants.AttrProjectName).(string)
-		preventVul := fmt.Sprintf("%t", d.Get(e2econstants.AttrPreventVulnerabilities).(bool))
-		severity := d.Get(e2econstants.AttrSeverity).(string)
+	if d.HasChange(tfconstants.AttrPreventVulnerabilities) || d.HasChange(tfconstants.AttrSeverity) {
+		projectName := d.Get(tfconstants.AttrProjectName).(string)
+		preventVul := fmt.Sprintf("%t", d.Get(tfconstants.AttrPreventVulnerabilities).(bool))
+		severity := d.Get(tfconstants.AttrSeverity).(string)
 
 		updateReq := &goe2e.ContainerRegistryUpdateRequest{
 			PreventVul: preventVul,
@@ -278,16 +278,16 @@ func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 // setContainerRegistryState sets all fields from the API response into the Terraform state
 func setContainerRegistryState(d *schema.ResourceData, registry *goe2e.ContainerRegistry) error {
-	if err := d.Set(e2econstants.AttrProjectName, registry.ProjectName); err != nil {
+	if err := d.Set(tfconstants.AttrProjectName, registry.ProjectName); err != nil {
 		return fmt.Errorf("failed to set project_name: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
+	if err := d.Set(tfconstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
 		return fmt.Errorf("failed to set prevent_vul: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrSeverity, registry.Severity); err != nil {
+	if err := d.Set(tfconstants.AttrSeverity, registry.Severity); err != nil {
 		return fmt.Errorf("failed to set severity: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrStatus, registry.State); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, registry.State); err != nil {
 		return fmt.Errorf("failed to set status: %w", err)
 	}
 	if err := d.Set("setup_status", registry.State); err != nil {
@@ -305,10 +305,10 @@ func setContainerRegistryState(d *schema.ResourceData, registry *goe2e.Container
 	if err := d.Set("is_public", registry.IsPublic); err != nil {
 		return fmt.Errorf("failed to set is_public: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrCreatedAt, registry.CreatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrCreatedAt, registry.CreatedAt); err != nil {
 		return fmt.Errorf("failed to set created_at: %w", err)
 	}
-	if err := d.Set(e2econstants.AttrUpdatedAt, registry.UpdatedAt); err != nil {
+	if err := d.Set(tfconstants.AttrUpdatedAt, registry.UpdatedAt); err != nil {
 		return fmt.Errorf("failed to set updated_at: %w", err)
 	}
 	return nil

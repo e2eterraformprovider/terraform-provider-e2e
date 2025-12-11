@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -174,24 +174,24 @@ func SetLoadBalancerStatus(d *schema.ResourceData, status_detail interface{}) er
 
 	if status == goe2econstants.LBStatusRunningAPI {
 		if len(dataMonitor) == 0 {
-			d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusBackendUnavailable)
+			d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusBackendUnavailable)
 			return nil
 		}
 		if !dataMonitor["status"].(bool) {
-			d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusBackendFailure)
+			d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusBackendFailure)
 		} else {
-			d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusRunning)
+			d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusRunning)
 		}
 	} else if status == goe2econstants.LBStatusPoweredOffAPI {
-		d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusPoweredOff)
+		d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusPoweredOff)
 	} else if status == goe2econstants.LBStatusCreating {
-		d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusCreating)
+		d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusCreating)
 	} else if status == goe2econstants.LBStatusDeploying {
-		d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusDeploying)
+		d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusDeploying)
 	} else if status == goe2econstants.LBStatusUpgradingAPI {
-		d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusUpgrading)
+		d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusUpgrading)
 	} else {
-		d.Set(e2econstants.AttrStatus, goe2econstants.LBStatusError)
+		d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusError)
 	}
 	return nil
 }

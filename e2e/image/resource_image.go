@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -21,17 +21,17 @@ func ResourceImage() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion: func() *schema.Schema {
+			tfconstants.AttrRegion: func() *schema.Schema {
 				s := config.RegionSchema()
 				s.Description = "region where the Image is stored"
 				return s
 			}(),
-			e2econstants.AttrLocation: func() *schema.Schema {
+			tfconstants.AttrLocation: func() *schema.Schema {
 				s := config.LocationSchema()
 				s.Description = "location where the Image is stored"
 				return s
 			}(),
-			e2econstants.AttrProjectID: func() *schema.Schema {
+			tfconstants.AttrProjectID: func() *schema.Schema {
 				s := config.ProjectIDSchemaResource()
 				s.Description = "id of the Project to create the Image in"
 				return s
@@ -40,13 +40,13 @@ func ResourceImage() *schema.Resource {
 			// ============================================
 			// REQUIRED INPUT FIELDS (Immutable)
 			// ============================================
-			e2econstants.AttrNodeID: {
+			tfconstants.AttrNodeID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "id of the Node to create the image from",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:         schema.TypeString,
 				Required:     true,
 				Description:  "name of the Image. Must not contain whitespace. Can be updated in-place in V3.",
@@ -55,7 +55,7 @@ func ResourceImage() *schema.Resource {
 			// ============================================
 			// OPTIONAL FIELDS
 			// ============================================
-			e2econstants.AttrTags: {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Description: "tags for the Image (state-only until API support is added)",
@@ -64,7 +64,7 @@ func ResourceImage() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - IMAGE METADATA
 			// ============================================
-			e2econstants.AttrTemplateID: {
+			tfconstants.AttrTemplateID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "id of the template used to create a Node from the Image",
@@ -125,7 +125,7 @@ func ResourceImage() *schema.Resource {
 				Description: "list of VMs created from this Image",
 				Elem:        &schema.Schema{Type: schema.TypeMap},
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the Image",
@@ -185,7 +185,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Log deprecation warning if location is used
-	if _, ok := d.GetOk(e2econstants.AttrLocation); ok {
+	if _, ok := d.GetOk(tfconstants.AttrLocation); ok {
 		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
 	}
 
@@ -195,8 +195,8 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 		return diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))
 	}
 
-	nodeID := d.Get(e2econstants.AttrNodeID).(string)
-	imageName := d.Get(e2econstants.AttrName).(string)
+	nodeID := d.Get(tfconstants.AttrNodeID).(string)
+	imageName := d.Get(tfconstants.AttrName).(string)
 
 	// Create image via SaveImage action on node
 	saveReq := &goe2e.NodeSaveImageRequest{
@@ -217,8 +217,8 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	d.SetId(result.ImageID)
 
 	// Store tags in state if provided
-	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
 		}
 	}
@@ -287,8 +287,8 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 
 	// Preserve tags from state (state-only until API support)
-	if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-		if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
 		}
 	}
@@ -322,12 +322,12 @@ func resourceImageImport(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Set project_id and region if provided
 	if projectID != "" {
-		if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+		if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 			return nil, fmt.Errorf("error setting project_id: %w", err)
 		}
 	}
 	if region != "" {
-		if err := d.Set(e2econstants.AttrRegion, region); err != nil {
+		if err := d.Set(tfconstants.AttrRegion, region); err != nil {
 			return nil, fmt.Errorf("error setting region: %w", err)
 		}
 	}
@@ -460,8 +460,8 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Handle name update
-	if d.HasChange(e2econstants.AttrName) {
-		newName := d.Get(e2econstants.AttrName).(string)
+	if d.HasChange(tfconstants.AttrName) {
+		newName := d.Get(tfconstants.AttrName).(string)
 		log.Printf("[INFO] IMAGE UPDATE | Renaming image to: %s", newName)
 
 		renameReq := &goe2e.RenameImageRequest{
@@ -482,9 +482,9 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Handle tags update (state-only)
-	if d.HasChange(e2econstants.AttrTags) {
-		if tags, ok := d.GetOk(e2econstants.AttrTags); ok {
-			if err := d.Set(e2econstants.AttrTags, tags); err != nil {
+	if d.HasChange(tfconstants.AttrTags) {
+		if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+			if err := d.Set(tfconstants.AttrTags, tags); err != nil {
 				return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
 			}
 		}
@@ -497,13 +497,13 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 // Validates field conflicts and emits deprecation warnings
 func resourceImageCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 	// Emit deprecation warning if location is used
-	if _, ok := d.GetOk(e2econstants.AttrLocation); ok {
+	if _, ok := d.GetOk(tfconstants.AttrLocation); ok {
 		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
 	}
 
 	// Validate that region and location are not both set (handled by ConflictsWith, but double-check)
-	if _, hasRegion := d.GetOk(e2econstants.AttrRegion); hasRegion {
-		if _, hasLocation := d.GetOk(e2econstants.AttrLocation); hasLocation {
+	if _, hasRegion := d.GetOk(tfconstants.AttrRegion); hasRegion {
+		if _, hasLocation := d.GetOk(tfconstants.AttrLocation); hasLocation {
 			return fmt.Errorf("cannot set both 'region' and 'location' parameters")
 		}
 	}
@@ -515,20 +515,20 @@ func resourceImageCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m i
 func resourceImageResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
-			e2econstants.AttrNodeID: {
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrNodeID: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrTemplateID: {
+			tfconstants.AttrTemplateID: {
 				Type:     schema.TypeInt,
 				Computed: true,
 			},
@@ -548,7 +548,7 @@ func resourceImageResourceV0() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},

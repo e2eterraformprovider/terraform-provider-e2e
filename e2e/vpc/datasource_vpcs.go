@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -19,9 +19,9 @@ func DataSourceVpcs() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
 			"vpc_list": {
@@ -40,17 +40,17 @@ func DataSourceVpcs() *schema.Resource {
 							Computed:    true,
 							Description: "the pool size of the VPC",
 						},
-						e2econstants.AttrCreatedAt: {
+						tfconstants.AttrCreatedAt: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the creation date for the VPC",
 						},
-						e2econstants.AttrStatus: {
+						tfconstants.AttrStatus: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "status of the VPC instance",
 						},
-						e2econstants.AttrName: {
+						tfconstants.AttrName: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "name of the VPC",
@@ -112,7 +112,7 @@ func flattenVpcs(vpcList []goe2e.Vpc) []interface{} {
 			oi["is_active"] = vpc.IsActive
 			oi["gateway_ip"] = vpc.GatewayIP
 			oi["ipv4_cidr"] = vpc.IPv4CIDR
-			oi[e2econstants.AttrStatus] = vpc.State
+			oi[tfconstants.AttrStatus] = vpc.State
 			ois[i] = oi
 		}
 

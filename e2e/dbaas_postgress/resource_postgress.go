@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -30,14 +30,14 @@ func ResourcePostgresDBaaS() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS (Immutable)
 			// ============================================
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -47,18 +47,18 @@ func ResourcePostgresDBaaS() *schema.Resource {
 					false,
 				),
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "the plan name for the PostgreSQL DBaaS instance (upgradeable only when instance is in SUSPENDED state)",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "name of the PostgreSQL DBaaS instance",
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:     schema.TypeList,
 				Required: true,
 				MaxItems: 1,
@@ -99,33 +99,33 @@ func ResourcePostgresDBaaS() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - CREATION
 			// ============================================
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
 				Description: "the group name for the PostgreSQL DBaaS instance",
 				Default:     "Default",
 			},
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				// No ForceNew - can be attached/detached dynamically
 				Description: "whether to attach a public IP to the PostgreSQL DBaaS instance",
 				Default:     true,
 			},
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				ForceNew:    true,
 				Default:     false,
 				Description: "whether to enable encryption at rest for the PostgreSQL DBaaS instance",
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "id of the parameter group to attach",
 			},
-			e2econstants.AttrVPCs: {
+			tfconstants.AttrVPCs: {
 				Type:        schema.TypeSet,
 				Elem:        &schema.Schema{Type: schema.TypeInt},
 				Optional:    true,
@@ -135,7 +135,7 @@ func ResourcePostgresDBaaS() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - MANAGEMENT
 			// ============================================
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Computed: true,
@@ -145,7 +145,7 @@ func ResourcePostgresDBaaS() *schema.Resource {
 				),
 				Description: "state of the PostgreSQL DBaaS instance (use 'SUSPENDED' to stop, 'RUNNING' to start, 'RESTARTING' to restart)",
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "additional disk size in gigabytes to attach (cumulative: each increase adds to previous expansions)",
@@ -154,7 +154,7 @@ func ResourcePostgresDBaaS() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS
 			// ============================================
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the ID of the PostgreSQL DBaaS instance",
@@ -212,12 +212,12 @@ func ResourcePostgresDBaaS() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			e2econstants.AttrPublicIPAddress: {
+			tfconstants.AttrPublicIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the PostgreSQL instance public IPv4 address (if public IP attached)",
 			},
-			e2econstants.AttrPrivateIPAddress: {
+			tfconstants.AttrPrivateIPAddress: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the PostgreSQL instance private IPv4 address",
@@ -227,7 +227,7 @@ func ResourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the port number for PostgreSQL service (typically 5432)",
 			},
-			e2econstants.AttrDisk: {
+			tfconstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the total disk size of the PostgreSQL DBaaS instance after expansions",
@@ -270,14 +270,14 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Extract nested database config
-	dbConfigList := d.Get(e2econstants.AttrDatabase).([]interface{})
+	dbConfigList := d.Get(tfconstants.AttrDatabase).([]interface{})
 	if len(dbConfigList) == 0 {
 		return diag.Errorf("database configuration is required")
 	}
 	dbConfigMap := dbConfigList[0].(map[string]interface{})
 
 	plan := d.Get("plan").(string)
-	version := d.Get(e2econstants.AttrVersion).(string)
+	version := d.Get(tfconstants.AttrVersion).(string)
 
 	// Get software ID using goe2e client
 	// Note: pgID parameter is required but can be empty string for PostgreSQL
@@ -293,13 +293,13 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	var pgID *int
-	if v, ok := d.GetOk(e2econstants.AttrParameterGroupID); ok {
+	if v, ok := d.GetOk(tfconstants.AttrParameterGroupID); ok {
 		id := v.(int)
 		pgID = &id
 	}
 	// Extract VPC IDs
 	var vpcIDs []string
-	if vpcSet, ok := d.GetOk(e2econstants.AttrVPCs); ok {
+	if vpcSet, ok := d.GetOk(tfconstants.AttrVPCs); ok {
 		for _, v := range vpcSet.(*schema.Set).List() {
 			vpcIDs = append(vpcIDs, strconv.Itoa(v.(int)))
 		}
@@ -319,8 +319,8 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		SoftwareID:       softwareID,
 		TemplateID:       templateID,
 		Name:             d.Get("name").(string),
-		Group:            d.Get(e2econstants.AttrGroup).(string),
-		PublicIPRequired: d.Get(e2econstants.AttrPublicIPRequired).(bool),
+		Group:            d.Get(tfconstants.AttrGroup).(string),
+		PublicIPRequired: d.Get(tfconstants.AttrPublicIPRequired).(bool),
 		VPCs:             vpcList,
 		Database: goe2e.DBConfig{
 			User:        dbConfigMap["user"].(string),
@@ -329,7 +329,7 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 			Name:        dbConfigMap["name"].(string),
 		},
 		PGID:                pgID,
-		IsEncryptionEnabled: d.Get(e2econstants.AttrIsEncryptionEnabled).(bool),
+		IsEncryptionEnabled: d.Get(tfconstants.AttrIsEncryptionEnabled).(bool),
 	}
 
 	// Create PostgreSQL cluster using goe2e client
@@ -349,25 +349,25 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set other computed fields
-	if err := d.Set(e2econstants.AttrPublicIPAddress, cluster.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, cluster.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, cluster.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, cluster.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", cluster.MasterNode.Port); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDisk, cluster.MasterNode.Disk); err != nil {
+	if err := d.Set(tfconstants.AttrDisk, cluster.MasterNode.Disk); err != nil {
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, cluster.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, cluster.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -433,7 +433,7 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 	if status == "SUSPENDED" {
 		status = "STOPPED"
 	}
-	if err := d.Set(e2econstants.AttrStatus, status); err != nil {
+	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -458,35 +458,35 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 	if err := d.Set("vector_database_status", cluster.VectorDBStatus); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrIsEncryptionEnabled, cluster.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, cluster.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set network fields
-	if err := d.Set(e2econstants.AttrPublicIPAddress, cluster.MasterNode.PublicIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPublicIPAddress, cluster.MasterNode.PublicIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrPrivateIPAddress, cluster.MasterNode.PrivateIPAddress); err != nil {
+	if err := d.Set(tfconstants.AttrPrivateIPAddress, cluster.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
 	if err := d.Set("port", cluster.MasterNode.Port); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrDisk, cluster.MasterNode.Disk); err != nil {
+	if err := d.Set(tfconstants.AttrDisk, cluster.MasterNode.Disk); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set plan and version
-	if err := d.Set(e2econstants.AttrPlan, cluster.MasterNode.Plan.Name); err != nil {
+	if err := d.Set(tfconstants.AttrPlan, cluster.MasterNode.Plan.Name); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set(e2econstants.AttrVersion, cluster.MasterNode.Plan.Software.Version); err != nil {
+	if err := d.Set(tfconstants.AttrVersion, cluster.MasterNode.Plan.Software.Version); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set parameter group ID if present
 	if cluster.MasterNode.Database.PGDetail.ID != 0 {
-		if err := d.Set(e2econstants.AttrParameterGroupID, cluster.MasterNode.Database.PGDetail.ID); err != nil {
+		if err := d.Set(tfconstants.AttrParameterGroupID, cluster.MasterNode.Database.PGDetail.ID); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -527,8 +527,8 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Handle status changes (power management)
-	if d.HasChange(e2econstants.AttrStatus) {
-		oldStatus, newStatusRaw := d.GetChange(e2econstants.AttrStatus)
+	if d.HasChange(tfconstants.AttrStatus) {
+		oldStatus, newStatusRaw := d.GetChange(tfconstants.AttrStatus)
 		currentStatus := oldStatus.(string)
 		newStatus := newStatusRaw.(string)
 
@@ -564,14 +564,14 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Handle public IP changes
-	if d.HasChange(e2econstants.AttrPublicIPRequired) {
-		newVal := d.Get(e2econstants.AttrPublicIPRequired).(bool)
-		currentStatus := d.Get(e2econstants.AttrStatus).(string)
+	if d.HasChange(tfconstants.AttrPublicIPRequired) {
+		newVal := d.Get(tfconstants.AttrPublicIPRequired).(bool)
+		currentStatus := d.Get(tfconstants.AttrStatus).(string)
 
 		// Block operation if DBaaS is still in "Creating" state
 		if currentStatus == "CREATING" {
-			prev, _ := d.GetChange(e2econstants.AttrPublicIPRequired)
-			d.Set(e2econstants.AttrPublicIPRequired, prev)
+			prev, _ := d.GetChange(tfconstants.AttrPublicIPRequired)
+			d.Set(tfconstants.AttrPublicIPRequired, prev)
 			return diag.Errorf("cannot update public IP for PostgreSQL DBaaS (ID: %s): database is in CREATING state in project (%s), region (%s). Please wait for database creation to complete", clusterID, projectID, region)
 		}
 
@@ -580,16 +580,16 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		if newVal {
 			_, err := goe2eClient.PostgreSQL.AttachPublicIP(ctx, clusterID)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrPublicIPRequired)
-				d.Set(e2econstants.AttrPublicIPRequired, prev)
+				prev, _ := d.GetChange(tfconstants.AttrPublicIPRequired)
+				d.Set(tfconstants.AttrPublicIPRequired, prev)
 				return diag.Errorf("error attaching public IP to PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 			log.Printf("[INFO] Successfully attached public IP to PostgreSQL cluster %s", clusterID)
 		} else {
 			_, err := goe2eClient.PostgreSQL.DetachPublicIP(ctx, clusterID)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrPublicIPRequired)
-				d.Set(e2econstants.AttrPublicIPRequired, prev)
+				prev, _ := d.GetChange(tfconstants.AttrPublicIPRequired)
+				d.Set(tfconstants.AttrPublicIPRequired, prev)
 				return diag.Errorf("error detaching public IP from PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 			log.Printf("[INFO] Successfully detached public IP from PostgreSQL cluster %s", clusterID)
@@ -603,17 +603,17 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Handle VPC changes
-	if d.HasChange(e2econstants.AttrVPCs) {
-		currentStatus := d.Get(e2econstants.AttrStatus).(string)
+	if d.HasChange(tfconstants.AttrVPCs) {
+		currentStatus := d.Get(tfconstants.AttrStatus).(string)
 
 		// Block operation if DBaaS is still in "Creating" state
 		if currentStatus == "CREATING" {
-			prev, _ := d.GetChange(e2econstants.AttrVPCs)
-			d.Set(e2econstants.AttrVPCs, prev)
+			prev, _ := d.GetChange(tfconstants.AttrVPCs)
+			d.Set(tfconstants.AttrVPCs, prev)
 			return diag.Errorf("cannot update VPC list for PostgreSQL DBaaS (ID: %s): database is in CREATING state in project (%s), region (%s). Please wait for database creation to complete", clusterID, projectID, region)
 		}
 
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrVPCs)
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrVPCs)
 		oldVPCs := oldRaw.(*schema.Set)
 		newVPCs := newRaw.(*schema.Set)
 
@@ -661,8 +661,8 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 			log.Printf("[INFO] Detaching VPCs from PostgreSQL cluster %s: %v", clusterID, toDetach)
 			vpcList, err := goe2eClient.PostgreSQL.ExpandPostgresVPCList(ctx, toDetach)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrVPCs)
-				d.Set(e2econstants.AttrVPCs, prev)
+				prev, _ := d.GetChange(tfconstants.AttrVPCs)
+				d.Set(tfconstants.AttrVPCs, prev)
 				return diag.Errorf("error preparing VPC list for PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 
@@ -673,8 +673,8 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 			_, err = goe2eClient.PostgreSQL.DetachVPC(ctx, clusterID, detachReq)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrVPCs)
-				d.Set(e2econstants.AttrVPCs, prev)
+				prev, _ := d.GetChange(tfconstants.AttrVPCs)
+				d.Set(tfconstants.AttrVPCs, prev)
 				return diag.Errorf("error detaching VPC from PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 		}
@@ -684,8 +684,8 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 			log.Printf("[INFO] Attaching VPCs to PostgreSQL cluster %s: %v", clusterID, toAttach)
 			vpcList, err := goe2eClient.PostgreSQL.ExpandPostgresVPCList(ctx, toAttach)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrVPCs)
-				d.Set(e2econstants.AttrVPCs, prev)
+				prev, _ := d.GetChange(tfconstants.AttrVPCs)
+				d.Set(tfconstants.AttrVPCs, prev)
 				return diag.Errorf("error preparing VPC list for PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 
@@ -696,17 +696,17 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 			_, err = goe2eClient.PostgreSQL.AttachVPC(ctx, clusterID, attachReq)
 			if err != nil {
-				prev, _ := d.GetChange(e2econstants.AttrVPCs)
-				d.Set(e2econstants.AttrVPCs, prev)
+				prev, _ := d.GetChange(tfconstants.AttrVPCs)
+				d.Set(tfconstants.AttrVPCs, prev)
 				return diag.Errorf("error attaching VPC to PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", clusterID, projectID, region, err)
 			}
 		}
 	}
 
 	// Handle parameter group changes
-	if d.HasChange(e2econstants.AttrParameterGroupID) {
-		currentStatus := d.Get(e2econstants.AttrStatus).(string)
-		oldRaw, newRaw := d.GetChange(e2econstants.AttrParameterGroupID)
+	if d.HasChange(tfconstants.AttrParameterGroupID) {
+		currentStatus := d.Get(tfconstants.AttrStatus).(string)
+		oldRaw, newRaw := d.GetChange(tfconstants.AttrParameterGroupID)
 		oldPGID := 0
 		newPGID := 0
 
@@ -719,7 +719,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 		// Block operation if DBaaS is still in "Creating" state
 		if currentStatus == "CREATING" {
-			d.Set(e2econstants.AttrParameterGroupID, oldRaw)
+			d.Set(tfconstants.AttrParameterGroupID, oldRaw)
 			return diag.Errorf("cannot update parameter group for PostgreSQL DBaaS (ID: %s): database is in CREATING state in project (%s), region (%s). Please wait for database creation to complete", clusterID, projectID, region)
 		}
 
@@ -730,7 +730,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 			// Detach parameter group
 			_, err := goe2eClient.PostgreSQL.DetachParameterGroup(ctx, clusterID, strconv.Itoa(oldPGID))
 			if err != nil {
-				d.Set(e2econstants.AttrParameterGroupID, oldRaw)
+				d.Set(tfconstants.AttrParameterGroupID, oldRaw)
 				return diag.Errorf("error detaching parameter group (ID: %d) from PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", oldPGID, clusterID, projectID, region, err)
 			}
 			log.Printf("[INFO] Successfully detached parameter group %d from PostgreSQL cluster %s", oldPGID, clusterID)
@@ -738,7 +738,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 			// Attach new parameter group
 			_, err := goe2eClient.PostgreSQL.AttachParameterGroup(ctx, clusterID, strconv.Itoa(newPGID))
 			if err != nil {
-				d.Set(e2econstants.AttrParameterGroupID, oldRaw)
+				d.Set(tfconstants.AttrParameterGroupID, oldRaw)
 				return diag.Errorf("error attaching parameter group (ID: %d) to PostgreSQL DBaaS (ID: %s) in project (%s), region (%s): %s", newPGID, clusterID, projectID, region, err)
 			}
 			log.Printf("[INFO] Successfully attached parameter group %d to PostgreSQL cluster %s", newPGID, clusterID)
@@ -746,33 +746,33 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Handle plan upgrades
-	if d.HasChange(e2econstants.AttrPlan) {
-		prevPlan, currPlan := d.GetChange(e2econstants.AttrPlan)
-		plan := d.Get(e2econstants.AttrPlan).(string)
-		version := d.Get(e2econstants.AttrVersion).(string)
+	if d.HasChange(tfconstants.AttrPlan) {
+		prevPlan, currPlan := d.GetChange(tfconstants.AttrPlan)
+		plan := d.Get(tfconstants.AttrPlan).(string)
+		version := d.Get(tfconstants.AttrVersion).(string)
 
-		currentStatus := d.Get(e2econstants.AttrStatus).(string)
+		currentStatus := d.Get(tfconstants.AttrStatus).(string)
 		// Normalize status for check
 		if currentStatus == "STOPPED" {
 			currentStatus = "SUSPENDED"
 		}
 
 		if currentStatus != "SUSPENDED" {
-			d.Set(e2econstants.AttrPlan, prevPlan)
+			d.Set(tfconstants.AttrPlan, prevPlan)
 			return diag.Errorf("cannot upgrade plan for PostgreSQL DBaaS (ID: %s): database must be in SUSPENDED state (current state: %s) in project (%s), region (%s). Please stop the instance first", clusterID, currentStatus, projectID, region)
 		}
 
 		// Get software ID using goe2e client
 		softwareID, err := goe2eClient.PostgreSQL.GetSoftwareID(ctx, "PostgreSQL", version, "")
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, prevPlan)
+			d.Set(tfconstants.AttrPlan, prevPlan)
 			return diag.Errorf("error retrieving PostgreSQL software ID for version (%s) while upgrading plan for DBaaS (ID: %s) in project (%s), region (%s): %s", version, clusterID, projectID, region, err)
 		}
 
 		// Get template ID using goe2e client
 		templateID, err := goe2eClient.PostgreSQL.GetTemplateID(ctx, plan, strconv.Itoa(softwareID), "")
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, prevPlan)
+			d.Set(tfconstants.AttrPlan, prevPlan)
 			return diag.Errorf("error retrieving PostgreSQL template ID for plan (%s) while upgrading DBaaS (ID: %s) in project (%s), region (%s): %s", plan, clusterID, projectID, region, err)
 		}
 
@@ -784,7 +784,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 		_, err = goe2eClient.PostgreSQL.UpgradePlan(ctx, clusterID, upgradeReq)
 		if err != nil {
-			d.Set(e2econstants.AttrPlan, prevPlan)
+			d.Set(tfconstants.AttrPlan, prevPlan)
 			return diag.Errorf("error upgrading PostgreSQL DBaaS (ID: %s) plan from (%s) to (%s) in project (%s), region (%s): %s", clusterID, prevPlan.(string), currPlan.(string), projectID, region, err)
 		}
 
@@ -792,22 +792,22 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Handle disk expansion
-	if d.HasChange(e2econstants.AttrSize) {
-		prevSize, currSize := d.GetChange(e2econstants.AttrSize)
-		currentStatus := d.Get(e2econstants.AttrStatus).(string)
+	if d.HasChange(tfconstants.AttrSize) {
+		prevSize, currSize := d.GetChange(tfconstants.AttrSize)
+		currentStatus := d.Get(tfconstants.AttrStatus).(string)
 		// Normalize status for check
 		if currentStatus == "STOPPED" {
 			currentStatus = "SUSPENDED"
 		}
 
 		if currentStatus != "SUSPENDED" {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("cannot expand disk for PostgreSQL DBaaS (ID: %s): database must be in SUSPENDED state (current state: %s) in project (%s), region (%s)", clusterID, currentStatus, projectID, region)
 		}
 
 		sizeInt, ok := currSize.(int)
 		if !ok {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("error expanding disk for PostgreSQL DBaaS (ID: %s): size must be an integer, got %T", clusterID, currSize)
 		}
 
@@ -821,7 +821,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		additionalSize := sizeInt - prevSizeInt
 
 		if additionalSize <= 0 {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("error expanding disk for PostgreSQL DBaaS (ID: %s): size must be greater than previous size (%d GB). Got: %d GB", clusterID, prevSizeInt, sizeInt)
 		}
 
@@ -831,7 +831,7 @@ func resourceUpdatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 
 		_, err = goe2eClient.PostgreSQL.ExpandDisk(ctx, clusterID, expandReq)
 		if err != nil {
-			d.Set(e2econstants.AttrSize, prevSize)
+			d.Set(tfconstants.AttrSize, prevSize)
 			return diag.Errorf("error expanding PostgreSQL DBaaS (ID: %s) disk by %d GB in project (%s), region (%s): %s", clusterID, additionalSize, projectID, region, err)
 		}
 
@@ -875,7 +875,7 @@ func resourceDeletePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Check current status before deletion
-	status := d.Get(e2econstants.AttrStatus).(string)
+	status := d.Get(tfconstants.AttrStatus).(string)
 	if status == "CREATING" {
 		return diag.Errorf("cannot delete PostgreSQL DBaaS (ID: %s): database is in CREATING state in project (%s), region (%s). Please wait for database creation to complete", clusterID, projectID, region)
 	}
@@ -910,7 +910,7 @@ func CustomImportStateFunc(ctx context.Context, d *schema.ResourceData, m interf
 	projectID := parts[0]
 	dbaasID := parts[1]
 
-	if err := d.Set(e2econstants.AttrProjectID, projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, err
 	}
 	d.SetId(dbaasID)
@@ -925,28 +925,28 @@ func resourcePostgreSQLResourceV0() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS
 			// ============================================
-			e2econstants.AttrVersion: {
+			tfconstants.AttrVersion: {
 				Type:     schema.TypeString,
 				Required: true,
 				// V0: No ForceNew (this was the bug we're fixing)
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				// V0: No ForceNew (this was the bug we're fixing)
 			},
-			e2econstants.AttrDatabase: {
+			tfconstants.AttrDatabase: {
 				Type:     schema.TypeList,
 				Required: true,
 				ForceNew: true, // V0: ForceNew on entire block
@@ -981,31 +981,31 @@ func resourcePostgreSQLResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS
 			// ============================================
-			e2econstants.AttrGroup: {
+			tfconstants.AttrGroup: {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "Default",
 				// V0: No ForceNew (this was the bug we're fixing)
 			},
-			e2econstants.AttrPublicIPRequired: {
+			tfconstants.AttrPublicIPRequired: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  true,
 				ForceNew: true, // V0: ForceNew on public_ip_required
 			},
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Default:  false,
 				// V0: No ForceNew (this was the bug we're fixing)
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:      schema.TypeString,
 				Optional:  true,
 				Sensitive: true,
 				// V0: No ForceNew (this was the bug we're fixing)
 			},
-			e2econstants.AttrParameterGroupID: {
+			tfconstants.AttrParameterGroupID: {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
@@ -1018,7 +1018,7 @@ func resourcePostgreSQLResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - MANAGEMENT
 			// ============================================
-			e2econstants.AttrPowerStatus: { // V0: Used power_status instead of status
+			tfconstants.AttrPowerStatus: { // V0: Used power_status instead of status
 				Type:     schema.TypeString,
 				Optional: true,
 			},
@@ -1026,7 +1026,7 @@ func resourcePostgreSQLResourceV0() *schema.Resource {
 				Type:     schema.TypeBool,
 				Optional: true,
 			},
-			e2econstants.AttrSize: {
+			tfconstants.AttrSize: {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
@@ -1034,11 +1034,11 @@ func resourcePostgreSQLResourceV0() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS
 			// ============================================
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -1091,7 +1091,7 @@ func resourcePostgreSQLStateUpgradeV0toV1(
 
 	// Migrate vpc_list to vpcs if present
 	if vpcList, exists := rawState["vpc_list"]; exists && vpcList != nil {
-		rawState[e2econstants.AttrVPCs] = vpcList
+		rawState[tfconstants.AttrVPCs] = vpcList
 		// Keep vpc_list for backwards compatibility during migration
 	}
 
@@ -1099,12 +1099,12 @@ func resourcePostgreSQLStateUpgradeV0toV1(
 	if detachPublicIP, exists := rawState["detach_public_ip"]; exists {
 		// If detach_public_ip is true, then public_ip_required should be false
 		if detach, ok := detachPublicIP.(bool); ok {
-			rawState[e2econstants.AttrPublicIPRequired] = !detach
+			rawState[tfconstants.AttrPublicIPRequired] = !detach
 		}
 	}
 
 	// Migrate power_status to status if present
-	if powerStatus, exists := rawState[e2econstants.AttrPowerStatus]; exists {
+	if powerStatus, exists := rawState[tfconstants.AttrPowerStatus]; exists {
 		// Map old power_status values to new status values
 		status := ""
 		switch powerStatus.(string) {
@@ -1118,7 +1118,7 @@ func resourcePostgreSQLStateUpgradeV0toV1(
 			status = powerStatus.(string)
 		}
 		if status != "" {
-			rawState[e2econstants.AttrStatus] = status
+			rawState[tfconstants.AttrStatus] = status
 		}
 	}
 

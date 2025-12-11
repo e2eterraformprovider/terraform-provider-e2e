@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -16,37 +16,37 @@ func DataSourceScalerGroup() *schema.Resource {
 		ReadContext: dataSourceReadScalerGroup,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Autoscaling-specific fields
-			e2econstants.AttrID: {
+			tfconstants.AttrID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the Scaler Group",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the Scaler Group",
 			},
-			e2econstants.AttrDesired: {
+			tfconstants.AttrDesired: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the desired number of nodes",
 			},
-			e2econstants.AttrMinNodes: {
+			tfconstants.AttrMinNodes: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the minimum number of nodes",
 			},
-			e2econstants.AttrMaxNodes: {
+			tfconstants.AttrMaxNodes: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the maximum number of nodes",
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the plan of the Scaler Group",
@@ -135,10 +135,10 @@ func dataSourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 
 	d.SetId(group.ID)
 	d.Set("name", group.Name)
-	d.Set(e2econstants.AttrDesired, group.Desired)
-	d.Set(e2econstants.AttrMinNodes, group.MinNodes)
-	d.Set(e2econstants.AttrMaxNodes, group.MaxNodes)
-	d.Set(e2econstants.AttrPlan, group.PlanName)
+	d.Set(tfconstants.AttrDesired, group.Desired)
+	d.Set(tfconstants.AttrMinNodes, group.MinNodes)
+	d.Set(tfconstants.AttrMaxNodes, group.MaxNodes)
+	d.Set(tfconstants.AttrPlan, group.PlanName)
 	d.Set("vm_image_name", group.VMImageName)
 	d.Set("provision_status", NormalizeStatus(group.ProvisionStatus))
 	d.Set("policy_type", group.PolicyType)

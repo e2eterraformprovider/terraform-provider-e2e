@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -577,7 +577,7 @@ func getClusterName(d *schema.ResourceData) string {
 	if v, ok := d.GetOk("cluster_name"); ok {
 		return v.(string)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrName); ok {
+	if v, ok := d.GetOk(tfconstants.AttrName); ok {
 		return v.(string)
 	}
 	return ""
@@ -588,7 +588,7 @@ func getKubernetesVersion(d *schema.ResourceData) string {
 	if v, ok := d.GetOk("kubernetes_version"); ok {
 		return v.(string)
 	}
-	if v, ok := d.GetOk(e2econstants.AttrVersion); ok {
+	if v, ok := d.GetOk(tfconstants.AttrVersion); ok {
 		return v.(string)
 	}
 	return ""
@@ -643,7 +643,7 @@ func getNodePoolMinNodes(pool map[string]interface{}) int {
 	if v, ok := pool["min_nodes"].(int); ok && v > 0 {
 		return v
 	}
-	if v, ok := pool[e2econstants.AttrMinVMs].(int); ok {
+	if v, ok := pool[tfconstants.AttrMinVMs].(int); ok {
 		return v
 	}
 	return 0
@@ -654,7 +654,7 @@ func getNodePoolMaxNodes(pool map[string]interface{}) int {
 	if v, ok := pool["max_nodes"].(int); ok && v > 0 {
 		return v
 	}
-	if v, ok := pool[e2econstants.AttrMaxVMs].(int); ok {
+	if v, ok := pool[tfconstants.AttrMaxVMs].(int); ok {
 		return v
 	}
 	return 0

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,14 +20,14 @@ func ResourceVpc() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED INPUT FIELDS (Immutable)
 			// ============================================
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -64,12 +64,12 @@ func ResourceVpc() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STATUS
 			// ============================================
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the VPC",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the VPC instance",
@@ -147,10 +147,10 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 		return diag.Errorf("Error retrieving VPC (ID: %s) in project (%s), region (%s): %s", vpcId, project_id, region, err)
 	}
 
-	d.Set(e2econstants.AttrName, vpc.Name)
+	d.Set(tfconstants.AttrName, vpc.Name)
 	d.Set("network_id", vpc.ID)
-	d.Set(e2econstants.AttrCreatedAt, vpc.CreatedAt)
-	d.Set(e2econstants.AttrStatus, vpc.State)
+	d.Set(tfconstants.AttrCreatedAt, vpc.CreatedAt)
+	d.Set(tfconstants.AttrStatus, vpc.State)
 	d.Set("ipv4_cidr", vpc.IPv4CIDR)
 	d.Set("gateway_ip", vpc.GatewayIP)
 	d.Set("is_active", vpc.IsActive)
@@ -177,7 +177,7 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Printf("[INFO] Inside vpcs resource | create ")
 
 	createReq := &goe2e.VpcCreateRequest{
-		VpcName:  d.Get(e2econstants.AttrName).(string),
+		VpcName:  d.Get(tfconstants.AttrName).(string),
 		IPv4:     d.Get("ipv4").(string),
 		IsE2EVpc: d.Get("is_e2e_vpc").(bool),
 	}

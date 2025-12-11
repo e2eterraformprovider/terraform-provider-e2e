@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -19,14 +19,14 @@ func ResourceFloatingIPAttachment() *schema.Resource {
 			// ============================================
 			// COMMON FIELDS (Input Only)
 			// ============================================
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// ============================================
 			// REQUIRED FIELDS
 			// ============================================
-			e2econstants.AttrIPAddress: {
+			tfconstants.AttrIPAddress: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
@@ -67,7 +67,7 @@ func resourceFloatingIPAttachmentCreate(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(err)
 	}
 
-	ipAddress := d.Get(e2econstants.AttrIPAddress).(string)
+	ipAddress := d.Get(tfconstants.AttrIPAddress).(string)
 	nodeIDsInterface := d.Get("node_ids").([]interface{})
 	nodeIDs := make([]string, len(nodeIDsInterface))
 	for i, v := range nodeIDsInterface {
@@ -98,10 +98,10 @@ func resourceFloatingIPAttachmentCreate(ctx context.Context, d *schema.ResourceD
 
 	// Set resource ID as ip_address (since one IP can be attached to multiple nodes)
 	d.SetId(ipAddress)
-	d.Set(e2econstants.AttrIPAddress, ipAddress)
+	d.Set(tfconstants.AttrIPAddress, ipAddress)
 	d.Set("node_ids", nodeIDs)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 
 	return diags
 }
@@ -171,10 +171,10 @@ func resourceFloatingIPAttachmentRead(ctx context.Context, d *schema.ResourceDat
 	}
 
 	// Update state
-	d.Set(e2econstants.AttrIPAddress, ipAddress)
+	d.Set(tfconstants.AttrIPAddress, ipAddress)
 	d.Set("node_ids", nodeIDs)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 
 	return diags
 }
@@ -334,8 +334,8 @@ func resourceFloatingIPAttachmentImport(ctx context.Context, d *schema.ResourceD
 	ipAddress := parts[2]
 
 	_ = m.(*config.Config)
-	d.Set(e2econstants.AttrProjectID, projectID)
-	d.Set(e2econstants.AttrRegion, region)
+	d.Set(tfconstants.AttrProjectID, projectID)
+	d.Set(tfconstants.AttrRegion, region)
 	d.SetId(ipAddress)
 
 	// Call Read to populate the rest of the state

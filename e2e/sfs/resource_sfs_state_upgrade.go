@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -14,27 +14,27 @@ func resourceSfsResourceV0() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			// Common fields
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
 
 			// Core identity and configuration
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrPlan: {
+			tfconstants.AttrPlan: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrVPCID: {
+			tfconstants.AttrVPCID: {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrDiskSize: {
+			tfconstants.AttrDiskSize: {
 				Type:     schema.TypeInt,
 				Required: true,
 				ForceNew: true,
@@ -44,18 +44,18 @@ func resourceSfsResourceV0() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			e2econstants.AttrEncryptionPassphrase: {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:      schema.TypeString,
 				Optional:  true,
 				Sensitive: true,
 				ForceNew:  true,
 				Default:   "",
 			},
-			e2econstants.AttrIsEncryptionEnabled: {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				ForceNew: true,
@@ -75,27 +75,27 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// Copy disk_size -> size_gb if disk_size exists
-	if diskSize, ok := rawState[e2econstants.AttrDiskSize]; ok && diskSize != nil {
+	if diskSize, ok := rawState[tfconstants.AttrDiskSize]; ok && diskSize != nil {
 		log.Printf("[DEBUG] Migrating disk_size to size_gb: %v", diskSize)
-		rawState[e2econstants.AttrSizeGB] = diskSize
+		rawState[tfconstants.AttrSizeGB] = diskSize
 	}
 
 	// Copy disk_iops -> iops if disk_iops exists
 	if diskIops, ok := rawState["disk_iops"]; ok && diskIops != nil {
 		log.Printf("[DEBUG] Migrating disk_iops to iops: %v", diskIops)
-		rawState[e2econstants.AttrIOPS] = diskIops
+		rawState[tfconstants.AttrIOPS] = diskIops
 	}
 
 	// Copy is_encryption_enabled -> encryption_enabled if is_encryption_enabled exists
-	if isEncryption, ok := rawState[e2econstants.AttrIsEncryptionEnabled]; ok && isEncryption != nil {
+	if isEncryption, ok := rawState[tfconstants.AttrIsEncryptionEnabled]; ok && isEncryption != nil {
 		log.Printf("[DEBUG] Migrating is_encryption_enabled to encryption_enabled: %v", isEncryption)
-		rawState[e2econstants.AttrEncryptionEnabled] = isEncryption
+		rawState[tfconstants.AttrEncryptionEnabled] = isEncryption
 	}
 
 	// Initialize new computed fields with reasonable defaults
 	// state will be populated on next read from API
-	if _, ok := rawState[e2econstants.AttrState]; !ok {
-		rawState[e2econstants.AttrState] = ""
+	if _, ok := rawState[tfconstants.AttrState]; !ok {
+		rawState[tfconstants.AttrState] = ""
 	}
 
 	// mount_endpoint is alias for private_endpoint - copy if private_endpoint exists
@@ -106,8 +106,8 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// Initialize tags if not present
-	if _, ok := rawState[e2econstants.AttrTags]; !ok {
-		rawState[e2econstants.AttrTags] = map[string]interface{}{}
+	if _, ok := rawState[tfconstants.AttrTags]; !ok {
+		rawState[tfconstants.AttrTags] = map[string]interface{}{}
 	}
 
 	// is_backup_enabled will be populated on next read from API
@@ -116,8 +116,8 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// created_at will be populated on next read from API
-	if _, ok := rawState[e2econstants.AttrCreatedAt]; !ok {
-		rawState[e2econstants.AttrCreatedAt] = ""
+	if _, ok := rawState[tfconstants.AttrCreatedAt]; !ok {
+		rawState[tfconstants.AttrCreatedAt] = ""
 	}
 
 	// private_endpoint will be populated on next read from API

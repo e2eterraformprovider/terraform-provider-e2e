@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
-	e2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -16,9 +16,9 @@ func DataSourceFaasFunction() *schema.Resource {
 		ReadContext: dataSourceFaasFunctionRead,
 		Schema: map[string]*schema.Schema{
 			// Common fields - use constants and helpers
-			e2econstants.AttrRegion:    config.RegionSchema(),
-			e2econstants.AttrLocation:  config.LocationSchema(),
-			e2econstants.AttrProjectID: config.ProjectIDSchemaComputed(),
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// FaaS-specific fields
 			"function_id": {
@@ -26,7 +26,7 @@ func DataSourceFaasFunction() *schema.Resource {
 				Required:    true,
 				Description: "id of the FaaS function",
 			},
-			e2econstants.AttrName: {
+			tfconstants.AttrName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "name of the FaaS function",
@@ -72,17 +72,17 @@ func DataSourceFaasFunction() *schema.Resource {
 				Computed:    true,
 				Description: "the endpoint URL of the function",
 			},
-			e2econstants.AttrStatus: {
+			tfconstants.AttrStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "state of the FaaS function instance",
 			},
-			e2econstants.AttrCreatedAt: {
+			tfconstants.AttrCreatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the creation date for the FaaS function",
 			},
-			e2econstants.AttrUpdatedAt: {
+			tfconstants.AttrUpdatedAt: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the last update date for the FaaS function",
@@ -118,9 +118,9 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	d.Set("min_replicas", fn.MinReplicas)
 	d.Set("max_replicas", fn.MaxReplicas)
 	d.Set("endpoint_url", fn.EndpointURL)
-	d.Set(e2econstants.AttrStatus, fn.Status)
+	d.Set(tfconstants.AttrStatus, fn.Status)
 	d.Set("created_at", fn.CreatedAt)
-	d.Set(e2econstants.AttrUpdatedAt, fn.UpdatedAt)
+	d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt)
 
 	if fn.Environment != nil {
 		d.Set("environment", fn.Environment)
