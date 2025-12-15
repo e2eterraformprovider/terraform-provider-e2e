@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -17,6 +18,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+)
+
+// File-local constants for node resource
+const (
+	// Default values
+	defaultNodeLabel     = "default"
+	nodeDiskTypeStandard = "standard"
+
+	// Import format
+	nodeImportFormatError = "invalid ID format: expected projectID/region/resource_id"
+
+	// Error messages
+	errNodeCreate           = "Error creating node (name: %s) in project (%s), region (%s): %s"
+	errNodeCreateNoID       = "Error creating node: did not receive node ID in response"
+	errNodeUpdateRegion     = "Cannot update region: this field is immutable after node creation"
+	errNodeUpdateImage      = "Cannot update image: this field is immutable after node creation"
+	errNodeUpgradePlan      = "Cannot upgrade plan for node (ID: %s): node must be powered off (current state: %s)"
+	errNodeUpdateSSHKeys    = "Error updating SSH keys for node (ID: %s) in project (%s), region (%s): %s"
+	errNodeDelete           = "Error deleting node (ID: %s) in project (%s), region (%s): %s"
+	errNodeReinstall        = "Cannot reinstall node (ID: %s): node must be powered on (current state: %s)"
+	errNodeReinstallAlready = "Cannot reinstall node (ID: %s): node is already being reinstalled"
 )
 
 func ResourceNode() *schema.Resource {
@@ -42,7 +64,7 @@ func ResourceNode() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "the label of the Node",
-				Default:     "default",
+				Default:     defaultNodeLabel,
 			},
 			tfconstants.AttrPlan: {
 				Type:         schema.TypeString,
@@ -231,7 +253,7 @@ func ResourceNode() *schema.Resource {
 							Type:        schema.TypeString,
 							Optional:    true,
 							Computed:    true,
-							Default:     "standard",
+							Default:     nodeDiskTypeStandard,
 							Description: "the type of the root disk",
 						},
 					},
@@ -569,7 +591,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		// New way: using ssh_key_ids (direct resource IDs)
 		// IMPORTANT: API expects actual SSH key content strings, not IDs!
 		originalSSHKeys = sshKeyIDs
-		log.Printf("[INFO] Using ssh_key_ids: %v", sshKeyIDs)
+		// SECURITY: Logging IDs is safe (not sensitive content), but limit verbosity
+		log.Printf("[INFO] Using ssh_key_ids: count=%d", len(sshKeyIDs.([]interface{})))
 
 		// Convert resource IDs to actual SSH key content
 		sshKeyContents, Err := convertIDsToSshKeyContent(m, sshKeyIDs.([]interface{}), projectID, region)
@@ -623,7 +646,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	securityGroups, _, err := goe2eClient.Nodes.GetSecurityGroupList(ctx)
-	log.Printf("[INFO] GET Security groups | RESPONSE BODY | %+v", securityGroups)
+	// SECURITY: Do not log full security group response to avoid exposing sensitive data
+	log.Printf("[INFO] Retrieved %d security groups", len(securityGroups))
 	if err != nil {
 		log.Printf("[ERROR] Error getting Security Group List inside Node Create. Error : %s", err)
 		return diag.Errorf("Error retrieving security groups for projectID (%s) and region (%s): %s. Please verify that projectID and region are correct", projectID, region, err)
@@ -740,12 +764,10 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
-	createdNode, resp, err := goe2eClient.Nodes.CreateNode(ctx, createReq)
+	createdNode, _, err := goe2eClient.Nodes.CreateNode(ctx, createReq)
 	if err != nil {
-		return diag.Errorf("Error creating node (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
+		return diag.Errorf(errNodeCreate, createReq.Name, projectID, region, err)
 	}
-
-	log.Printf("[INFO] NODE CREATE | RESPONSE | %+v", resp)
 
 	// Note: goe2e client doesn't expose is_credit_sufficient in the response struct
 	// The API will return an error if credits are insufficient, so we rely on error handling above
@@ -753,6 +775,8 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	// Get the created node to populate all fields
 	// The CreateNode response might not have all fields, so we fetch it
 	if createdNode != nil && createdNode.ID != "" {
+		// SECURITY: Do not log full response to avoid exposing sensitive data (credentials, tokens, etc.)
+		log.Printf("[INFO] Node created successfully: ID=%s, Name=%s, Status=%s", createdNode.ID, createdNode.Name, createdNode.Status)
 		d.SetId(createdNode.ID)
 		// Fetch full node details
 		fullNode, _, err := goe2eClient.Nodes.GetNode(ctx, createdNode.ID)
@@ -770,7 +794,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	} else {
 		// Fallback: try to extract ID from response if available
 		// This is a workaround if CreateNode doesn't return the ID
-		return diag.Errorf("Error creating node: did not receive node ID in response")
+		return diag.Errorf(errNodeCreateNoID)
 	}
 
 	// Restore original SSH keys to state (either ssh_keys or ssh_key_ids)
@@ -823,7 +847,8 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 		return diags
 	}
 	log.Printf("[info] node Resource read | before setting data")
-	log.Printf("[info] node Resource read | data = %+v", node)
+	// SECURITY: Do not log full node data to avoid exposing sensitive information
+	log.Printf("[info] node Resource read | ID=%s, Name=%s, Status=%s", node.ID, node.Name, node.Status)
 	d.Set("name", node.Name)
 	d.Set(tfconstants.AttrLabel, node.Label)
 	d.Set(tfconstants.AttrPlan, node.Plan)
@@ -993,11 +1018,11 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		if d.Get("reinstall_node").(bool) {
 			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusPoweredOff {
 				d.Set("reinstall_node", false)
-				return diag.Errorf("Cannot reinstall node (ID: %s): node must be powered on (current state: %s)", nodeId, goe2econstants.NodeStatusPoweredOff)
+				return diag.Errorf(errNodeReinstall, nodeId, goe2econstants.NodeStatusPoweredOff)
 			}
 			if d.Get(tfconstants.AttrStatus).(string) == goe2econstants.NodeStatusReinstalling {
 				d.Set("reinstall_node", false)
-				return diag.Errorf("Cannot reinstall node (ID: %s): node is already being reinstalled", nodeId)
+				return diag.Errorf(errNodeReinstallAlready, nodeId)
 			}
 			reinstallReq := &goe2e.NodeReinstallRequest{
 				Image: d.Get(tfconstants.AttrImage).(string),
@@ -1095,7 +1120,9 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	if d.HasChange("ssh_keys") {
 		prevSshKeys, currSshKeys := d.GetChange("ssh_keys")
 
-		log.Printf("[INFO] nodeId = %v changed ssh_keys = %s ", d.Id(), d.Get("ssh_keys"))
+		// SECURITY: Do not log SSH key content to avoid exposure in logs
+		sshKeysList := d.Get("ssh_keys").([]interface{})
+		log.Printf("[INFO] nodeId = %v changed ssh_keys - count: %d", d.Id(), len(sshKeysList))
 		log.Printf("[INFO] type of ssh_keys data = %T", d.Get("ssh_keys"))
 
 		new_SSH_keys, Err := convertLabelToSshKey(m, d.Get("ssh_keys").([]interface{}), projectID, d.Get("region").(string))
@@ -1107,14 +1134,14 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		// Use goe2e client for SSH key updates
 		sshKeys := goe2e.GenerateSSHKeyMap(d.Get("ssh_keys").([]interface{}))
 		sshReq := &goe2e.SSHUpdateRequest{
-			Action:  "add_ssh_keys",
+			Action:  goe2econstants.NodeActionAddSSHKeys,
 			SSHKeys: sshKeys,
 		}
 		_, err = goe2eClient.Nodes.UpdateSSH(ctx, nodeId, sshReq)
 		d.Set("ssh_keys", currSshKeys)
 		if err != nil {
 			d.Set("ssh_keys", prevSshKeys)
-			return diag.Errorf("Error updating SSH keys for node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
+			return diag.Errorf(errNodeUpdateSSHKeys, nodeId, projectID, region, err)
 		}
 
 	}
@@ -1122,13 +1149,13 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 		prevLocation, currLocation := d.GetChange("region")
 		log.Printf("[INFO] prevLocation %s, currLocation %s", prevLocation.(string), currLocation.(string))
 		d.Set("region", prevLocation)
-		return diag.Errorf("Cannot update region: this field is immutable after node creation")
+		return diag.Errorf(errNodeUpdateRegion)
 	}
 	if d.HasChange(tfconstants.AttrImage) {
 		prevImage, currImage := d.GetChange(tfconstants.AttrImage)
 		log.Printf("[INFO] prevImage %s, currImage %s", prevImage.(string), currImage.(string))
 		d.Set(tfconstants.AttrImage, prevImage.(string))
-		return diag.Errorf("Cannot update image: this field is immutable after node creation")
+		return diag.Errorf(errNodeUpdateImage)
 	}
 	if d.HasChange(tfconstants.AttrPlan) {
 		prevPlan, currPlan := d.GetChange(tfconstants.AttrPlan)
@@ -1141,7 +1168,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 		if d.Get(tfconstants.AttrStatus).(string) != goe2econstants.NodeStatusPoweredOff {
 			d.Set(tfconstants.AttrPlan, prevPlan)
-			return diag.Errorf("Cannot upgrade plan for node (ID: %s): node must be powered off (current state: %s)", nodeId, d.Get(tfconstants.AttrStatus).(string))
+			return diag.Errorf(errNodeUpgradePlan, nodeId, d.Get(tfconstants.AttrStatus).(string))
 		}
 		upgradeReq := &goe2e.NodePlanUpgradeRequest{
 			Plan:  d.Get(tfconstants.AttrPlan).(string),
@@ -1313,7 +1340,7 @@ func resourceDeleteNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	_, err = goe2eClient.Nodes.DeleteNode(ctx, nodeId)
 	if err != nil {
-		return diag.Errorf("Error deleting node (ID: %s) in project (%s), region (%s): %s", nodeId, projectID, region, err)
+		return diag.Errorf(errNodeDelete, nodeId, projectID, region, err)
 	}
 	d.SetId("")
 	return diags
@@ -1356,7 +1383,7 @@ func resourceExistsNode(d *schema.ResourceData, m interface{}) (bool, error) {
 func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.Split(d.Id(), "/")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid ID format: expected projectID/region/resource_id")
+		return nil, errors.New(nodeImportFormatError)
 	}
 
 	projectID := parts[0]

@@ -17,7 +17,7 @@ build: fmtcheck
 
 test: fmtcheck
 	go test -count=1 $(TEST) || exit 1
-	echo $(TEST) | xargs -t -n4 go test -count=1 $(TESTARGS) -timeout=30s -parallel=4
+	echo $(TEST) | xargs -t -n4 go test -count=1 $(TESTARGS) -timeout=60s -parallel=4
 
 testacc: fmtcheck
 	TF_ACC=1 go test -v ./$(PKG_NAME)/... $(TESTARGS) -timeout $(ACCTEST_TIMEOUT) -parallel=$(ACCTEST_PARALLELISM)

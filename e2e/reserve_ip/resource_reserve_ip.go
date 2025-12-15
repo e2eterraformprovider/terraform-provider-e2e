@@ -9,6 +9,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -187,7 +188,7 @@ func resourceReserveIPImport(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	if !found {
-		return nil, fmt.Errorf("reserved IP with IP address %s not found", ipAddress)
+		return nil, fmt.Errorf("%s with IP address %s not found", ResourceName, ipAddress)
 	}
 
 	// Use IP address as ID (DigitalOcean pattern)
@@ -217,14 +218,14 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 
 	rip, _, err := goe2eClient.ReserveIP.CreateReserveIP(ctx)
 	if err != nil {
-		return diag.Errorf("Error creating reserved IP in project (%s), region (%s): %s", projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationCreating, ResourceName, "", projectID, region, err)
 	}
 
 	log.Printf("[INFO] ReserveIP CREATE | RESPONSE BODY | %+v", rip)
 
 	// Validate response
 	if rip == nil || rip.IPAddress == "" {
-		return diag.Errorf("Error creating reserved IP: IP address not found in response")
+		return diag.Errorf(tfconstants.ResourceCreateInvalidResponseTemplate, ResourceName, "", projectID, region, "ip_address")
 	}
 
 	// Use IP address as ID (DigitalOcean pattern)
@@ -247,7 +248,7 @@ func resourceCreateReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 	d.Set(tfconstants.AttrProjectName, rip.ProjectName)
 
 	// Set floating_ip_attached_nodes if type is FloatingIP
-	if rip.ReservedType == "FloatingIP" && len(rip.FloatingIPAttachedNodes) > 0 {
+	if rip.ReservedType == goe2econstants.ReserveIPTypeFloatingIP && len(rip.FloatingIPAttachedNodes) > 0 {
 		d.Set(tfconstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(rip.FloatingIPAttachedNodes))
 	}
 
@@ -276,7 +277,7 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 
 	rips, _, err := goe2eClient.ReserveIP.ListReserveIPs(ctx)
 	if err != nil {
-		return diag.Errorf("Error retrieving reserved IP list in project (%s), region (%s): %s", projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationRetrieving, ResourceName+" list", "", projectID, region, err)
 	}
 
 	log.Printf("[INFO] ReserveIP READ | RESPONSE | %+v", rips)
@@ -316,7 +317,7 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 	d.Set(tfconstants.AttrProjectName, data.ProjectName)
 
 	// Set floating_ip_attached_nodes if type is FloatingIP
-	if data.ReservedType == "FloatingIP" && len(data.FloatingIPAttachedNodes) > 0 {
+	if data.ReservedType == goe2econstants.ReserveIPTypeFloatingIP && len(data.FloatingIPAttachedNodes) > 0 {
 		d.Set(tfconstants.AttrFloatingIPNodes, flattenFloatingIPAttachedNodes(data.FloatingIPAttachedNodes))
 	} else {
 		d.Set(tfconstants.AttrFloatingIPNodes, []map[string]interface{}{})
@@ -347,7 +348,7 @@ func resourceDeleteReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 	// Use goe2e client for deletion
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// Check if IP is attached and log warning
@@ -355,8 +356,8 @@ func resourceDeleteReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 	if err == nil {
 		for _, rip := range rips {
 			if rip.IPAddress == ipAddress {
-				if rip.Status == "Attached" || len(rip.FloatingIPAttachedNodes) > 0 {
-					log.Printf("[WARN] Reserved IP (%s) is currently attached. The API will handle detachment automatically.", ipAddress)
+				if rip.Status == goe2econstants.ReserveIPStatusAttached || len(rip.FloatingIPAttachedNodes) > 0 {
+					log.Printf("[WARN] "+WarnReserveIPAttached, ipAddress)
 				}
 				break
 			}
@@ -365,7 +366,7 @@ func resourceDeleteReserveIP(ctx context.Context, d *schema.ResourceData, m inte
 
 	_, err = goe2eClient.ReserveIP.DeleteReserveIP(ctx, ipAddress)
 	if err != nil {
-		return diag.Errorf("Error deleting reserved IP (address: %s) in project (%s), region (%s): %s", ipAddress, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationDeleting, ResourceName, ipAddress, projectID, region, err)
 	}
 
 	d.SetId("")

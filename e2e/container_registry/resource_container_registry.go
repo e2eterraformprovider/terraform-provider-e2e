@@ -9,6 +9,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -16,6 +17,14 @@ import (
 
 func ResourceContainerRegistry() *schema.Resource {
 	return &schema.Resource{
+		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceContainerRegistryV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: ResourceContainerRegistryStateUpgradeV0toV1,
+				Version: 0,
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			// ============================================
 			// COMMON FIELDS
@@ -46,9 +55,15 @@ func ResourceContainerRegistry() *schema.Resource {
 			tfconstants.AttrSeverity: {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "low",
+				Default:  tfconstants.ContainerRegistryDefaultSeverity,
 				ValidateFunc: validation.StringInSlice(
-					[]string{"low", "medium", "high", "critical", "none"},
+					[]string{
+						goe2econstants.ContainerRegistrySeverityLow,
+						goe2econstants.ContainerRegistrySeverityMedium,
+						goe2econstants.ContainerRegistrySeverityHigh,
+						goe2econstants.ContainerRegistrySeverityCritical,
+						goe2econstants.ContainerRegistrySeverityNone,
+					},
 					false,
 				),
 				Description: "vulnerability severity threshold (low, medium, high, critical, none)",
@@ -62,22 +77,22 @@ func ResourceContainerRegistry() *schema.Resource {
 				Computed:    true,
 				Description: "state of the Container Registry instance",
 			},
-			"setup_status": {
+			tfconstants.AttrSetupStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Deprecated:  "Use 'status' instead. This parameter will be removed in version 3.0.0",
-				Description: "DEPRECATED: Use 'status' instead",
+				Deprecated:  DeprecationMessageSetupStatus,
+				Description: DeprecationMessageSetupStatusAlternative,
 			},
 
 			// ============================================
 			// COMPUTED FIELDS - CONFIGURATION
 			// ============================================
-			"domain_name": {
+			tfconstants.AttrDomainName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the domain name of the Container Registry",
 			},
-			"is_public": {
+			tfconstants.AttrIsPublic: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether the Container Registry project is public",
@@ -86,12 +101,12 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - STORAGE
 			// ============================================
-			"project_size": {
+			tfconstants.AttrProjectSize: {
 				Type:        schema.TypeFloat,
 				Computed:    true,
 				Description: "the size of the Container Registry project in bytes",
 			},
-			"storage_limit": {
+			tfconstants.AttrStorageLimit: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the storage limit of the Container Registry in bytes",
@@ -114,7 +129,7 @@ func ResourceContainerRegistry() *schema.Resource {
 			// ============================================
 			// OPTIONAL FIELDS - TAGS
 			// ============================================
-			"tags": {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -147,11 +162,11 @@ func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 	registry, _, err := apiClient.ContainerRegistry.CreateContainerRegistry(ctx, createReq)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create Container Registry: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorCreateRegistry, err))
 	}
 
 	if registry == nil {
-		return diag.FromErr(fmt.Errorf("container registry created but response was empty"))
+		return diag.Errorf(ErrorCreateResponseEmpty)
 	}
 
 	d.SetId(fmt.Sprintf("%d", registry.ID))
@@ -162,9 +177,9 @@ func resourceCreateContainerRegistry(ctx context.Context, d *schema.ResourceData
 	}
 
 	// Initialize tags if provided (state-only, not sent to API)
-	if tags, ok := d.GetOk("tags"); ok {
-		if err := d.Set("tags", tags); err != nil {
-			return diag.FromErr(fmt.Errorf("failed to set tags: %w", err))
+	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
+			return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrTags, err))
 		}
 	}
 
@@ -180,16 +195,16 @@ func resourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData, 
 	// Parse ID to int for the API call
 	registryID, err := strconv.Atoi(id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorInvalidID, err))
 	}
 
 	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to read container registry (ID: %s): %w", id, err))
+		return diag.FromErr(fmt.Errorf(ErrorReadRegistry, id, err))
 	}
 
 	if registry == nil {
-		log.Printf("[INFO] Container Registry project with ID %s not found; removing from state", id)
+		log.Printf(LogRegistryNotFound, id)
 		d.SetId("")
 		return nil
 	}
@@ -212,16 +227,16 @@ func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData
 	// Get the registry details to extract customer ID
 	registryID, err := strconv.Atoi(crProjectID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorInvalidID, err))
 	}
 
 	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
 	if err != nil {
-		log.Printf("[WARN] Failed to fetch container registry details for deletion, using default customer ID: %v", err)
+		log.Printf(LogDeleteWarning, err)
 	}
 
 	// Get customer ID from registry or use default
-	userID := "0"
+	userID := tfconstants.ContainerRegistryDefaultCustomerID
 	if registry != nil {
 		userID = strconv.Itoa(registry.Customer)
 	}
@@ -234,7 +249,7 @@ func resourceDeleteContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 	_, err = apiClient.ContainerRegistry.DeleteContainerRegistry(ctx, deleteReq)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to delete Container Registry: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorDeleteRegistry, err))
 	}
 
 	d.SetId("")
@@ -258,16 +273,16 @@ func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 		_, err := apiClient.ContainerRegistry.UpdateContainerRegistry(ctx, projectName, updateReq)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to update container registry: %w", err))
+			return diag.FromErr(fmt.Errorf(ErrorUpdateRegistry, err))
 		}
 	}
 
 	// Tags are state-only, no API call needed
 	// Just ensure they're set in state if changed
-	if d.HasChange("tags") {
-		if tags, ok := d.GetOk("tags"); ok {
-			if err := d.Set("tags", tags); err != nil {
-				return diag.FromErr(fmt.Errorf("failed to set tags: %w", err))
+	if d.HasChange(tfconstants.AttrTags) {
+		if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
+			if err := d.Set(tfconstants.AttrTags, tags); err != nil {
+				return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrTags, err))
 			}
 		}
 	}
@@ -279,37 +294,110 @@ func resourceUpdateContainerRegistry(ctx context.Context, d *schema.ResourceData
 // setContainerRegistryState sets all fields from the API response into the Terraform state
 func setContainerRegistryState(d *schema.ResourceData, registry *goe2e.ContainerRegistry) error {
 	if err := d.Set(tfconstants.AttrProjectName, registry.ProjectName); err != nil {
-		return fmt.Errorf("failed to set project_name: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrProjectName, err)
 	}
 	if err := d.Set(tfconstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
-		return fmt.Errorf("failed to set prevent_vul: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrPreventVulnerabilities, err)
 	}
 	if err := d.Set(tfconstants.AttrSeverity, registry.Severity); err != nil {
-		return fmt.Errorf("failed to set severity: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrSeverity, err)
 	}
 	if err := d.Set(tfconstants.AttrStatus, registry.State); err != nil {
-		return fmt.Errorf("failed to set status: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrStatus, err)
 	}
-	if err := d.Set("setup_status", registry.State); err != nil {
-		return fmt.Errorf("failed to set setup_status: %w", err)
+	if err := d.Set(tfconstants.AttrSetupStatus, registry.State); err != nil {
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrSetupStatus, err)
 	}
-	if err := d.Set("domain_name", registry.DomainName); err != nil {
-		return fmt.Errorf("failed to set domain_name: %w", err)
+	if err := d.Set(tfconstants.AttrDomainName, registry.DomainName); err != nil {
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrDomainName, err)
 	}
-	if err := d.Set("project_size", registry.ProjectSize); err != nil {
-		return fmt.Errorf("failed to set project_size: %w", err)
+	if err := d.Set(tfconstants.AttrProjectSize, registry.ProjectSize); err != nil {
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrProjectSize, err)
 	}
-	if err := d.Set("storage_limit", registry.StorageLimit); err != nil {
-		return fmt.Errorf("failed to set storage_limit: %w", err)
+	if err := d.Set(tfconstants.AttrStorageLimit, registry.StorageLimit); err != nil {
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrStorageLimit, err)
 	}
-	if err := d.Set("is_public", registry.IsPublic); err != nil {
-		return fmt.Errorf("failed to set is_public: %w", err)
+	if err := d.Set(tfconstants.AttrIsPublic, registry.IsPublic); err != nil {
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrIsPublic, err)
 	}
 	if err := d.Set(tfconstants.AttrCreatedAt, registry.CreatedAt); err != nil {
-		return fmt.Errorf("failed to set created_at: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrCreatedAt, err)
 	}
 	if err := d.Set(tfconstants.AttrUpdatedAt, registry.UpdatedAt); err != nil {
-		return fmt.Errorf("failed to set updated_at: %w", err)
+		return fmt.Errorf(ErrorSetField, tfconstants.AttrUpdatedAt, err)
 	}
 	return nil
+}
+
+// resourceContainerRegistryV0 returns the V0 schema (before tags field was added)
+func resourceContainerRegistryV0() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			tfconstants.AttrRegion:    config.RegionSchema(),
+			tfconstants.AttrLocation:  config.LocationSchema(),
+			tfconstants.AttrProjectID: config.ProjectIDSchemaResource(),
+			tfconstants.AttrProjectName: {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			tfconstants.AttrPreventVulnerabilities: {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			tfconstants.AttrSeverity: {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  tfconstants.ContainerRegistryDefaultSeverity,
+			},
+			tfconstants.AttrStatus: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			tfconstants.AttrSetupStatus: {
+				Type:       schema.TypeString,
+				Computed:   true,
+				Deprecated: DeprecationMessageSetupStatus,
+			},
+			tfconstants.AttrDomainName: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			tfconstants.AttrIsPublic: {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			tfconstants.AttrProjectSize: {
+				Type:     schema.TypeFloat,
+				Computed: true,
+			},
+			tfconstants.AttrStorageLimit: {
+				Type:     schema.TypeInt,
+				Computed: true,
+			},
+			tfconstants.AttrCreatedAt: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			tfconstants.AttrUpdatedAt: {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			// Note: tags field did NOT exist in V0
+		},
+	}
+}
+
+// ResourceContainerRegistryStateUpgradeV0toV1 upgrades the state from V0 to V1
+// The main change is adding the tags field as an empty map if it doesn't exist
+func ResourceContainerRegistryStateUpgradeV0toV1(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+	// If tags field already exists (shouldn't happen in V0, but be safe), preserve it
+	if _, ok := rawState[tfconstants.AttrTags]; !ok {
+		// Add empty tags map
+		rawState[tfconstants.AttrTags] = make(map[string]interface{})
+	}
+
+	// All other fields are preserved as-is
+	return rawState, nil
 }

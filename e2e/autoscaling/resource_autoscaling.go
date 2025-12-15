@@ -2,7 +2,7 @@ package autoscaling
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -12,10 +12,144 @@ import (
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+
+const (
+	// Autoscaling schema keys (provider-side, not API contract).
+	// Keep these file-local to avoid polluting `e2e/constants/attrs.go` with autoscaling-only nested keys.
+	attrScheduledAction     = "scheduled_action"
+	attrScheduledActionType = "action_type"
+	attrScheduledAdjustment = "adjustment"
+	attrScheduledTargetCap  = "target_capacity"
+)
+
+func addAutoscalingV2DeprecationWarnings(diff *schema.ResourceDiff) {
+	// Collect all deprecated V2 fields/blocks used in the config and emit a single, actionable warning.
+	// We intentionally emit one warning to reduce noise and make migration steps obvious.
+
+	type mapping struct {
+		old string
+		new string
+	}
+
+	var used []mapping
+	addIfUsed := func(oldKey, newKey string) {
+		if v, ok := diff.GetOk(oldKey); ok {
+			// Consider empty string / empty list as "not used".
+			switch vv := v.(type) {
+			case string:
+				if vv == "" {
+					return
+				}
+			case []interface{}:
+				if len(vv) == 0 {
+					return
+				}
+			}
+			used = append(used, mapping{old: oldKey, new: newKey})
+		}
+	}
+
+	addIfUsed("vm_image_name", "image")
+	addIfUsed(tfconstants.AttrMinNodes, "min_size")
+	addIfUsed(tfconstants.AttrMaxNodes, "max_size")
+	addIfUsed(tfconstants.AttrDesired, "desired_capacity")
+	addIfUsed("provision_status", "status")
+	addIfUsed(tfconstants.AttrIsEncryptionEnabled, "enable_encryption")
+	addIfUsed(tfconstants.AttrPublicIPRequired, "assign_public_ip")
+	addIfUsed("vpc", "vpc_config (or network_config.vpc_names)")
+	addIfUsed("policy", "scaling_policy")
+	addIfUsed("scheduled_policy", attrScheduledAction)
+
+	if len(used) == 0 {
+		return
+	}
+
+	var b strings.Builder
+	b.WriteString(WarnDeprecatedV2FieldsHeader)
+	b.WriteString("\n\nFields to migrate:\n")
+	for _, m := range used {
+		b.WriteString(fmt.Sprintf("- %s -> %s\n", m.old, m.new))
+	}
+	b.WriteString("\n")
+	b.WriteString(WarnDeprecatedV2FieldsFooter)
+
+	// terraform-plugin-sdk in this repo does not expose ResourceDiff.AddWarning.
+	// We still emit a deprecation warning at plan time via logs to keep the signal
+	// close to configuration evaluation (CustomizeDiff).
+	log.Printf("[WARN] %s", b.String())
+}
+
+func autoscalingV2DeprecationWarningDiagnostic(d *schema.ResourceData) *diag.Diagnostic {
+	// Apply-time warning for deprecated V2 field usage.
+	// Rationale: SDKv2 does not provide plan warnings from CustomizeDiff, but diag warnings are
+	// user-visible during apply (and often during refresh-driven plans).
+
+	type mapping struct {
+		old string
+		new string
+	}
+
+	var used []mapping
+	addIfUsed := func(oldKey, newKey string) {
+		if v, ok := d.GetOk(oldKey); ok {
+			switch vv := v.(type) {
+			case string:
+				if vv == "" {
+					return
+				}
+			case []interface{}:
+				if len(vv) == 0 {
+					return
+				}
+			}
+			used = append(used, mapping{old: oldKey, new: newKey})
+		}
+	}
+
+	addIfUsed("vm_image_name", "image")
+	addIfUsed(tfconstants.AttrMinNodes, "min_size")
+	addIfUsed(tfconstants.AttrMaxNodes, "max_size")
+	addIfUsed(tfconstants.AttrDesired, "desired_capacity")
+	addIfUsed("provision_status", "status")
+	addIfUsed(tfconstants.AttrIsEncryptionEnabled, "enable_encryption")
+	addIfUsed(tfconstants.AttrPublicIPRequired, "assign_public_ip")
+	addIfUsed("vpc", "vpc_config (or network_config.vpc_names)")
+	addIfUsed("policy", "scaling_policy")
+	addIfUsed("scheduled_policy", attrScheduledAction)
+
+	if len(used) == 0 {
+		return nil
+	}
+
+	var b strings.Builder
+	b.WriteString(WarnDeprecatedV2FieldsHeader)
+	b.WriteString("\n\nFields to migrate:\n")
+	for _, m := range used {
+		b.WriteString(fmt.Sprintf("- %s -> %s\n", m.old, m.new))
+	}
+	b.WriteString("\n")
+	b.WriteString(WarnDeprecatedV2FieldsFooter)
+
+	return &diag.Diagnostic{
+		Severity: diag.Warning,
+		Summary:  "Deprecated V2 autoscaling fields",
+		Detail:   b.String(),
+	}
+}
+
+func autoscalingScalerGroupStatusIn(status string, allowed []string) bool {
+	for _, v := range allowed {
+		if status == v {
+			return true
+		}
+	}
+	return false
+}
 
 func ResourceScalerGroup() *schema.Resource {
 	return &schema.Resource{
@@ -208,6 +342,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Optional:    true,
 				Default:     "",
 				ForceNew:    true,
+				Sensitive:   true,
 				Description: "passphrase for encryption (if enabled)",
 			},
 			tfconstants.AttrPublicIPRequired: {
@@ -232,7 +367,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Computed:      true,
 				Deprecated:    "Use 'status' field instead. This field will be removed in v4.0.",
 				ConflictsWith: []string{"status"},
-				ValidateFunc:  validation.StringInSlice([]string{"Running", "Stopped"}, false),
+				ValidateFunc:  validation.StringInSlice(tfconstants.AutoscalingScalerGroupProvisionStatusAllowed, false),
 				Description:   "the provision status of the Scaler Group (deprecated, use 'status' instead). Set to 'Stopped' to stop, or 'Running' to start.",
 			},
 			"status": {
@@ -240,7 +375,7 @@ func ResourceScalerGroup() *schema.Resource {
 				Optional:      true,
 				Computed:      true,
 				ConflictsWith: []string{"provision_status"},
-				ValidateFunc:  validation.StringInSlice([]string{"running", "stopped"}, false),
+				ValidateFunc:  validation.StringInSlice(tfconstants.AutoscalingScalerGroupStatusAllowed, false),
 				Description:   "the status of the Scaler Group (V3 field name, preferred over 'provision_status'). Set to 'stopped' to stop, or 'running' to start.",
 			},
 
@@ -550,18 +685,22 @@ func ResourceScalerGroup() *schema.Resource {
 							Required:    true,
 							Description: "name of the scheduled action",
 						},
-						"action_type": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.StringInSlice([]string{"scale_up", "scale_down", "set_capacity"}, false),
-							Description:  "type of action: 'scale_up', 'scale_down', or 'set_capacity'",
+						attrScheduledActionType: {
+							Type:     schema.TypeString,
+							Required: true,
+							ValidateFunc: validation.StringInSlice([]string{
+								goe2econstants.AutoscalingScheduledActionTypeScaleUp,
+								goe2econstants.AutoscalingScheduledActionTypeScaleDown,
+								goe2econstants.AutoscalingScheduledActionTypeSetCapacity,
+							}, false),
+							Description: "type of action: 'scale_up', 'scale_down', or 'set_capacity'",
 						},
-						"adjustment": {
+						attrScheduledAdjustment: {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "number of nodes to adjust by (required for 'scale_up' and 'scale_down')",
 						},
-						"target_capacity": {
+						attrScheduledTargetCap: {
 							Type:        schema.TypeInt,
 							Optional:    true,
 							Description: "target node count (required for 'set_capacity')",
@@ -580,30 +719,32 @@ func ResourceScalerGroup() *schema.Resource {
 		DeleteContext: resourceDeleteScalerGroup,
 		UpdateContext: resourceUpdateScalerGroup,
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, v interface{}) error {
+			addAutoscalingV2DeprecationWarnings(diff)
+
 			// Validate that at least one of image field pair is set
 			hasVMImageName := diff.Get("vm_image_name") != nil && diff.Get("vm_image_name").(string) != ""
 			hasImage := diff.Get("image") != nil && diff.Get("image").(string) != ""
 			if !hasVMImageName && !hasImage {
-				return fmt.Errorf("either 'vm_image_name' or 'image' must be specified")
+				return errors.New(ErrEitherVMImageOrImageRequired)
 			}
 
 			// Validate that at least one of each V2/V3 field pair is set
 			hasMinNodes := diff.Get(tfconstants.AttrMinNodes) != nil && diff.Get(tfconstants.AttrMinNodes).(int) > 0
 			hasMinSize := diff.Get("min_size") != nil && diff.Get("min_size").(int) > 0
 			if !hasMinNodes && !hasMinSize {
-				return fmt.Errorf("either 'min_nodes' or 'min_size' must be specified")
+				return errors.New(ErrEitherMinNodesOrMinSizeRequired)
 			}
 
 			hasMaxNodes := diff.Get(tfconstants.AttrMaxNodes) != nil && diff.Get(tfconstants.AttrMaxNodes).(int) > 0
 			hasMaxSize := diff.Get("max_size") != nil && diff.Get("max_size").(int) > 0
 			if !hasMaxNodes && !hasMaxSize {
-				return fmt.Errorf("either 'max_nodes' or 'max_size' must be specified")
+				return errors.New(ErrEitherMaxNodesOrMaxSizeRequired)
 			}
 
 			hasDesired := diff.Get(tfconstants.AttrDesired) != nil && diff.Get(tfconstants.AttrDesired).(int) > 0
 			hasDesiredCapacity := diff.Get("desired_capacity") != nil && diff.Get("desired_capacity").(int) > 0
 			if !hasDesired && !hasDesiredCapacity {
-				return fmt.Errorf("either 'desired' or 'desired_capacity' must be specified")
+				return errors.New(ErrEitherDesiredOrDesiredCapacityRequired)
 			}
 
 			// Get min size (handle both V2 and V3 fields)
@@ -642,30 +783,30 @@ func ResourceScalerGroup() *schema.Resource {
 			// Validate state requirements for security group updates
 			if diff.HasChange(tfconstants.AttrSecurityGroupIDs) {
 				status := getStatusFromDiff(diff)
-				if status != "" && status != "Running" && status != "running" {
-					return fmt.Errorf("security group updates require scaler group to be in 'Running' state, current: %s", status)
+				if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupRunningStates) {
+					return fmt.Errorf(ErrSecurityGroupUpdatesRequireRunningFmt, status)
 				}
 			}
 
 			// Validate state requirements for VPC updates
 			if diff.HasChange("vpc") || diff.HasChange("vpc_config") {
 				status := getStatusFromDiff(diff)
-				if status != "" && status != "Stopped" && status != "stopped" {
-					return fmt.Errorf("VPC updates require scaler group to be in 'Stopped' state, current: %s", status)
+				if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupStoppedStates) {
+					return fmt.Errorf(ErrVPCUpdatesRequireStoppedFmt, status)
 				}
 			}
 
 			// Validate state + VPC requirements for public IP updates
 			if diff.HasChange("assign_public_ip") || diff.HasChange(tfconstants.AttrPublicIPRequired) {
 				status := getStatusFromDiff(diff)
-				if status != "" && status != "Stopped" && status != "stopped" {
-					return fmt.Errorf("public IP updates require scaler group to be in 'Stopped' state, current: %s", status)
+				if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupStoppedStates) {
+					return fmt.Errorf(ErrPublicIPUpdatesRequireStoppedFmt, status)
 				}
 
 				// Check if VPC is attached
 				vpcs := getVPCsFromDiff(diff)
 				if len(vpcs) == 0 {
-					return fmt.Errorf("public IP updates require at least one VPC to be attached")
+					return errors.New(ErrPublicIPUpdatesRequireVPC)
 				}
 			}
 
@@ -713,7 +854,7 @@ func ResourceScalerGroup() *schema.Resource {
 					// Check public IP change
 					if oldConfig == nil || newConfig == nil || oldConfig.AssignPublicIP != newConfig.AssignPublicIP {
 						status := getStatusFromDiff(diff)
-						if status != "" && status != "Stopped" && status != "stopped" {
+						if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupStoppedStates) {
 							return fmt.Errorf("network_config.assign_public_ip updates require scaler group to be in 'Stopped' state, current: %s", status)
 						}
 						vpcs := getVPCsFromDiff(diff)
@@ -725,7 +866,7 @@ func ResourceScalerGroup() *schema.Resource {
 					// Check VPC change
 					if oldConfig == nil || newConfig == nil || !stringSlicesEqual(oldConfig.VPCNames, newConfig.VPCNames) {
 						status := getStatusFromDiff(diff)
-						if status != "" && status != "Stopped" && status != "stopped" {
+						if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupStoppedStates) {
 							return fmt.Errorf("network_config.vpc_names updates require scaler group to be in 'Stopped' state, current: %s", status)
 						}
 					}
@@ -733,8 +874,30 @@ func ResourceScalerGroup() *schema.Resource {
 					// Check security group change
 					if oldConfig == nil || newConfig == nil || !intSlicesEqual(oldConfig.SecurityGroups, newConfig.SecurityGroups) {
 						status := getStatusFromDiff(diff)
-						if status != "" && status != "Running" && status != "running" {
+						if status != "" && !autoscalingScalerGroupStatusIn(status, tfconstants.AutoscalingScalerGroupRunningStates) {
 							return fmt.Errorf("network_config.security_groups updates require scaler group to be in 'Running' state, current: %s", status)
+						}
+					}
+				}
+			}
+
+			// Validate scheduled_action conditional requirements.
+			// Schema can't express "required if" based on action_type, so enforce here for determinism.
+			if v, ok := diff.GetOk(attrScheduledAction); ok {
+				for i, raw := range v.([]interface{}) {
+					action, ok := raw.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					actionType, _ := action[attrScheduledActionType].(string)
+					switch actionType {
+					case goe2econstants.AutoscalingScheduledActionTypeSetCapacity:
+						if tc, ok := action[attrScheduledTargetCap].(int); !ok || tc <= 0 {
+							return fmt.Errorf(ErrScheduledActionTargetCapacityRequiredFmt, attrScheduledAction, i, attrScheduledTargetCap, attrScheduledActionType, goe2econstants.AutoscalingScheduledActionTypeSetCapacity)
+						}
+					case goe2econstants.AutoscalingScheduledActionTypeScaleUp, goe2econstants.AutoscalingScheduledActionTypeScaleDown:
+						if adj, ok := action[attrScheduledAdjustment].(int); !ok || adj == 0 {
+							return fmt.Errorf(ErrScheduledActionAdjustmentRequiredFmt, attrScheduledAction, i, attrScheduledAdjustment, attrScheduledActionType, actionType)
 						}
 					}
 				}
@@ -753,40 +916,44 @@ func resourceCreateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	log.Println("[INFO] Starting CreateScalerGroup operation")
 
 	cfg := m.(*config.Config)
+	var diags diag.Diagnostics
+	if warn := autoscalingV2DeprecationWarningDiagnostic(d); warn != nil {
+		diags = append(diags, *warn)
+	}
 
 	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	projectID, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	// Create GoE2E client for this project/region
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))...)
 	}
 
 	// Get image name (handle V2/V3 fields)
-	imageName, err := getImageName(d)
+	imageName, err := GetImageName(d)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	// Get saved image details using GoE2E client
 	savedImage, err := getSavedImageByName(ctx, goe2eClient, imageName)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to fetch saved image details for '%s': %w", imageName, err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to fetch saved image details for '%s': %w", imageName, err))...)
 	}
 
 	if err := d.Set("vm_image_id", savedImage.ImageID); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set vm_image_id: %v", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to set vm_image_id: %v", err))...)
 	}
 	if err := d.Set("vm_template_id", savedImage.TemplateID); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set vm_template_id: %v", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to set vm_template_id: %v", err))...)
 	}
 
 	log.Printf("[DEBUG] Image Details → ID: %s, TemplateID: %d, Distro: %s", savedImage.ImageID, savedImage.TemplateID, savedImage.Distro)
@@ -811,38 +978,38 @@ func resourceCreateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 		// Use default
 		sgID, err = getDefaultSecurityGroupID(ctx, goe2eClient)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to fetch default security group ID: %w", err))
+			return append(diags, diag.FromErr(fmt.Errorf("failed to fetch default security group ID: %w", err))...)
 		}
 		securityGroupIDs = []int{sgID}
 		log.Printf("[INFO] Using default Security Group ID from API: %d", sgID)
 		if err := d.Set("my_account_sg_id", sgID); err != nil {
-			return diag.FromErr(fmt.Errorf("failed to set my_account_sg_id: %v", err))
+			return append(diags, diag.FromErr(fmt.Errorf("failed to set my_account_sg_id: %v", err))...)
 		}
 	}
 
 	if err := d.Set(tfconstants.AttrSecurityGroupIDs, securityGroupIDs); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set security_group_ids: %v", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to set security_group_ids: %v", err))...)
 	}
 
 	// Expand create request (handles V2/V3 fields and network_config)
 	req, err := expandCreateScalerGroupRequestV3(ctx, d, cfg, goe2eClient, projectID, region, sgID, savedImage, networkConfig)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	requestJSON, _ := json.MarshalIndent(req, "", "  ")
+	requestJSON := MarshalScalerGroupCreateRequestForLog(req)
 	log.Printf("[DEBUG] CreateScalerGroup Request JSON:\n%s", requestJSON)
 
 	// Create scaler group using GoE2E client
 	scalerGroup, _, err := goe2eClient.Autoscaling.CreateScalerGroup(ctx, req)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create scaler group: %w", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to create scaler group: %w", err))...)
 	}
 
 	log.Printf("[INFO] ScalerGroup created with ID: %s", scalerGroup.ID)
 	d.SetId(scalerGroup.ID)
 
-	return resourceReadScalerGroup(ctx, d, m)
+	return append(diags, resourceReadScalerGroup(ctx, d, m)...)
 }
 
 func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -1044,7 +1211,7 @@ func resourceReadScalerGroup(ctx context.Context, d *schema.ResourceData, m inte
 	if err := d.Set("scheduled_policy", v2Scheduled); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set scheduled_policy: %v", err))
 	}
-	if err := d.Set("scheduled_action", v3Scheduled); err != nil {
+	if err := d.Set(attrScheduledAction, v3Scheduled); err != nil {
 		return diag.FromErr(fmt.Errorf("failed to set scheduled_action: %v", err))
 	}
 
@@ -1098,7 +1265,7 @@ func resourceDeleteScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 // Handles both V2 and V3 field names, and new structured blocks including network_config
 func expandCreateScalerGroupRequestV3(ctx context.Context, d *schema.ResourceData, cfg *config.Config, client *goe2e.Client, projectID, region string, sgID int, savedImage *goe2e.SavedImage, networkConfig *NetworkConfig) (*goe2e.ScalerGroupCreateRequest, error) {
 	planName := d.Get(tfconstants.AttrPlan).(string)
-	imageName, _ := getImageName(d)
+	imageName, _ := GetImageName(d)
 
 	// Get plan details (temporary: using old client for this until GoE2E has equivalent)
 	planID, slugName, err := getPlanDetailsFromPlanName(ctx, client, savedImage.TemplateID, planName)
@@ -1183,21 +1350,25 @@ func expandCreateScalerGroupRequestV3(ctx context.Context, d *schema.ResourceDat
 
 func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
+	var diags diag.Diagnostics
+	if warn := autoscalingV2DeprecationWarningDiagnostic(d); warn != nil {
+		diags = append(diags, *warn)
+	}
 
 	region, err := cfg.GetRegionOrDefault(d)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	projectID, err := cfg.GetProjectIDOrDefault(d)
 	if err != nil {
-		return diag.FromErr(err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	// Create GoE2E client for this project/region
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))
+		return append(diags, diag.FromErr(fmt.Errorf("failed to create GoE2E client: %w", err))...)
 	}
 
 	id := d.Id()
@@ -1208,10 +1379,10 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 		if d.HasChange("status") {
 			newStatus = d.Get("status").(string)
 			// Convert V3 lowercase to V2 format for API
-			if newStatus == "running" {
-				newStatus = "Running"
-			} else if newStatus == "stopped" {
-				newStatus = "Stopped"
+			if newStatus == goe2econstants.AutoscalingScalerGroupStatusRunningLower {
+				newStatus = goe2econstants.AutoscalingScalerGroupStatusRunning
+			} else if newStatus == goe2econstants.AutoscalingScalerGroupStatusStoppedLower {
+				newStatus = goe2econstants.AutoscalingScalerGroupStatusStopped
 			}
 		} else {
 			newStatus = d.Get("provision_status").(string)
@@ -1222,10 +1393,10 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 
 		_, err := goe2eClient.Autoscaling.UpdateScalerGroupStatus(ctx, id, newStatus)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to update status to %s: %w", newStatus, err))
+			return append(diags, diag.FromErr(fmt.Errorf("failed to update status to %s: %w", newStatus, err))...)
 		}
 
-		return resourceReadScalerGroup(ctx, d, m)
+		return append(diags, resourceReadScalerGroup(ctx, d, m)...)
 	}
 
 	// Get size fields (handle V2/V3)
@@ -1234,7 +1405,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	desired := getDesiredCapacity(d)
 
 	if desired < minNodes || desired > maxNodes {
-		return diag.Errorf("desired node count (%d) must be between min_size/min_nodes (%d) and max_size/max_nodes (%d)", desired, minNodes, maxNodes)
+		return append(diags, diag.Errorf("desired node count (%d) must be between min_size/min_nodes (%d) and max_size/max_nodes (%d)", desired, minNodes, maxNodes)...)
 	}
 
 	// If only desired changed, call separate API
@@ -1242,16 +1413,16 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	hasOtherChanges := d.HasChange(tfconstants.AttrMinNodes) || d.HasChange("min_size") ||
 		d.HasChange(tfconstants.AttrMaxNodes) || d.HasChange("max_size") ||
 		d.HasChange("policy_type") || d.HasChange("policy") || d.HasChange("scaling_policy") ||
-		d.HasChange("scheduled_policy") || d.HasChange("scheduled_action") ||
+		d.HasChange("scheduled_policy") || d.HasChange(attrScheduledAction) ||
 		d.HasChange("network_config") // network_config changes handled separately above
 
 	if hasDesiredChange && !hasOtherChanges {
 		log.Printf("[INFO] Only desired node count changed; using separate API.")
 		_, err := goe2eClient.Autoscaling.UpdateDesiredNodeCount(ctx, id, desired)
 		if err != nil {
-			return diag.FromErr(fmt.Errorf("failed to update desired node count: %w", err))
+			return append(diags, diag.FromErr(fmt.Errorf("failed to update desired node count: %w", err))...)
 		}
-		return resourceReadScalerGroup(ctx, d, m)
+		return append(diags, resourceReadScalerGroup(ctx, d, m)...)
 	}
 
 	// Handle network_config block changes
@@ -1280,7 +1451,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 				return diag.Errorf("scaler group not found")
 			}
 			normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-			if normalizedStatus != "Stopped" && normalizedStatus != "stopped" {
+			if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupStoppedStates) {
 				return diag.Errorf("ScalerGroup must be in 'Stopped' state to attach/detach public IP. Current: %s", group.ProvisionStatus)
 			}
 
@@ -1336,7 +1507,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 				return diag.Errorf("scaler group not found")
 			}
 			normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-			if normalizedStatus != "Stopped" && normalizedStatus != "stopped" {
+			if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupStoppedStates) {
 				return diag.Errorf("VPCs can only be attached or detached when the scaler group is in 'Stopped' state. Current state: %q", group.ProvisionStatus)
 			}
 
@@ -1415,7 +1586,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 				return diag.Errorf("scaler group not found")
 			}
 			normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-			if normalizedStatus != "Running" && normalizedStatus != "running" {
+			if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupRunningStates) {
 				return diag.Errorf("Scaler group must be in 'Running' state to update security groups. Current: %s", group.ProvisionStatus)
 			}
 
@@ -1471,7 +1642,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			return diag.Errorf("scaler group not found")
 		}
 		normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-		if normalizedStatus != "Running" && normalizedStatus != "running" {
+		if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupRunningStates) {
 			return diag.Errorf("Scaler group must be in 'Running' state to update security groups. Current: %s", group.ProvisionStatus)
 		}
 
@@ -1518,7 +1689,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			return diag.Errorf("scaler group not found")
 		}
 		normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-		if normalizedStatus != "Stopped" && normalizedStatus != "stopped" {
+		if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupStoppedStates) {
 			return diag.Errorf("VPCs can only be attached or detached when the scaler group is in 'Stopped' state. Current state: %q", group.ProvisionStatus)
 		}
 
@@ -1633,7 +1804,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 			return diag.Errorf("scaler group not found")
 		}
 		normalizedStatus := NormalizeStatus(group.ProvisionStatus)
-		if normalizedStatus != "Stopped" && normalizedStatus != "stopped" {
+		if !autoscalingScalerGroupStatusIn(normalizedStatus, tfconstants.AutoscalingScalerGroupStoppedStates) {
 			return diag.Errorf("ScalerGroup must be in 'Stopped' state to attach/detach public IP. Current: %s", group.ProvisionStatus)
 		}
 
@@ -1665,7 +1836,7 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	hasSizeChange := d.HasChange(tfconstants.AttrMinNodes) || d.HasChange("min_size") ||
 		d.HasChange(tfconstants.AttrMaxNodes) || d.HasChange("max_size")
 	hasPolicyChange := d.HasChange("policy_type") || d.HasChange("policy") || d.HasChange("scaling_policy") ||
-		d.HasChange("scheduled_policy") || d.HasChange("scheduled_action")
+		d.HasChange("scheduled_policy") || d.HasChange(attrScheduledAction)
 
 	if !hasSizeChange && !hasPolicyChange {
 		log.Println("[INFO] No relevant changes detected, skipping update.")
@@ -1720,16 +1891,16 @@ func resourceUpdateScalerGroup(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	var schedPolicies []goe2e.ScheduledPolicy
-	if v, ok := d.GetOk("scheduled_action"); ok {
+	if v, ok := d.GetOk(attrScheduledAction); ok {
 		// V3 format
 		for _, s := range v.([]interface{}) {
 			sMap := s.(map[string]interface{})
-			actionType := sMap["action_type"].(string)
+			actionType := sMap[attrScheduledActionType].(string)
 			var adjust string
-			if actionType == "set_capacity" {
-				adjust = strconv.Itoa(sMap["target_capacity"].(int))
+			if actionType == goe2econstants.AutoscalingScheduledActionTypeSetCapacity {
+				adjust = strconv.Itoa(sMap[attrScheduledTargetCap].(int))
 			} else {
-				adjust = strconv.Itoa(sMap["adjustment"].(int))
+				adjust = strconv.Itoa(sMap[attrScheduledAdjustment].(int))
 			}
 			schedPolicies = append(schedPolicies, goe2e.ScheduledPolicy{
 				Type:       actionType,
@@ -1942,7 +2113,7 @@ func resourceAutoscalingResourceV0() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: validation.StringInSlice([]string{"Running", "Stopped"}, false),
+				ValidateFunc: validation.StringInSlice(tfconstants.AutoscalingScalerGroupProvisionStatusAllowed, false),
 			},
 
 			// Size (V2 only)

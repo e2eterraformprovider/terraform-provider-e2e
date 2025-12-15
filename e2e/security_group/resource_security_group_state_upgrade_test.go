@@ -19,12 +19,12 @@ func TestResourceSecurityGroupStateUpgradeV0toV1_Basic(t *testing.T) {
 		"rules": []interface{}{
 			map[string]interface{}{
 				"rule_id":       123,
-				"rule_type":     "Inbound",
-				"protocol_name": "All",
-				"port_range":    "All",
-				"network":       "any",
-				"network_cidr":  "--",
-				"description":   "",
+				"rule_type":     security_group.RuleTypeInbound,
+				"protocol_name": security_group.ProtocolAll,
+				"port_range":    security_group.ProtocolAll,
+				"network":       security_group.NetworkTypeAny,
+				"network_cidr":  security_group.DefaultNetworkCIDR,
+				"description":   security_group.DefaultDescription,
 			},
 		},
 		"is_all_traffic_rule": false,
@@ -58,9 +58,9 @@ func TestResourceSecurityGroupStateUpgradeV0toV1_WithExistingTags(t *testing.T) 
 		"rules": []interface{}{
 			map[string]interface{}{
 				"rule_id":       123,
-				"rule_type":     "Inbound",
-				"protocol_name": "All",
-				"network":       "any",
+				"rule_type":     security_group.RuleTypeInbound,
+				"protocol_name": security_group.ProtocolAll,
+				"network":       security_group.NetworkTypeAny,
 			},
 		},
 	}
@@ -87,21 +87,21 @@ func TestResourceSecurityGroupStateUpgradeV0toV1_PreservesAllFields(t *testing.T
 		"rules": []interface{}{
 			map[string]interface{}{
 				"rule_id":       456,
-				"rule_type":     "Inbound",
-				"protocol_name": "Custom_TCP",
+				"rule_type":     security_group.RuleTypeInbound,
+				"protocol_name": security_group.ProtocolCustomTCP,
 				"port_range":    "22",
-				"network":       "manual",
+				"network":       security_group.NetworkTypeManual,
 				"network_cidr":  "10.0.0.0/24",
 				"size":          256,
 				"description":   "SSH access",
 			},
 			map[string]interface{}{
 				"rule_id":       789,
-				"rule_type":     "Outbound",
-				"protocol_name": "All",
-				"port_range":    "All",
-				"network":       "any",
-				"network_cidr":  "--",
+				"rule_type":     security_group.RuleTypeOutbound,
+				"protocol_name": security_group.ProtocolAll,
+				"port_range":    security_group.ProtocolAll,
+				"network":       security_group.NetworkTypeAny,
+				"network_cidr":  security_group.DefaultNetworkCIDR,
 				"description":   "Allow all outbound",
 			},
 		},
@@ -128,8 +128,8 @@ func TestResourceSecurityGroupStateUpgradeV0toV1_PreservesAllFields(t *testing.T
 	// Check first rule
 	rule1 := rules[0].(map[string]interface{})
 	assert.Equal(t, 456, rule1["rule_id"])
-	assert.Equal(t, "Inbound", rule1["rule_type"])
-	assert.Equal(t, "Custom_TCP", rule1["protocol_name"])
+	assert.Equal(t, security_group.RuleTypeInbound, rule1["rule_type"])
+	assert.Equal(t, security_group.ProtocolCustomTCP, rule1["protocol_name"])
 	assert.Equal(t, "22", rule1["port_range"])
 	assert.Equal(t, "SSH access", rule1["description"])
 
@@ -150,9 +150,9 @@ func TestResourceSecurityGroupStateUpgradeV0toV1_DefaultFieldPreserved(t *testin
 		"rules": []interface{}{
 			map[string]interface{}{
 				"rule_id":       111,
-				"rule_type":     "Inbound",
-				"protocol_name": "All",
-				"network":       "any",
+				"rule_type":     security_group.RuleTypeInbound,
+				"protocol_name": security_group.ProtocolAll,
+				"network":       security_group.NetworkTypeAny,
 			},
 		},
 	}

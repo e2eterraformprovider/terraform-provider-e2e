@@ -9,6 +9,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -225,7 +226,7 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	bucketName := resourceData.Get("name").(string)
@@ -233,7 +234,7 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	// Log deprecation warning if enabling_versioning is used
 	if enablingVersioning, ok := resourceData.GetOk("enabling_versioning"); ok && enablingVersioning.(bool) {
-		log.Printf("[WARN] enabling_versioning is deprecated. Use versioning_enabled instead.")
+		log.Printf("[WARN] %s", WarnEnablingVersioningDeprecated)
 	}
 
 	// Determine versioning state from versioning_enabled (preferred) or enabling_versioning (deprecated)
@@ -248,7 +249,7 @@ func resourceCreateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	bucket, _, err := goe2eClient.ObjectStorage.CreateBucket(ctx, createReq)
 	if err != nil {
-		return diag.Errorf("Error creating object storage bucket (name: %s) in project (%s), region (%s): %s", bucketName, projectIDStr, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationCreating, ResourceName, bucketName, projectIDStr, region, err)
 	}
 
 	log.Printf("[INFO] BUCKET CREATE | RESPONSE | %+v", bucket)
@@ -278,14 +279,14 @@ func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, 
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	bucketName := resourceData.Get("name").(string)
 
 	bucket, _, err := goe2eClient.ObjectStorage.GetBucket(ctx, bucketName)
 	if err != nil {
-		return diag.Errorf("Error retrieving object storage bucket (name: %s) in project (%s), region (%s): %s", bucketName, projectIDStr, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationRetrieving, ResourceName, bucketName, projectIDStr, region, err)
 	}
 
 	if bucket == nil {
@@ -298,7 +299,7 @@ func resourceReadBucket(ctx context.Context, resourceData *schema.ResourceData, 
 	log.Printf("[INFO] Object Store Data: %+v", bucket)
 
 	// Determine versioning state from API response
-	versioningEnabled := bucket.VersioningStatus == "Enabled"
+	versioningEnabled := bucket.VersioningStatus == goe2econstants.ObjectStorageVersioningStatusEnabled
 
 	// Set all fields from API response
 	_ = setObjectStoreDataFromAPI(resourceData, bucket, versioningEnabled)
@@ -325,7 +326,7 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	bucketName := resourceData.Get("name").(string)
@@ -343,9 +344,9 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 		var action string
 		if versioningEnabled {
-			action = "Enabled"
+			action = goe2econstants.ObjectStorageVersioningStatusEnabled
 		} else {
-			action = "Suspended"
+			action = goe2econstants.ObjectStorageVersioningStatusSuspended
 		}
 
 		versioningReq := &goe2e.BucketVersioningRequest{
@@ -355,7 +356,7 @@ func resourceUpdateBucket(ctx context.Context, resourceData *schema.ResourceData
 
 		bucketVersioning, _, err := goe2eClient.ObjectStorage.SetBucketVersioning(ctx, bucketName, versioningReq)
 		if err != nil {
-			return diag.Errorf("Error updating versioning (%s) for object storage bucket (name: %s) in project (%s), region (%s): %s", action, bucketName, projectIDStr, region, err)
+			return diag.Errorf(ErrorUpdatingVersioning, action, bucketName, projectIDStr, region, err)
 		}
 		resourceData.Set(tfconstants.AttrVersioningStatus, bucketVersioning.VersioningStatus)
 		resourceData.Set("versioning_enabled", versioningEnabled)
@@ -390,20 +391,20 @@ func resourceDeleteBucket(ctx context.Context, resourceData *schema.ResourceData
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	bucketName := resourceData.Get("name").(string)
 
 	// Pre-delete validation: check if bucket has lock policy
 	if lockEnabled, ok := resourceData.GetOk("is_lock_enabled"); ok && lockEnabled.(bool) {
-		return diag.Errorf("Cannot delete bucket with lock policy enabled (name: %s). Disable lock first.", bucketName)
+		return diag.Errorf(DeleteLockPolicyEnabled, bucketName)
 	}
 
 	log.Printf("[INFO] Deleting object storage bucket (name: %s) in project (%s), region (%s)", bucketName, projectIDStr, region)
 	_, err = goe2eClient.ObjectStorage.DeleteBucket(ctx, bucketName)
 	if err != nil {
-		return diag.Errorf("Error deleting object storage bucket (name: %s) in project (%s), region (%s): %s", bucketName, projectIDStr, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationDeleting, ResourceName, bucketName, projectIDStr, region, err)
 	}
 
 	resourceData.SetId("")
@@ -467,7 +468,7 @@ func resourceObjectStoreImport(ctx context.Context, d *schema.ResourceData, meta
 		region = parts[1]
 		bucketName = parts[2]
 	} else {
-		return nil, fmt.Errorf("invalid import ID format: expected 'bucket_name' or 'project_id:region:bucket_name', got '%s'", d.Id())
+		return nil, fmt.Errorf(ImportIDInvalidFormat, d.Id())
 	}
 
 	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
@@ -492,7 +493,7 @@ func resourceObjectStoreCustomizeDiff(ctx context.Context, d *schema.ResourceDif
 	if d.HasChange("enabling_versioning") || d.Get("enabling_versioning") != nil {
 		oldVal, newVal := d.GetChange("enabling_versioning")
 		if oldVal != nil || (newVal != nil && newVal != false) {
-			log.Printf("[WARN] enabling_versioning is deprecated. Use versioning_enabled instead.")
+			log.Printf("[WARN] %s", WarnEnablingVersioningDeprecated)
 		}
 	}
 

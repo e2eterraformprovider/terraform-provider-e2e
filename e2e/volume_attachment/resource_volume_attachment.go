@@ -11,6 +11,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -51,7 +52,7 @@ func ResourceVolumeAttachment() *schema.Resource {
 				Description: "VM id of the Node",
 			},
 
-			"device_name": {
+			tfconstants.AttrDeviceName: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "device name of the attached volume",
@@ -72,8 +73,8 @@ func ResourceVolumeAttachment() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(5 * time.Minute),
-			Delete: schema.DefaultTimeout(5 * time.Minute),
+			Create: schema.DefaultTimeout(tfconstants.StateChangeTimeoutShort),
+			Delete: schema.DefaultTimeout(tfconstants.StateChangeTimeoutShort),
 		},
 	}
 }
@@ -95,29 +96,29 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	nodeID := d.Get(tfconstants.AttrNodeID).(string)
 	volumeID := d.Get(tfconstants.AttrVolumeID).(string)
 
-	log.Printf("[INFO] Attaching volume (ID: %s) to node (ID: %s) in project (%s), region (%s)", volumeID, nodeID, projectID, region)
+	log.Printf(LogAttachTemplate, volumeID, nodeID, projectID, region)
 
 	// Get node details to retrieve VM ID and validate
 	node, _, err := goe2eClient.Nodes.GetNode(ctx, nodeID)
 	if err != nil {
-		return diag.Errorf("Error fetching node (ID: %s) in project (%s), region (%s): %s", nodeID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, "Node", nodeID, projectID, region, err)
 	}
 
 	if node == nil {
-		return diag.Errorf("Error: node (ID: %s) not found", nodeID)
+		return diag.Errorf(ErrorNodeNotFoundTemplate, nodeID)
 	}
 
 	vmID := node.VMID
 
 	// Check if node plan supports block storage
 	if len(node.Plan) >= 2 && node.Plan[0:2] == tfconstants.PREFIX_C2_NODE {
-		return diag.Errorf("Cannot attach volume to node (ID: %s): C2 plan nodes do not support block storage attachment", nodeID)
+		return diag.Errorf(ErrorC2PlanNoBlockStorageAttachmentFormat, nodeID)
 	}
 
 	// Prepare goe2e request
@@ -126,14 +127,16 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 		VolumeID: volumeID,
 	}
 
+	attachmentID := fmt.Sprintf("%s%s%s", nodeID, tfconstants.VolumeAttachmentImportDelimiter, volumeID)
+
 	// Attach the volume using goe2e client
 	_, _, err = goe2eClient.VolumeAttachment.AttachVolume(ctx, attachReq)
 	if err != nil {
-		return diag.Errorf("Error attaching volume (ID: %s) to node (ID: %s) in project (%s), region (%s): %s", volumeID, nodeID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, goe2econstants.BlockStorageActionAttach, ResourceName, attachmentID, projectID, region, err)
 	}
 
 	// Set the resource ID as a composite of node_id and volume_id
-	d.SetId(fmt.Sprintf("%s/%s", nodeID, volumeID))
+	d.SetId(attachmentID)
 	d.Set(tfconstants.AttrVMID, vmID)
 	d.Set(tfconstants.AttrProjectID, projectID)
 	d.Set(tfconstants.AttrRegion, region)
@@ -143,7 +146,7 @@ func resourceVolumeAttachmentCreate(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] Successfully attached volume (ID: %s) to node (ID: %s)", volumeID, nodeID)
+	log.Printf(LogAttachedTemplate, volumeID, nodeID)
 
 	return resourceVolumeAttachmentRead(ctx, d, m)
 }
@@ -166,7 +169,7 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// Parse composite ID
@@ -175,12 +178,12 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] Reading volume attachment: node (ID: %s), volume (ID: %s) in project (%s), region (%s)", nodeID, volumeID, projectID, region)
+	log.Printf(LogReadTemplate, nodeID, volumeID, projectID, region)
 
 	// Verify the volume exists and get its details
 	volume, _, err := goe2eClient.BlockStorage.GetBlockStorage(ctx, volumeID)
 	if err != nil {
-		log.Printf("[WARN] Volume (ID: %s) not found, removing from state", volumeID)
+		log.Printf(LogVolumeNotFound, volumeID)
 		d.SetId("")
 		return diags
 	}
@@ -188,14 +191,14 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 	// Check if volume is attached to the node
 	var volumeVMID string
 	var volumeVMName string
-	if vmDetail, ok := volume.VMDetail["vm_id"]; ok {
+	if vmDetail, ok := volume.VMDetail[tfconstants.VolumeAttachmentVMDetailKeyVMID]; ok {
 		if vmIDStr, ok := vmDetail.(string); ok {
 			volumeVMID = vmIDStr
 		} else if vmIDFloat, ok := vmDetail.(float64); ok {
 			volumeVMID = strconv.Itoa(int(vmIDFloat))
 		}
 	}
-	if vmDetail, ok := volume.VMDetail["vm_name"]; ok {
+	if vmDetail, ok := volume.VMDetail[tfconstants.VolumeAttachmentVMDetailKeyVMName]; ok {
 		if vmNameStr, ok := vmDetail.(string); ok {
 			volumeVMName = vmNameStr
 		}
@@ -204,12 +207,12 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 	// Get node details to verify attachment
 	node, _, err := goe2eClient.Nodes.GetNode(ctx, nodeID)
 	if err != nil {
-		log.Printf("[WARN] Node (ID: %s) not found, removing attachment from state", nodeID)
+		log.Printf(LogNodeNotFound, nodeID)
 		d.SetId("")
 		return diags
 	}
 	if node == nil {
-		log.Printf("[WARN] Node (ID: %s) not found, removing attachment from state", nodeID)
+		log.Printf(LogNodeNotFound, nodeID)
 		d.SetId("")
 		return diags
 	}
@@ -218,7 +221,7 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 
 	// Verify the volume is attached to this specific node
 	if volumeVMID == "" || volumeVMID != strconv.Itoa(vmID) {
-		log.Printf("[WARN] Volume (ID: %s) is not attached to node (ID: %s), removing from state", volumeID, nodeID)
+		log.Printf(LogNotAttached, volumeID, nodeID)
 		d.SetId("")
 		return diags
 	}
@@ -233,10 +236,10 @@ func resourceVolumeAttachmentRead(ctx context.Context, d *schema.ResourceData, m
 
 	// Device name may not be available in API, but we can infer from vm_name
 	if volumeVMName != "" {
-		d.Set("device_name", volumeVMName)
+		d.Set(tfconstants.AttrDeviceName, volumeVMName)
 	}
 
-	log.Printf("[INFO] Successfully read volume attachment: node (ID: %s), volume (ID: %s)", nodeID, volumeID)
+	log.Printf(LogReadSuccess, nodeID, volumeID)
 
 	return diags
 }
@@ -259,7 +262,7 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// Parse composite ID
@@ -268,13 +271,13 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] Detaching volume (ID: %s) from node (ID: %s) in project (%s), region (%s)", volumeID, nodeID, projectID, region)
+	log.Printf(LogDetachTemplate, volumeID, nodeID, projectID, region)
 
 	// Get node details to verify it still exists
 	_, _, err = goe2eClient.Nodes.GetNode(ctx, nodeID)
 	if err != nil {
 		// If node doesn't exist, the attachment is already gone
-		log.Printf("[WARN] Node (ID: %s) not found, considering volume detached", nodeID)
+		log.Printf(LogNodeMissingDetach, nodeID)
 		return diags
 	}
 
@@ -287,7 +290,7 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 	// Detach the volume using goe2e client
 	_, err = goe2eClient.VolumeAttachment.DetachVolume(ctx, detachReq)
 	if err != nil {
-		return diag.Errorf("Error detaching volume (ID: %s) from node (ID: %s) in project (%s), region (%s): %s", volumeID, nodeID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, goe2econstants.BlockStorageActionDetach, ResourceName, d.Id(), projectID, region, err)
 	}
 
 	// Wait for detachment to complete
@@ -295,7 +298,7 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] Successfully detached volume (ID: %s) from node (ID: %s)", volumeID, nodeID)
+	log.Printf(LogDetachedTemplate, volumeID, nodeID)
 
 	d.SetId("")
 	return diags
@@ -303,16 +306,16 @@ func resourceVolumeAttachmentDelete(ctx context.Context, d *schema.ResourceData,
 
 func resourceVolumeAttachmentImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	// Import ID format: node_id/volume_id or project_id/region/node_id/volume_id
-	parts := strings.Split(d.Id(), "/")
+	parts := strings.Split(d.Id(), tfconstants.VolumeAttachmentImportDelimiter)
 
 	var nodeID, volumeID, projectID, region string
 
 	switch len(parts) {
-	case 2:
+	case ImportIDPartsShortCount:
 		// Simple format: node_id/volume_id
 		nodeID = parts[0]
 		volumeID = parts[1]
-	case 4:
+	case ImportIDPartsFullCount:
 		// Full format: project_id/region/node_id/volume_id
 		projectID = parts[0]
 		region = parts[1]
@@ -323,18 +326,18 @@ func resourceVolumeAttachmentImport(ctx context.Context, d *schema.ResourceData,
 		d.Set(tfconstants.AttrProjectID, projectID)
 		d.Set(tfconstants.AttrRegion, region)
 	default:
-		return nil, fmt.Errorf("invalid import ID format: expected 'node_id/volume_id' or 'project_id/region/node_id/volume_id', got: %s", d.Id())
+		return nil, fmt.Errorf(tfconstants.ImportIDInvalidFormatTemplate, d.Id(), ImportIDFormatShortDescription+" or "+ImportIDFormatFullDescription)
 	}
 
 	// Set the composite ID
-	d.SetId(fmt.Sprintf("%s/%s", nodeID, volumeID))
+	d.SetId(fmt.Sprintf("%s%s%s", nodeID, tfconstants.VolumeAttachmentImportDelimiter, volumeID))
 	d.Set(tfconstants.AttrNodeID, nodeID)
 	d.Set(tfconstants.AttrVolumeID, volumeID)
 
 	// Call Read to populate the rest of the state
 	diags := resourceVolumeAttachmentRead(ctx, d, m)
 	if diags.HasError() {
-		return nil, fmt.Errorf("error reading volume attachment during import: %v", diags)
+		return nil, fmt.Errorf(ErrorImportReadDuringImportTemplate, diags)
 	}
 
 	return []*schema.ResourceData{d}, nil
@@ -342,9 +345,9 @@ func resourceVolumeAttachmentImport(ctx context.Context, d *schema.ResourceData,
 
 // Helper function to parse the composite ID
 func parseVolumeAttachmentID(id string) (nodeID, volumeID string, err error) {
-	parts := strings.Split(id, "/")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid volume attachment ID format: %s (expected: node_id/volume_id)", id)
+	parts := strings.Split(id, tfconstants.VolumeAttachmentImportDelimiter)
+	if len(parts) != ImportIDPartsShortCount {
+		return "", "", fmt.Errorf(ErrorParseIDTemplate, id, ImportIDFormatShortDescription)
 	}
 	return parts[0], parts[1], nil
 }
@@ -352,31 +355,31 @@ func parseVolumeAttachmentID(id string) (nodeID, volumeID string, err error) {
 // Helper function to wait for volume attachment/detachment
 func waitForVolumeAttachment(ctx context.Context, goe2eClient *goe2e.Client, nodeID, volumeID, projectID, region string, shouldBeAttached bool) error {
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(tfconstants.VolumeAttachmentPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(3 * time.Minute)
+	timeout := time.After(tfconstants.VolumeAttachmentWaitTimeout)
 
-	action := "attach"
+	action := goe2econstants.BlockStorageActionAttach
 	if !shouldBeAttached {
-		action = "detach"
+		action = goe2econstants.BlockStorageActionDetach
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context cancelled while waiting for volume %s", action)
+			return fmt.Errorf(ErrorWaitContextCancelledTemplate, action)
 		case <-timeout:
-			return fmt.Errorf("timeout waiting for volume (ID: %s) to %s to/from node (ID: %s)", volumeID, action, nodeID)
+			return fmt.Errorf(ErrorWaitTimeoutTemplate, volumeID, action, nodeID)
 		case <-ticker.C:
 			volume, _, err := goe2eClient.BlockStorage.GetBlockStorage(ctx, volumeID)
 			if err != nil {
-				log.Printf("[DEBUG] Error checking volume status: %s", err)
+				log.Printf(LogDebugVolumeCheck, err)
 				continue
 			}
 
 			var volumeVMID string
-			if vmDetail, ok := volume.VMDetail["vm_id"]; ok {
+			if vmDetail, ok := volume.VMDetail[tfconstants.VolumeAttachmentVMDetailKeyVMID]; ok {
 				if vmIDStr, ok := vmDetail.(string); ok {
 					volumeVMID = vmIDStr
 				} else if vmIDFloat, ok := vmDetail.(float64); ok {
@@ -386,23 +389,23 @@ func waitForVolumeAttachment(ctx context.Context, goe2eClient *goe2e.Client, nod
 
 			if shouldBeAttached {
 				// Waiting for attachment - check if vm_id is set
-				if volumeVMID != "" && volumeVMID != "null" {
+				if volumeVMID != "" && volumeVMID != tfconstants.VolumeAttachmentVMIDNullValue {
 					// Verify it's attached to the correct node
 					node, _, err := goe2eClient.Nodes.GetNode(ctx, nodeID)
 					if err != nil {
-						log.Printf("[DEBUG] Error checking node status: %s", err)
+						log.Printf(LogDebugNodeCheck, err)
 						continue
 					}
 
 					if node != nil && volumeVMID == strconv.Itoa(node.VMID) {
-						log.Printf("[INFO] Volume (ID: %s) successfully attached to node (ID: %s)", volumeID, nodeID)
+						log.Printf(LogWaitAttached, volumeID, nodeID)
 						return nil
 					}
 				}
 			} else {
 				// Waiting for detachment - check if vm_id is cleared
-				if volumeVMID == "" || volumeVMID == "null" {
-					log.Printf("[INFO] Volume (ID: %s) successfully detached from node (ID: %s)", volumeID, nodeID)
+				if volumeVMID == "" || volumeVMID == tfconstants.VolumeAttachmentVMIDNullValue {
+					log.Printf(LogWaitDetached, volumeID, nodeID)
 					return nil
 				}
 			}

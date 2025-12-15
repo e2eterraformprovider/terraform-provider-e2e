@@ -10,6 +10,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -21,7 +22,7 @@ func ResourceMySql() *schema.Resource {
 		StateUpgraders: []schema.StateUpgrader{
 			{
 				Type:    resourceMySQLResourceV0().CoreConfigSchema().ImpliedType(),
-				Upgrade: resourceMySQLStateUpgradeV0toV1,
+				Upgrade: ResourceMySQLStateUpgradeV0toV1,
 				Version: 0,
 			},
 		},
@@ -65,7 +66,7 @@ func ResourceMySql() *schema.Resource {
 						"dbaas_number": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Default:     1,
+							Default:     tfconstants.DBaaSDefaultDBaaSNumber,
 							ForceNew:    true,
 							Description: "the DBaaS number (typically 1)",
 						},
@@ -87,27 +88,27 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - IMMUTABLE
 			// ============================================
-			"dbaas_name": {
+			tfconstants.AttrDBaaSName: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
 				Description: "name of the MySQL DBaaS instance",
 			},
-			"db_location": {
+			tfconstants.AttrDBLocation: {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "Delhi",
+				Default:     tfconstants.DBaaSDefaultDBLocation,
 				ForceNew:    true,
 				Description: "the location of the MySQL DBaaS instance",
 			},
-			"is_encryption_enabled": {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Computed:    true,
 				ForceNew:    true,
 				Description: "whether encryption is enabled for the MySQL DBaaS instance",
 			},
-			"encryption_passphrase": {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
@@ -117,7 +118,7 @@ func ResourceMySql() *schema.Resource {
 			tfconstants.AttrGroup: {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "Default",
+				Default:     tfconstants.DBaaSDefaultGroupName,
 				ForceNew:    true,
 				Description: "the group name for the instance",
 			},
@@ -139,7 +140,7 @@ func ResourceMySql() *schema.Resource {
 			tfconstants.AttrPublicIPRequired: {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Default:     tfconstants.DBaaSDefaultPublicIPRequired,
 				Description: "whether to attach a public IP to the MySQL DBaaS instance",
 			},
 			tfconstants.AttrSize: {
@@ -156,7 +157,15 @@ func ResourceMySql() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				ValidateFunc: validation.StringInSlice(
-					[]string{"STOPPED", "SUSPENDED", "RUNNING", "RESTARTING", "start", "stop", "restart"},
+					[]string{
+						goe2econstants.DBaaSStatusStopped,
+						goe2econstants.DBaaSStatusSuspended,
+						goe2econstants.DBaaSStatusRunning,
+						goe2econstants.DBaaSStatusRestarting,
+						tfconstants.DBaaSPowerActionStart,
+						tfconstants.DBaaSPowerActionStop,
+						tfconstants.DBaaSPowerActionRestart,
+					},
 					false,
 				),
 				Description: "state of the MySQL DBaaS instance (use 'SUSPENDED' to stop, 'RUNNING' to start, 'RESTARTING' to restart)",
@@ -165,7 +174,7 @@ func ResourceMySql() *schema.Resource {
 			// ============================================
 			// V3 OPTIONAL FIELDS
 			// ============================================
-			"tags": {
+			tfconstants.AttrTags: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Description: "map of tags to assign to the resource (state-only, API support pending)",
@@ -196,7 +205,7 @@ func ResourceMySql() *schema.Resource {
 				Computed:    true,
 				Description: "the MySQL instance private IPv4 address",
 			},
-			"port": {
+			tfconstants.AttrPort: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the port number for MySQL service (typically 3306)",
@@ -229,20 +238,20 @@ func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(err)
 	}
 
-	softwareName := "MySQL"
+	softwareName := goe2econstants.DBaaSSoftwareMySQL
 	softwareVersion := d.Get(tfconstants.AttrVersion).(string)
 	planName := d.Get(tfconstants.AttrPlan).(string)
 
 	// Get software ID using goe2e client
 	softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, softwareName, softwareVersion)
 	if err != nil {
-		return diag.Errorf("error retrieving %s software ID for version (%s) in project (%s), region (%s): %s", softwareName, softwareVersion, projectID, region, err)
+		return diag.Errorf(ErrorRetrievingSoftwareIDTemplate, softwareName, softwareVersion, projectID, region, err)
 	}
 
 	// Get template ID using goe2e client
 	templateID, err := goe2eClient.DBaaSMySQL.GetTemplateID(ctx, planName, softwareID)
 	if err != nil {
-		return diag.Errorf("error retrieving %s template ID for plan (%s) in project (%s), region (%s): %s", softwareName, planName, projectID, region, err)
+		return diag.Errorf(ErrorRetrievingTemplateIDTemplate, softwareName, planName, projectID, region, err)
 	}
 
 	// Build create request using helper
@@ -254,7 +263,7 @@ func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	// Create MySQL cluster using goe2e client
 	mysql, _, err := goe2eClient.DBaaSMySQL.CreateCluster(ctx, createReq)
 	if err != nil {
-		return diag.Errorf("error creating MySQL DBaaS (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationCreating, ResourceName, createReq.Name, projectID, region, err)
 	}
 
 	// Set resource ID
@@ -270,11 +279,11 @@ func resourceCreateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	if err := d.Set(tfconstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
+	if err := d.Set(tfconstants.AttrPort, mysql.MasterNode.Port); err != nil {
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] Successfully created MySQL cluster: %s (ID: %d)", mysql.Name, mysql.ID)
+	log.Printf("[INFO] Successfully created %s: %s (ID: %d)", ResourceName, mysql.Name, mysql.ID)
 
 	return diags
 }
@@ -289,12 +298,12 @@ func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 	// Get MySQL cluster using goe2e client
 	mysql, _, err := goe2eClient.DBaaSMySQL.GetCluster(ctx, id)
 	if err != nil {
-		return diag.Errorf("error retrieving MySQL DBaaS (ID: %s): %s", id, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, ResourceName, id, "", "", err)
 	}
 
 	// Check if resource was deleted
 	if mysql == nil {
-		log.Printf("[WARN] MySQL cluster %s not found, removing from state", id)
+		log.Printf("[WARN] %s %s not found, removing from state", ResourceName, id)
 		d.SetId("")
 		return diags
 	}
@@ -305,13 +314,13 @@ func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 	}
 
 	// Set encryption status
-	if err := d.Set("is_encryption_enabled", mysql.IsEncryptionEnabled); err != nil {
+	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, mysql.IsEncryptionEnabled); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set parameter group ID (with nil check for PGDetail)
-	pgID := 0
-	if mysql.MasterNode.Database.PGDetail.ID != 0 {
+	pgID := tfconstants.DBaaSDefaultParameterGroupID
+	if mysql.MasterNode.Database.PGDetail.ID != tfconstants.DBaaSDefaultParameterGroupID {
 		pgID = mysql.MasterNode.Database.PGDetail.ID
 	}
 	if err := d.Set(tfconstants.AttrParameterGroupID, pgID); err != nil {
@@ -330,11 +339,11 @@ func resourceReadMySqlDB(ctx context.Context, d *schema.ResourceData, m interfac
 	if err := d.Set(tfconstants.AttrPrivateIPAddress, mysql.MasterNode.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("port", mysql.MasterNode.Port); err != nil {
+	if err := d.Set(tfconstants.AttrPort, mysql.MasterNode.Port); err != nil {
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[DEBUG] Successfully read MySQL cluster: %s (ID: %s)", mysql.Name, id)
+	log.Printf("[DEBUG] Successfully read %s: %s (ID: %s)", ResourceName, mysql.Name, id)
 
 	return diags
 }
@@ -345,28 +354,28 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 	id := d.Id()
 
 	// Handle status changes (power management)
-	if d.HasChange("status") {
-		newStatus := d.Get("status").(string)
-		log.Printf("[INFO] Status change detected for MySQL cluster %s: %s", id, newStatus)
+	if d.HasChange(tfconstants.AttrStatus) {
+		newStatus := d.Get(tfconstants.AttrStatus).(string)
+		log.Printf("[INFO] Status change detected for %s %s: %s", ResourceName, id, newStatus)
 
 		switch strings.ToUpper(newStatus) {
-		case "SUSPENDED", "STOPPED":
+		case goe2econstants.DBaaSStatusSuspended, goe2econstants.DBaaSStatusStopped:
 			if _, err := goe2eClient.DBaaSMySQL.StopCluster(ctx, id); err != nil {
-				return diag.Errorf("error stopping MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorStoppingTemplate, id, err)
 			}
-			log.Printf("[INFO] Successfully stopped MySQL cluster %s", id)
-		case "RUNNING", "START":
+			log.Printf("[INFO] Successfully stopped %s %s", ResourceName, id)
+		case goe2econstants.DBaaSStatusRunning, strings.ToUpper(tfconstants.DBaaSPowerActionStart):
 			if _, err := goe2eClient.DBaaSMySQL.StartCluster(ctx, id); err != nil {
-				return diag.Errorf("error starting MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorStartingTemplate, id, err)
 			}
-			log.Printf("[INFO] Successfully started MySQL cluster %s", id)
-		case "RESTARTING", "RESTART":
+			log.Printf("[INFO] Successfully started %s %s", ResourceName, id)
+		case goe2econstants.DBaaSStatusRestarting, strings.ToUpper(tfconstants.DBaaSPowerActionRestart):
 			if _, err := goe2eClient.DBaaSMySQL.RestartCluster(ctx, id); err != nil {
-				return diag.Errorf("error restarting MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorRestartingTemplate, id, err)
 			}
-			log.Printf("[INFO] Successfully restarted MySQL cluster %s", id)
+			log.Printf("[INFO] Successfully restarted %s %s", ResourceName, id)
 		default:
-			return diag.Errorf("error updating MySQL DBaaS (ID: %s): unsupported status value: %s. Must be one of: SUSPENDED, STOPPED, RUNNING, START, RESTARTING, RESTART", id, newStatus)
+			return diag.Errorf(ErrorUnsupportedStatusTemplate, id, newStatus)
 		}
 	}
 
@@ -391,37 +400,37 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 
 		// Attach new VPCs
 		if len(added) > 0 {
-			log.Printf("[INFO] Attaching VPCs to MySQL cluster %s: %v", id, added)
+			log.Printf("[INFO] Attaching VPCs to %s %s: %v", ResourceName, id, added)
 			vpcDetails, err := expandVPCList(ctx, goe2eClient, added)
 			if err != nil {
 				d.Set(tfconstants.AttrVPCs, prevSet)
-				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorPreparingVPCListTemplate, id, err)
 			}
 			attachReq := &goe2e.MySQLVPCAttachRequest{
-				Action: "attach",
+				Action: goe2econstants.ActionAttach,
 				VPCs:   vpcDetails,
 			}
 			if _, err := goe2eClient.DBaaSMySQL.AttachVPC(ctx, id, attachReq); err != nil {
 				d.Set(tfconstants.AttrVPCs, prevSet)
-				return diag.Errorf("error attaching VPC to MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorAttachingVPCTemplate, id, err)
 			}
 		}
 
 		// Detach removed VPCs
 		if len(removed) > 0 {
-			log.Printf("[INFO] Detaching VPCs from MySQL cluster %s: %v", id, removed)
+			log.Printf("[INFO] Detaching VPCs from %s %s: %v", ResourceName, id, removed)
 			vpcDetails, err := expandVPCList(ctx, goe2eClient, removed)
 			if err != nil {
 				d.Set(tfconstants.AttrVPCs, prevSet)
-				return diag.Errorf("error preparing VPC list for MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorPreparingVPCListTemplate, id, err)
 			}
 			detachReq := &goe2e.MySQLVPCDetachRequest{
-				Action: "detach",
+				Action: goe2econstants.ActionDetach,
 				VPCs:   vpcDetails,
 			}
 			if _, err := goe2eClient.DBaaSMySQL.DetachVPC(ctx, id, detachReq); err != nil {
 				d.Set(tfconstants.AttrVPCs, prevSet)
-				return diag.Errorf("error detaching VPC from MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorDetachingVPCTemplate, id, err)
 			}
 		}
 	}
@@ -432,68 +441,68 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 		oldPGID := oldRaw.(int)
 		newPGID := newRaw.(int)
 
-		log.Printf("[INFO] Parameter group change detected for MySQL cluster %s: %d -> %d", id, oldPGID, newPGID)
+		log.Printf("[INFO] Parameter group change detected for %s %s: %d -> %d", ResourceName, id, oldPGID, newPGID)
 
 		switch {
 		case oldPGID != 0 && newPGID == 0:
 			// Detach parameter group
 			if _, err := goe2eClient.DBaaSMySQL.DetachParameterGroup(ctx, id, strconv.Itoa(oldPGID)); err != nil {
-				return diag.Errorf("error detaching parameter group (ID: %d) from MySQL DBaaS (ID: %s): %s", oldPGID, id, err)
+				return diag.Errorf(ErrorDetachingParameterGroupTemplate, oldPGID, id, err)
 			}
-			log.Printf("[INFO] Successfully detached parameter group %d from MySQL cluster %s", oldPGID, id)
+			log.Printf("[INFO] Successfully detached parameter group %d from %s %s", oldPGID, ResourceName, id)
 		case newPGID != 0 && newPGID != oldPGID:
 			// Attach new parameter group
 			if _, err := goe2eClient.DBaaSMySQL.AttachParameterGroup(ctx, id, strconv.Itoa(newPGID)); err != nil {
-				return diag.Errorf("error attaching parameter group (ID: %d) to MySQL DBaaS (ID: %s): %s", newPGID, id, err)
+				return diag.Errorf(ErrorAttachingParameterGroupTemplate, newPGID, id, err)
 			}
-			log.Printf("[INFO] Successfully attached parameter group %d to MySQL cluster %s", newPGID, id)
+			log.Printf("[INFO] Successfully attached parameter group %d to %s %s", newPGID, ResourceName, id)
 		}
 	}
 
 	// Handle public IP changes
 	if d.HasChange(tfconstants.AttrPublicIPRequired) {
 		newVal := d.Get(tfconstants.AttrPublicIPRequired).(bool)
-		log.Printf("[INFO] Public IP change detected for MySQL cluster %s: %v", id, newVal)
+		log.Printf("[INFO] Public IP change detected for %s %s: %v", ResourceName, id, newVal)
 
 		if newVal {
 			if _, err := goe2eClient.DBaaSMySQL.AttachPublicIP(ctx, id); err != nil {
-				return diag.Errorf("error attaching public IP to MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorAttachingPublicIPTemplate, id, err)
 			}
-			log.Printf("[INFO] Successfully attached public IP to MySQL cluster %s", id)
+			log.Printf("[INFO] Successfully attached public IP to %s %s", ResourceName, id)
 		} else {
 			if _, err := goe2eClient.DBaaSMySQL.DetachPublicIP(ctx, id); err != nil {
-				return diag.Errorf("error detaching public IP from MySQL DBaaS (ID: %s): %s", id, err)
+				return diag.Errorf(ErrorDetachingPublicIPTemplate, id, err)
 			}
-			log.Printf("[INFO] Successfully detached public IP from MySQL cluster %s", id)
+			log.Printf("[INFO] Successfully detached public IP from %s %s", ResourceName, id)
 		}
 	}
 
 	// Handle plan upgrade
-	if d.HasChange("plan") {
-		oldPlan, newPlan := d.GetChange("plan")
-		log.Printf("[INFO] Plan change detected for MySQL cluster %s: %s -> %s", id, oldPlan.(string), newPlan.(string))
+	if d.HasChange(tfconstants.AttrPlan) {
+		oldPlan, newPlan := d.GetChange(tfconstants.AttrPlan)
+		log.Printf("[INFO] Plan change detected for %s %s: %s -> %s", ResourceName, id, oldPlan.(string), newPlan.(string))
 
 		// Verify cluster is suspended
-		status := d.Get("status").(string)
-		if strings.ToUpper(status) != "SUSPENDED" && strings.ToUpper(status) != "STOPPED" {
-			d.Set("plan", oldPlan.(string))
-			return diag.Errorf("cannot upgrade plan for MySQL DBaaS (ID: %s): database must be in SUSPENDED/STOPPED state (current state: %s). Please stop the instance first", id, status)
+		status := d.Get(tfconstants.AttrStatus).(string)
+		if strings.ToUpper(status) != goe2econstants.DBaaSStatusSuspended && strings.ToUpper(status) != goe2econstants.DBaaSStatusStopped {
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf(ErrorCannotUpgradePlanTemplate, id, status)
 		}
 
 		// Get version for software ID lookup
 		version := d.Get(tfconstants.AttrVersion).(string)
 
 		// Get software ID and template ID
-		softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, "MySQL", version)
+		softwareID, err := goe2eClient.DBaaSMySQL.GetSoftwareID(ctx, goe2econstants.DBaaSSoftwareMySQL, version)
 		if err != nil {
-			d.Set("plan", oldPlan.(string))
-			return diag.Errorf("error retrieving MySQL software ID for version (%s) while upgrading plan for DBaaS (ID: %s): %s", version, id, err)
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf(ErrorRetrievingSoftwareIDForUpgrade, version, id, err)
 		}
 
 		templateID, err := goe2eClient.DBaaSMySQL.GetTemplateID(ctx, newPlan.(string), softwareID)
 		if err != nil {
-			d.Set("plan", oldPlan.(string))
-			return diag.Errorf("error retrieving MySQL template ID for plan (%s) while upgrading DBaaS (ID: %s): %s", newPlan.(string), id, err)
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf(ErrorRetrievingTemplateIDForUpgrade, newPlan.(string), id, err)
 		}
 
 		// Upgrade the plan
@@ -501,11 +510,11 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 			TemplateID: templateID,
 		}
 		if _, err := goe2eClient.DBaaSMySQL.UpgradePlan(ctx, id, upgradeReq); err != nil {
-			d.Set("plan", oldPlan.(string))
-			return diag.Errorf("error upgrading MySQL DBaaS (ID: %s) plan from (%s) to (%s): %s", id, oldPlan.(string), newPlan.(string), err)
+			d.Set(tfconstants.AttrPlan, oldPlan.(string))
+			return diag.Errorf(ErrorUpgradingPlanTemplate, id, oldPlan.(string), newPlan.(string), err)
 		}
 
-		log.Printf("[INFO] Successfully upgraded MySQL cluster %s to plan %s (template_id=%d)", id, newPlan, templateID)
+		log.Printf("[INFO] Successfully upgraded %s %s to plan %s (template_id=%d)", ResourceName, id, newPlan, templateID)
 	}
 
 	// Handle disk expansion
@@ -513,7 +522,7 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 		additionalSize := d.Get(tfconstants.AttrSize).(int)
 
 		if additionalSize > 0 {
-			log.Printf("[INFO] Disk expansion requested for MySQL cluster %s: +%d GB", id, additionalSize)
+			log.Printf("[INFO] Disk expansion requested for %s %s: +%d GB", ResourceName, id, additionalSize)
 
 			// Expand the disk
 			expandReq := &goe2e.DiskExpansionRequest{
@@ -521,23 +530,23 @@ func resourceUpdateMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 			}
 			if _, err := goe2eClient.DBaaSMySQL.ExpandDisk(ctx, id, expandReq); err != nil {
 				d.Set(tfconstants.AttrSize, 0)
-				return diag.Errorf("error expanding MySQL DBaaS (ID: %s) disk by %d GB: %s", id, additionalSize, err)
+				return diag.Errorf(ErrorExpandingDiskTemplate, id, additionalSize, err)
 			}
 
-			log.Printf("[INFO] Successfully expanded disk by %d GB for MySQL cluster %s", additionalSize, id)
+			log.Printf("[INFO] Successfully expanded disk by %d GB for %s %s", additionalSize, ResourceName, id)
 
 			// Reset size to 0 after expansion (cumulative behavior)
 			if err := d.Set(tfconstants.AttrSize, 0); err != nil {
 				return diag.FromErr(err)
 			}
 		} else {
-			log.Printf("[DEBUG] size is 0 for MySQL cluster %s, skipping expansion", id)
+			log.Printf("[DEBUG] size is 0 for %s %s, skipping expansion", ResourceName, id)
 		}
 	}
 
 	// Handle tags (state-only, no API call)
-	if d.HasChange("tags") {
-		log.Printf("[INFO] MySQL cluster %s: tags updated (state-only, not sent to API)", id)
+	if d.HasChange(tfconstants.AttrTags) {
+		log.Printf("[INFO] %s %s: tags updated (state-only, not sent to API)", ResourceName, id)
 	}
 
 	// Refresh state by reading the resource
@@ -551,29 +560,29 @@ func resourceDeleteMySqlDB(ctx context.Context, d *schema.ResourceData, m interf
 
 	id := d.Id()
 
-	log.Printf("[INFO] Deleting MySQL cluster: %s", id)
+	log.Printf("[INFO] Deleting %s: %s", ResourceName, id)
 
 	// Delete MySQL cluster using goe2e client
 	_, err := goe2eClient.DBaaSMySQL.DeleteCluster(ctx, id)
 	if err != nil {
 		// Check if already deleted (404 or "not found" error)
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
-			log.Printf("[WARN] MySQL cluster %s already deleted", id)
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) || strings.Contains(err.Error(), goe2econstants.NotFoundCode) {
+			log.Printf("[WARN] %s %s already deleted", ResourceName, id)
 			d.SetId("")
 			return diags
 		}
-		return diag.Errorf("error deleting MySQL DBaaS (ID: %s): %s", id, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationDeleting, ResourceName, id, "", "", err)
 	}
 
-	log.Printf("[INFO] Successfully deleted MySQL cluster: %s", id)
+	log.Printf("[INFO] Successfully deleted %s: %s", ResourceName, id)
 	d.SetId("")
 	return diags
 }
 
 func CustomImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	parts := strings.Split(d.Id(), ":")
+	parts := strings.Split(d.Id(), tfconstants.DBaaSImportIDSeparator)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid ID format: expected project_id:dbaas_id")
+		return nil, fmt.Errorf(ImportIDInvalidFormatTemplate, tfconstants.DBaaSImportIDFormatDescription, d.Id())
 	}
 
 	projectID := parts[0]
@@ -629,7 +638,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 						"dbaas_number": {
 							Type:     schema.TypeInt,
 							Optional: true,
-							Default:  1,
+							Default:  tfconstants.DBaaSDefaultDBaaSNumber,
 							ForceNew: true,
 						},
 						"name": {
@@ -648,24 +657,24 @@ func resourceMySQLResourceV0() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS - IMMUTABLE
 			// ============================================
-			"dbaas_name": {
+			tfconstants.AttrDBaaSName: {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 			},
-			"db_location": {
+			tfconstants.AttrDBLocation: {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "Delhi",
+				Default:  tfconstants.DBaaSDefaultDBLocation,
 				ForceNew: true,
 			},
-			"is_encryption_enabled": {
+			tfconstants.AttrIsEncryptionEnabled: {
 				Type:     schema.TypeBool,
 				Optional: true,
 				Computed: true,
 				ForceNew: true,
 			},
-			"encryption_passphrase": {
+			tfconstants.AttrEncryptionPassphrase: {
 				Type:      schema.TypeString,
 				Optional:  true,
 				ForceNew:  true,
@@ -674,7 +683,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 			tfconstants.AttrGroup: {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "Default",
+				Default:  tfconstants.DBaaSDefaultGroupName,
 				ForceNew: true,
 			},
 
@@ -693,7 +702,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 			tfconstants.AttrPublicIPRequired: {
 				Type:     schema.TypeBool,
 				Optional: true,
-				Default:  true,
+				Default:  tfconstants.DBaaSDefaultPublicIPRequired,
 			},
 			tfconstants.AttrSize: {
 				Type:     schema.TypeInt,
@@ -708,7 +717,15 @@ func resourceMySQLResourceV0() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				ValidateFunc: validation.StringInSlice(
-					[]string{"STOPPED", "SUSPENDED", "RUNNING", "RESTARTING", "start", "stop", "restart"},
+					[]string{
+						goe2econstants.DBaaSStatusStopped,
+						goe2econstants.DBaaSStatusSuspended,
+						goe2econstants.DBaaSStatusRunning,
+						goe2econstants.DBaaSStatusRestarting,
+						tfconstants.DBaaSPowerActionStart,
+						tfconstants.DBaaSPowerActionStop,
+						tfconstants.DBaaSPowerActionRestart,
+					},
 					false,
 				),
 			},
@@ -732,7 +749,7 @@ func resourceMySQLResourceV0() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"port": {
+			tfconstants.AttrPort: {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -741,20 +758,26 @@ func resourceMySQLResourceV0() *schema.Resource {
 	}
 }
 
-// resourceMySQLStateUpgradeV0toV1 upgrades the state from V0 to V1
+// ResourceMySQLStateUpgradeV0toV1 upgrades the state from V0 to V1
 // V1 adds the "tags" field for state-only tag management
-func resourceMySQLStateUpgradeV0toV1(
+func ResourceMySQLStateUpgradeV0toV1(
 	ctx context.Context,
 	rawState map[string]interface{},
 	meta interface{},
 ) (map[string]interface{}, error) {
-	// Add new V1 fields with defaults
-	if _, exists := rawState["tags"]; !exists {
-		rawState["tags"] = make(map[string]interface{})
+	// Add new V1 fields with defaults and ensure tags is a map
+	if tagsVal, exists := rawState[tfconstants.AttrTags]; exists {
+		// If tags exists but is not a map, convert it to an empty map
+		if _, ok := tagsVal.(map[string]interface{}); !ok {
+			rawState[tfconstants.AttrTags] = make(map[string]interface{})
+		}
+	} else {
+		// If tags doesn't exist, create an empty map
+		rawState[tfconstants.AttrTags] = make(map[string]interface{})
 	}
 
 	// Preserve all existing fields - no modifications needed
-	log.Printf("[INFO] Upgraded MySQL resource state from v0 to v1: %s", rawState["id"])
+	log.Printf("[INFO] Upgraded %s resource state from v0 to v1: %s", ResourceName, rawState[tfconstants.AttrID])
 
 	return rawState, nil
 }

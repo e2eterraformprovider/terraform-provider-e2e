@@ -39,7 +39,7 @@ func resourceSfsResourceV0() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"disk_iops": {
+			tfconstants.AttrDiskIOPS: {
 				Type:     schema.TypeInt,
 				Required: true,
 				ForceNew: true,
@@ -75,21 +75,21 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// Copy disk_size -> size_gb if disk_size exists
-	if diskSize, ok := rawState[tfconstants.AttrDiskSize]; ok && diskSize != nil {
+	if diskSize, ok := rawState[tfconstants.FieldMigrationKeyDiskSize]; ok && diskSize != nil {
 		log.Printf("[DEBUG] Migrating disk_size to size_gb: %v", diskSize)
-		rawState[tfconstants.AttrSizeGB] = diskSize
+		rawState[tfconstants.FieldMigrationKeySizeGB] = diskSize
 	}
 
 	// Copy disk_iops -> iops if disk_iops exists
-	if diskIops, ok := rawState["disk_iops"]; ok && diskIops != nil {
+	if diskIops, ok := rawState[tfconstants.FieldMigrationKeyDiskIOPS]; ok && diskIops != nil {
 		log.Printf("[DEBUG] Migrating disk_iops to iops: %v", diskIops)
-		rawState[tfconstants.AttrIOPS] = diskIops
+		rawState[tfconstants.FieldMigrationKeyIOPS] = diskIops
 	}
 
 	// Copy is_encryption_enabled -> encryption_enabled if is_encryption_enabled exists
-	if isEncryption, ok := rawState[tfconstants.AttrIsEncryptionEnabled]; ok && isEncryption != nil {
+	if isEncryption, ok := rawState[tfconstants.FieldMigrationKeyIsEncryptionEnabled]; ok && isEncryption != nil {
 		log.Printf("[DEBUG] Migrating is_encryption_enabled to encryption_enabled: %v", isEncryption)
-		rawState[tfconstants.AttrEncryptionEnabled] = isEncryption
+		rawState[tfconstants.FieldMigrationKeyEncryptionEnabled] = isEncryption
 	}
 
 	// Initialize new computed fields with reasonable defaults
@@ -99,10 +99,10 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// mount_endpoint is alias for private_endpoint - copy if private_endpoint exists
-	if privateEndpoint, ok := rawState["private_endpoint"]; ok && privateEndpoint != nil {
-		rawState["mount_endpoint"] = privateEndpoint
-	} else if _, ok := rawState["mount_endpoint"]; !ok {
-		rawState["mount_endpoint"] = ""
+	if privateEndpoint, ok := rawState[tfconstants.AttrPrivateEndpoint]; ok && privateEndpoint != nil {
+		rawState[tfconstants.AttrMountEndpoint] = privateEndpoint
+	} else if _, ok := rawState[tfconstants.AttrMountEndpoint]; !ok {
+		rawState[tfconstants.AttrMountEndpoint] = ""
 	}
 
 	// Initialize tags if not present
@@ -111,8 +111,8 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// is_backup_enabled will be populated on next read from API
-	if _, ok := rawState["is_backup_enabled"]; !ok {
-		rawState["is_backup_enabled"] = false
+	if _, ok := rawState[tfconstants.AttrIsBackupEnabled]; !ok {
+		rawState[tfconstants.AttrIsBackupEnabled] = false
 	}
 
 	// created_at will be populated on next read from API
@@ -121,8 +121,8 @@ func resourceSfsStateUpgradeV0toV1(ctx context.Context, rawState map[string]inte
 	}
 
 	// private_endpoint will be populated on next read from API
-	if _, ok := rawState["private_endpoint"]; !ok {
-		rawState["private_endpoint"] = ""
+	if _, ok := rawState[tfconstants.AttrPrivateEndpoint]; !ok {
+		rawState[tfconstants.AttrPrivateEndpoint] = ""
 	}
 
 	log.Printf("[INFO] SFS state upgrade from V0 to V1 completed successfully")

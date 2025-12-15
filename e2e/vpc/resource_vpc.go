@@ -14,6 +14,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+// File-local constants for VPC resource
+const (
+	// Import format constants
+	vpcImportSeparator = ":"
+	vpcImportFormat    = "project_id:vpc_id"
+)
+
 func ResourceVpc() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
@@ -37,14 +44,14 @@ func ResourceVpc() *schema.Resource {
 			// ============================================
 			// OPTIONAL INPUT FIELDS (Immutable)
 			// ============================================
-			"ipv4": {
+			tfconstants.AttrIPv4: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
 				ForceNew:    true,
 				Description: "the IPv4 CIDR block for custom VPC (leave empty for E2E-managed VPC)",
 			},
-			"is_e2e_vpc": {
+			tfconstants.AttrIsE2EVPC: {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
@@ -55,7 +62,7 @@ func ResourceVpc() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - IDENTIFIERS
 			// ============================================
-			"network_id": {
+			tfconstants.AttrNetworkID: {
 				Type:        schema.TypeFloat,
 				Computed:    true,
 				Description: "id of the VPC network",
@@ -74,7 +81,7 @@ func ResourceVpc() *schema.Resource {
 				Computed:    true,
 				Description: "state of the VPC instance",
 			},
-			"is_active": {
+			tfconstants.AttrIsActive: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether the VPC is active",
@@ -83,17 +90,17 @@ func ResourceVpc() *schema.Resource {
 			// ============================================
 			// COMPUTED FIELDS - NETWORK
 			// ============================================
-			"ipv4_cidr": {
+			tfconstants.AttrIPv4CIDR: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the IPv4 CIDR block of the VPC",
 			},
-			"gateway_ip": {
+			tfconstants.AttrGatewayIP: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the gateway IP address of the VPC",
 			},
-			"pool_size": {
+			tfconstants.AttrPoolSize: {
 				Type:        schema.TypeFloat,
 				Computed:    true,
 				Description: "the IP pool size of the VPC",
@@ -105,14 +112,14 @@ func ResourceVpc() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: func(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 				// Support both "vpc_id" and "project_id:vpc_id" formats
-				parts := strings.Split(d.Id(), ":")
+				parts := strings.Split(d.Id(), vpcImportSeparator)
 
 				if len(parts) == 2 {
 					// Format: project_id:vpc_id
-					d.Set("project_id", parts[0])
+					d.Set(tfconstants.AttrProjectID, parts[0])
 					d.SetId(parts[1])
 				} else if len(parts) != 1 {
-					return nil, fmt.Errorf("invalid import format: expected 'vpc_id' or 'project_id:vpc_id', got '%s'", d.Id())
+					return nil, fmt.Errorf(errVPCImportFormat, d.Id())
 				}
 				// For single vpc_id, provider default project_id will be used
 
@@ -144,17 +151,17 @@ func ResourceReadVpc(ctx context.Context, d *schema.ResourceData, m interface{})
 	log.Printf("[INFO] Inside vpcs resource | read ")
 	vpc, _, err := goe2eClient.Vpcs.GetVPC(ctx, vpcId)
 	if err != nil {
-		return diag.Errorf("Error retrieving VPC (ID: %s) in project (%s), region (%s): %s", vpcId, project_id, region, err)
+		return diag.Errorf(errVPCRetrieve, vpcId, project_id, region, err)
 	}
 
 	d.Set(tfconstants.AttrName, vpc.Name)
-	d.Set("network_id", vpc.ID)
+	d.Set(tfconstants.AttrNetworkID, vpc.ID)
 	d.Set(tfconstants.AttrCreatedAt, vpc.CreatedAt)
 	d.Set(tfconstants.AttrStatus, vpc.State)
-	d.Set("ipv4_cidr", vpc.IPv4CIDR)
-	d.Set("gateway_ip", vpc.GatewayIP)
-	d.Set("is_active", vpc.IsActive)
-	d.Set("pool_size", vpc.PoolSize)
+	d.Set(tfconstants.AttrIPv4CIDR, vpc.IPv4CIDR)
+	d.Set(tfconstants.AttrGatewayIP, vpc.GatewayIP)
+	d.Set(tfconstants.AttrIsActive, vpc.IsActive)
+	d.Set(tfconstants.AttrPoolSize, vpc.PoolSize)
 
 	return diags
 }
@@ -178,12 +185,12 @@ func ResourceCreateVpc(ctx context.Context, d *schema.ResourceData, m interface{
 
 	createReq := &goe2e.VpcCreateRequest{
 		VpcName:  d.Get(tfconstants.AttrName).(string),
-		IPv4:     d.Get("ipv4").(string),
-		IsE2EVpc: d.Get("is_e2e_vpc").(bool),
+		IPv4:     d.Get(tfconstants.AttrIPv4).(string),
+		IsE2EVpc: d.Get(tfconstants.AttrIsE2EVPC).(bool),
 	}
 	vpc, _, err := goe2eClient.Vpcs.CreateVPC(ctx, createReq)
 	if err != nil {
-		return diag.Errorf("Error creating VPC (name: %s) in project (%s), region (%s): %s", createReq.VpcName, project_id, region, err)
+		return diag.Errorf(errVPCCreate, createReq.VpcName, project_id, region, err)
 	}
 
 	log.Printf("[INFO] vpc creation | before setting fields")
@@ -216,7 +223,7 @@ func ResourceDeleteVpc(ctx context.Context, d *schema.ResourceData, m interface{
 
 	_, err = goe2eClient.Vpcs.DeleteVPC(ctx, vpcId)
 	if err != nil {
-		return diag.Errorf("Error deleting VPC (ID: %s) in project (%s), region (%s): %s", vpcId, project_id, region, err)
+		return diag.Errorf(errVPCDelete, vpcId, project_id, region, err)
 	}
 
 	d.SetId("")

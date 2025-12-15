@@ -36,11 +36,11 @@ func DataSourceContainerRegistry() *schema.Resource {
 				Computed:    true,
 				Description: "state of the Container Registry instance",
 			},
-			"setup_status": {
+			tfconstants.AttrSetupStatus: {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Deprecated:  "Use 'status' instead. This parameter will be removed in version 3.0.0",
-				Description: "DEPRECATED: Use 'status' instead",
+				Deprecated:  DeprecationMessageSetupStatus,
+				Description: DeprecationMessageSetupStatusAlternative,
 			},
 			tfconstants.AttrSeverity: {
 				Type:        schema.TypeString,
@@ -65,12 +65,12 @@ func dataSourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData
 	// Parse ID to int for the API call
 	registryID, err := strconv.Atoi(id)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("invalid container registry ID: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorInvalidID, err))
 	}
 
 	registry, _, err := apiClient.ContainerRegistry.GetContainerRegistry(ctx, registryID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to read container registry (ID: %s): %w", id, err))
+		return diag.FromErr(fmt.Errorf(ErrorReadRegistry, id, err))
 	}
 
 	if registry == nil {
@@ -79,19 +79,19 @@ func dataSourceReadContainerRegistry(ctx context.Context, d *schema.ResourceData
 
 	d.SetId(id)
 	if err := d.Set(tfconstants.AttrProjectName, registry.ProjectName); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set project_name: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrProjectName, err))
 	}
 	if err := d.Set(tfconstants.AttrStatus, registry.State); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set status: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrStatus, err))
 	}
-	if err := d.Set("setup_status", registry.State); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set setup_status: %w", err))
+	if err := d.Set(tfconstants.AttrSetupStatus, registry.State); err != nil {
+		return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrSetupStatus, err))
 	}
 	if err := d.Set(tfconstants.AttrSeverity, registry.Severity); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set severity: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrSeverity, err))
 	}
 	if err := d.Set(tfconstants.AttrPreventVulnerabilities, registry.PreventVul); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to set prevent_vul: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrorSetField, tfconstants.AttrPreventVulnerabilities, err))
 	}
 
 	return nil

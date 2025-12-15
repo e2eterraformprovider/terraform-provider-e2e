@@ -35,6 +35,12 @@ func init() {
 }
 
 func TestAccPreCheck(t *testing.T) {
+	// Skip acceptance tests unless TF_ACC is explicitly set to "1"
+	// This prevents accidental execution when TF_ACC=0 or other values are set
+	if os.Getenv("TF_ACC") != "1" {
+		t.Skip("Skipping acceptance test. Set TF_ACC=1 to run acceptance tests.")
+	}
+
 	if v := os.Getenv("E2E_API_KEY"); v == "" {
 		t.Fatal("E2E_API_KEY must be set for acceptance tests")
 	}
@@ -69,6 +75,18 @@ func TestAccPreCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TestAccPreCheckSyntaxOnly is a PreCheck function for syntax/argument validation tests
+// that don't require API calls. These tests use ExpectError to validate Terraform
+// syntax/argument checking and don't need credentials.
+//
+// Usage: Use this PreCheck for tests that only validate syntax/arguments and don't
+// make actual API calls (e.g., tests with ExpectError for missing required arguments).
+func TestAccPreCheckSyntaxOnly(t *testing.T) {
+	// Syntax validation tests can run without TF_ACC since they don't make API calls
+	// They only validate Terraform configuration syntax/arguments
+	// No credentials needed - Terraform validates before any API calls
 }
 
 // GetRegionOrLocationFromState is a helper function to handle the region/location parameter migration in tests.

@@ -30,12 +30,12 @@ func DataSourceReserveIps() *schema.Resource {
 				Description: "list of all reserved IPs",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"reserve_id": {
-							Type:        schema.TypeFloat,
+						tfconstants.AttrReserveID: {
+							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "id of the reserved IP",
 						},
-						"appliance_type": {
+						tfconstants.AttrApplianceType: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the type of infrastructure to which the reserved IP is attached",
@@ -45,7 +45,7 @@ func DataSourceReserveIps() *schema.Resource {
 							Computed:    true,
 							Description: "the IP address",
 						},
-						"reserved_type": {
+						tfconstants.AttrReservedType: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the type of IP address that is reserved",
@@ -55,7 +55,7 @@ func DataSourceReserveIps() *schema.Resource {
 							Computed:    true,
 							Description: "id of the VM to which the reserved IP is attached",
 						},
-						tfconstants.AttrCreatedAt: {
+						tfconstants.AttrBoughtAt: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the date when the IP was purchased",

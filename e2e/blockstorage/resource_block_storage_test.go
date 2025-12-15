@@ -3,11 +3,14 @@ package blockstorage_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -23,13 +26,13 @@ func TestAccE2EBlockStorage_Basic(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "name", blockStorageName),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "10"),
-					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", "iops"),
-					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", "status")),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrName, blockStorageName),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrSize, "250"),
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrIOPS),
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrStatus)),
 			},
 		},
 	})
@@ -46,16 +49,16 @@ func TestAccE2EBlockStorage_Resize(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "10")),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrSize, "250")),
 			},
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 20),
+				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 500),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "20")),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrSize, "500")),
 			},
 		},
 	})
@@ -72,12 +75,12 @@ func TestAccE2EBlockStorage_AttachToNode(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "name", blockStorageName),
-					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", "vm_id"),
-					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", "vm_name")),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrName, blockStorageName),
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrVMID),
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrVMName)),
 			},
 		},
 	})
@@ -90,9 +93,9 @@ func TestAccE2EBlockStorage_DifferentSizes(t *testing.T) {
 	testCases := []struct {
 		size float64
 	}{
-		{size: 10},
-		{size: 50},
-		{size: 100},
+		{size: 250},
+		{size: 500},
+		{size: 1000},
 	}
 
 	for _, tc := range testCases {
@@ -106,7 +109,7 @@ func TestAccE2EBlockStorage_DifferentSizes(t *testing.T) {
 						Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, tc.size),
 						Check: resource.ComposeTestCheckFunc(
 							testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-							resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", fmt.Sprintf("%v", tc.size))),
+							resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrSize, fmt.Sprintf("%v", tc.size))),
 					},
 				},
 			})
@@ -116,7 +119,7 @@ func TestAccE2EBlockStorage_DifferentSizes(t *testing.T) {
 
 func TestAccE2EBlockStorage_MissingRequiredArguments(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:          func() { testAccPreCheckSyntaxOnly(t) },
 		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -133,7 +136,7 @@ func TestAccE2EBlockStorage_MissingRequiredArguments(t *testing.T) {
 
 func TestAccE2EBlockStorage_InvalidName(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t) },
+		PreCheck:          func() { testAccPreCheckSyntaxOnly(t) },
 		ProviderFactories: acceptance.TestAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -154,7 +157,7 @@ func TestAccE2EBlockStorage_Import(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID)),
 			},
@@ -163,6 +166,54 @@ func TestAccE2EBlockStorage_Import(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 				ImportStateIdFunc: testAccE2EBlockStorageImportID("e2e_blockstorage.test"),
+			},
+		},
+	})
+}
+
+// ============================================================================
+// Test: V2 Config Migration to V3 (location -> region)
+// ============================================================================
+
+func TestAccE2EBlockStorage_LocationToRegionMigration(t *testing.T) {
+	var blockStorageID string
+	blockStorageName := fmt.Sprintf("test-bs-loc-%s", acctest.RandString(10))
+
+	region := testAccRegionForConfig()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2EBlockStorageConfig_v2Location(blockStorageName, region, 250),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
+					// V2 style uses deprecated key; region should not be set in config
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrLocation, region),
+					resource.TestCheckNoResourceAttr("e2e_blockstorage.test", tfconstants.AttrRegion),
+					// State upgrade V0→V1: tags should exist
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrTags+".%", "0"),
+				),
+			},
+			{
+				Config:             testAccCheckE2EBlockStorageConfig_v2Location(blockStorageName, region, 250),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			{
+				Config: testAccCheckE2EBlockStorageConfig_v3Region(blockStorageName, region, 250),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrRegion, region),
+					resource.TestCheckNoResourceAttr("e2e_blockstorage.test", tfconstants.AttrLocation),
+				),
+			},
+			{
+				Config:             testAccCheckE2EBlockStorageConfig_v3Region(blockStorageName, region, 250),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -180,13 +231,13 @@ func TestAccE2EBlockStorage_ForceNewName(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName1, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName1, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID1),
 					resource.TestCheckResourceAttr("e2e_blockstorage.test", "name", blockStorageName1)),
 			},
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName2, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName2, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID2),
 					resource.TestCheckResourceAttr("e2e_blockstorage.test", "name", blockStorageName2),
@@ -208,13 +259,13 @@ func TestAccE2EBlockStorage_SizeDowngrade(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 20),
+				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 500),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "20")),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrSize, "500")),
 			},
 			{
-				Config:      testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 10),
+				Config:      testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 250),
 				ExpectError: regexp.MustCompile(`Cannot reduce block storage`),
 			},
 		},
@@ -225,6 +276,10 @@ func TestAccE2EBlockStorage_SizeDowngrade(t *testing.T) {
 
 func testAccPreCheck(t *testing.T) {
 	acceptance.TestAccPreCheck(t)
+}
+
+func testAccPreCheckSyntaxOnly(t *testing.T) {
+	acceptance.TestAccPreCheckSyntaxOnly(t)
 }
 
 func testAccCheckE2EBlockStorageExists(resourceName string, blockStorageID *string) resource.TestCheckFunc {
@@ -240,8 +295,14 @@ func testAccCheckE2EBlockStorageExists(resourceName string, blockStorageID *stri
 
 		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 
-		projectID := rs.Primary.Attributes["project_id"]
+		projectID := rs.Primary.Attributes[tfconstants.AttrProjectID]
+		if projectID == "" {
+			projectID = acceptance.TestProjectID
+		}
 		region := acceptance.GetRegionOrLocationFromState(rs)
+		if region == "" {
+			region = acceptance.TestRegion
+		}
 
 		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 		if err != nil {
@@ -270,8 +331,14 @@ func testAccCheckE2EBlockStorageDestroy(s *terraform.State) error {
 			continue
 		}
 
-		projectID := rs.Primary.Attributes["project_id"]
+		projectID := rs.Primary.Attributes[tfconstants.AttrProjectID]
+		if projectID == "" {
+			projectID = acceptance.TestProjectID
+		}
 		region := acceptance.GetRegionOrLocationFromState(rs)
+		if region == "" {
+			region = acceptance.TestRegion
+		}
 
 		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 		if err != nil {
@@ -294,8 +361,14 @@ func testAccE2EBlockStorageImportID(resourceName string) resource.ImportStateIdF
 			return "", fmt.Errorf("Not found: %s", resourceName)
 		}
 
-		projectID := rs.Primary.Attributes["project_id"]
+		projectID := rs.Primary.Attributes[tfconstants.AttrProjectID]
+		if projectID == "" {
+			projectID = acceptance.TestProjectID
+		}
 		region := acceptance.GetRegionOrLocationFromState(rs)
+		if region == "" {
+			region = acceptance.TestRegion
+		}
 		if region == "" {
 			return "", fmt.Errorf("neither region nor location attribute found")
 		}
@@ -314,6 +387,26 @@ resource "e2e_blockstorage" "test" {
   size = %v
 }
 `, name, size)
+}
+
+func testAccCheckE2EBlockStorageConfig_v2Location(name, location string, size float64) string {
+	return fmt.Sprintf(`
+resource "e2e_blockstorage" "test" {
+  name     = "%s"
+  location = "%s"
+  size     = %v
+}
+`, name, location, size)
+}
+
+func testAccCheckE2EBlockStorageConfig_v3Region(name, region string, size float64) string {
+	return fmt.Sprintf(`
+resource "e2e_blockstorage" "test" {
+  name   = "%s"
+  region = "%s"
+  size   = %v
+}
+`, name, region, size)
 }
 
 func testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName string, size float64) string {
@@ -390,7 +483,7 @@ func TestAccE2EBlockStorage_Tags(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withTags(blockStorageName, 10, map[string]string{
+				Config: testAccCheckE2EBlockStorageConfig_withTags(blockStorageName, 250, map[string]string{
 					"Environment": "test",
 					"ManagedBy":   "terraform",
 				}),
@@ -402,7 +495,7 @@ func TestAccE2EBlockStorage_Tags(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withTags(blockStorageName, 10, map[string]string{
+				Config: testAccCheckE2EBlockStorageConfig_withTags(blockStorageName, 250, map[string]string{
 					"Environment": "production",
 					"ManagedBy":   "terraform",
 					"CostCenter":  "engineering",
@@ -416,7 +509,7 @@ func TestAccE2EBlockStorage_Tags(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
 					resource.TestCheckResourceAttr("e2e_blockstorage.test", "tags.%", "0"),
@@ -437,14 +530,14 @@ func TestAccE2EBlockStorage_SizeUpgrade_Detached(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
-					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "10"),
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", "size", "250"),
 				),
 			},
 			{
-				Config:      testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 20),
+				Config:      testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 500),
 				ExpectError: regexp.MustCompile(`Cannot resize block storage.*must be attached`),
 			},
 		},
@@ -463,7 +556,7 @@ func TestAccE2EBlockStorage_Delete_Attached(t *testing.T) {
 		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 10),
+				Config: testAccCheckE2EBlockStorageConfig_withNode(blockStorageName, nodeName, 250),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EBlockStorageExists("e2e_blockstorage.test", &blockStorageID),
 					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", "vm_id"),
@@ -471,11 +564,41 @@ func TestAccE2EBlockStorage_Delete_Attached(t *testing.T) {
 			},
 			{
 				// Try to delete by removing the resource - should fail if still attached
-				Config:      testAccCheckE2EBlockStorageConfig_basic(nodeName, 10), // Different resource
-				ExpectError: nil,                                                   // The destroy check will verify it's still there
+				Config:      testAccCheckE2EBlockStorageConfig_basic(nodeName, 250), // Different resource
+				ExpectError: nil,                                                    // The destroy check will verify it's still there
 			},
 		},
 	})
+}
+
+// TestAccE2EBlockStorage_Delete_WithProviderDefaults explicitly validates that create+delete
+// works when project_id/region are not set on the resource and provider defaults are used.
+// This guards against regressions where Delete ignores provider defaults.
+func TestAccE2EBlockStorage_Delete_WithProviderDefaults(t *testing.T) {
+	blockStorageName := fmt.Sprintf("test-bs-del-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2EBlockStorageDestroy,
+		Steps: []resource.TestStep{
+			{
+				// No project_id/region on resource: provider defaults via acceptance env should be used.
+				Config: testAccCheckE2EBlockStorageConfig_basic(blockStorageName, 250),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("e2e_blockstorage.test", tfconstants.AttrName, blockStorageName),
+				),
+			},
+		},
+	})
+}
+
+// Ensure we reference at least one goe2e API constant in acceptance assertions
+// (helps keep tests aligned with SDK constants instead of raw strings).
+func TestAccE2EBlockStorage_ConstantsSanity(t *testing.T) {
+	if goe2econstants.BlockStorageStatusDetached == "" {
+		t.Fatalf("expected goe2e block storage constants to be non-empty")
+	}
 }
 
 // Helper function for tags test
@@ -496,4 +619,12 @@ resource "e2e_blockstorage" "test" {
   %s
 }
 `, name, size, tagsStr)
+}
+
+func testAccRegionForConfig() string {
+	// For config generation we prefer test vars but allow fallbacks.
+	if v := os.Getenv("E2E_TEST_REGION"); v != "" {
+		return v
+	}
+	return os.Getenv("E2E_REGION")
 }

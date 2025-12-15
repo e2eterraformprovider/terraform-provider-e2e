@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/security_group"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -58,8 +59,8 @@ func TestAccDataSourceE2ESecurityGroup_WithMultipleRules(t *testing.T) {
 					resource.TestCheckResourceAttr("data.e2e_security_group.test", "name", sgName),
 					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.#", "2"),
 					resource.TestCheckResourceAttrSet("data.e2e_security_group.test", "rules.0.rule_id"),
-					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.rule_type", "Inbound"),
-					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.protocol_name", "Custom_TCP")),
+					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.rule_type", security_group.RuleTypeInbound),
+					resource.TestCheckResourceAttr("data.e2e_security_group.test", "rules.0.protocol_name", security_group.ProtocolCustomTCP)),
 			},
 		},
 	})
@@ -109,15 +110,15 @@ resource "e2e_security_group" "test" {
   name        = "%s"
   description = "Test security group"
   rules {
-    rule_type     = "Inbound"
-    protocol_name = "All"
-    network       = "any"
+    rule_type     = "%s"
+    protocol_name = "%s"
+    network       = "%s"
   }
 }
 
 data "e2e_security_group" "test" {
   name       = e2e_security_group.test.name}
-`, name)
+`, name, security_group.RuleTypeInbound, security_group.ProtocolAll, security_group.NetworkTypeAny)
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_multipleRules(name string) string {
@@ -126,25 +127,27 @@ resource "e2e_security_group" "test" {
   name        = "%s"
   description = "Test security group with multiple rules"
   rules {
-    rule_type     = "Inbound"
-    protocol_name = "Custom_TCP"
+    rule_type     = "%s"
+    protocol_name = "%s"
     port_range    = "22"
-    network       = "any"
+    network       = "%s"
     description   = "SSH access"
   }
 
   rules {
-    rule_type     = "Inbound"
-    protocol_name = "Custom_TCP"
+    rule_type     = "%s"
+    protocol_name = "%s"
     port_range    = "80"
-    network       = "any"
+    network       = "%s"
     description   = "HTTP access"
   }
 }
 
 data "e2e_security_group" "test" {
   name       = e2e_security_group.test.name}
-`, name)
+`, name,
+		security_group.RuleTypeInbound, security_group.ProtocolCustomTCP, security_group.NetworkTypeAny,
+		security_group.RuleTypeInbound, security_group.ProtocolCustomTCP, security_group.NetworkTypeAny)
 }
 
 func testAccCheckDataSourceE2ESecurityGroupConfig_nonExistent(name string) string {

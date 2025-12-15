@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 )
 
 func TestAttachVolume(t *testing.T) {
@@ -19,7 +21,7 @@ func TestAttachVolume(t *testing.T) {
 			"node_id":   "node-123",
 			"volume_id": "vol-456",
 			"device":    "/dev/vdb",
-			"status":    "attached",
+			"status":    goe2econstants.VolumeAttachmentStatusAttached,
 		})))
 	}))
 	defer server.Close()
@@ -38,8 +40,8 @@ func TestAttachVolume(t *testing.T) {
 	if result.VolumeID != "vol-456" {
 		t.Errorf("Expected VolumeID vol-456, got %s", result.VolumeID)
 	}
-	if result.Status != "attached" {
-		t.Errorf("Expected Status attached, got %s", result.Status)
+	if result.Status != goe2econstants.VolumeAttachmentStatusAttached {
+		t.Errorf("Expected Status %s, got %s", goe2econstants.VolumeAttachmentStatusAttached, result.Status)
 	}
 }
 
@@ -51,7 +53,7 @@ func TestDetachVolume(t *testing.T) {
 		w.Write([]byte(buildSuccessResponse(200, "Volume detached successfully", map[string]interface{}{
 			"node_id":   "node-123",
 			"volume_id": "vol-456",
-			"status":    "detached",
+			"status":    goe2econstants.VolumeAttachmentStatusDetached,
 		})))
 	}))
 	defer server.Close()

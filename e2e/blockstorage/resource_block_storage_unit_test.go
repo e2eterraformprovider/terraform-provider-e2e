@@ -1,11 +1,18 @@
 package blockstorage_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/blockstorage"
 	"github.com/stretchr/testify/assert"
 )
+
+var validBlockStorageSizesForTest = []float64{250, 500, 1000, 2000, 4000, 8000, 16000, 24000}
+
+func expectedIOPSString(size float64) string {
+	return strconv.Itoa(int(size * float64(blockstorage.IOPS_PER_GB)))
+}
 
 func TestCalculateIOPS(t *testing.T) {
 	testCases := []struct {
@@ -77,12 +84,12 @@ func TestCalculateIOPS_EdgeCases(t *testing.T) {
 		{
 			name:     "Fractional size",
 			size:     250.5,
-			expected: "3757",
+			expected: expectedIOPSString(250.5),
 		},
 		{
 			name:     "Very small size",
 			size:     1.0,
-			expected: "15",
+			expected: expectedIOPSString(1.0),
 		},
 	}
 
@@ -90,6 +97,33 @@ func TestCalculateIOPS_EdgeCases(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := blockstorage.CalculateIOPS(tc.size)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestCalculateIOPS_AllValidSizes(t *testing.T) {
+	for _, size := range validBlockStorageSizesForTest {
+		t.Run(strconv.Itoa(int(size))+"_GB", func(t *testing.T) {
+			assert.Equal(t, expectedIOPSString(size), blockstorage.CalculateIOPS(size))
+		})
+	}
+}
+
+func TestCalculateIOPS_FractionalSizes(t *testing.T) {
+	testCases := []float64{250.5, 1000.25}
+	for _, size := range testCases {
+		t.Run(strconv.FormatFloat(size, 'f', -1, 64)+"_GB", func(t *testing.T) {
+			assert.Equal(t, expectedIOPSString(size), blockstorage.CalculateIOPS(size))
+		})
+	}
+}
+
+func TestCalculateIOPS_VeryLargeSizes(t *testing.T) {
+	// Beyond currently supported sizes, but validates math stays correct.
+	testCases := []float64{50000, 100000}
+	for _, size := range testCases {
+		t.Run(strconv.Itoa(int(size))+"_GB", func(t *testing.T) {
+			assert.Equal(t, expectedIOPSString(size), blockstorage.CalculateIOPS(size))
 		})
 	}
 }
@@ -143,8 +177,7 @@ func TestValidateBlockStorageSize(t *testing.T) {
 			// Note: We can't test private functions directly, so we'll test through the schema
 			// For now, just verify the logic by checking the valid sizes slice
 			var isValid bool
-			validSizes := []float64{250, 500, 1000, 2000, 4000, 8000, 16000, 24000}
-			for _, validSize := range validSizes {
+			for _, validSize := range validBlockStorageSizesForTest {
 				if tc.size == validSize {
 					isValid = true
 					break

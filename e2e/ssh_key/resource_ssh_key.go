@@ -61,6 +61,11 @@ func resourceSshKeyStateUpgradeV0toV1(
 	rawState map[string]interface{},
 	meta interface{},
 ) (map[string]interface{}, error) {
+	// Handle nil state (shouldn't happen in practice, but be defensive)
+	if rawState == nil {
+		rawState = make(map[string]interface{})
+	}
+
 	// Preserve all existing V0 fields (label, ssh_key, location)
 	// These continue to work for backward compatibility
 
@@ -333,7 +338,7 @@ func resourceReadSshKey(ctx context.Context, d *schema.ResourceData, m interface
 	sshKey, _, err := goe2eClient.SSHKeys.GetSSHKey(ctx, pk)
 	if err != nil {
 		// Check if it's a "not found" error
-		if strings.Contains(err.Error(), goe2econstants.SSHKeyNotFoundSubstring) {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			log.Printf("[WARN] SSH key with ID %s not found, removing from state", pk)
 			d.SetId("")
 			return diag.Diagnostics{{
@@ -426,7 +431,7 @@ func resourceDeleteSshKey(ctx context.Context, d *schema.ResourceData, m interfa
 	_, err := goe2eClient.SSHKeys.DeleteSSHKey(ctx, pk)
 	if err != nil {
 		// Check if key not found (treat as success since we want it gone)
-		if strings.Contains(err.Error(), goe2econstants.SSHKeyNotFoundSubstring) {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			log.Printf("[WARN] SSH key not found during delete (already deleted), treating as success")
 			d.SetId("")
 			return diags
@@ -454,14 +459,14 @@ func resourceSshKeyImport(ctx context.Context, d *schema.ResourceData, m interfa
 		// Get default region from config
 		region = cfg.DefaultRegion
 		if region == "" {
-			return nil, fmt.Errorf(tfconstants.SSHKeyImportIDRegionRequired)
+			return nil, fmt.Errorf("%s", ImportIDRegionRequired)
 		}
 	} else if len(parts) == 3 {
 		projectID = parts[0]
 		region = parts[1]
 		sshKeyID = parts[2]
 	} else {
-		return nil, fmt.Errorf(tfconstants.SSHKeyImportIDInvalidFormat)
+		return nil, fmt.Errorf("%s", ImportIDInvalidFormat)
 	}
 
 	// Fetch SSH key from API to populate all fields

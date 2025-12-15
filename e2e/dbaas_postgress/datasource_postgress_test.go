@@ -5,8 +5,14 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+)
+
+const (
+	testPostgresDataSourcePlanSmall = "E2E-2C-4GB"
+	testPostgresDataSourceVersion   = "15"
 )
 
 func TestAccE2EPostgresDBaaSDataSource_Basic(t *testing.T) {
@@ -23,18 +29,18 @@ func TestAccE2EPostgresDBaaSDataSource_Basic(t *testing.T) {
 			{
 				Config: testAccCheckE2EPostgresDBaaSDataSourceConfig_basic(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "id"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "database_id"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "database_name"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "database_user"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "status"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "plan"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "database_version"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "disk"),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_user", dbUser),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_name", dbName),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "plan", "E2E-2C-4GB"),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "database_version", "15")),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrID),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseID),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseName),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseUser),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrStatus),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrPlan),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseVersion),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrDisk),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseUser, dbUser),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseName, dbName),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", tfconstants.AttrPlan, testPostgresDataSourcePlanSmall),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", tfconstants.AttrDatabaseVersion, testPostgresDataSourceVersion)),
 			},
 		},
 	})
@@ -54,9 +60,9 @@ func TestAccE2EPostgresDBaaSDataSource_WithPublicIP(t *testing.T) {
 			{
 				Config: testAccCheckE2EPostgresDBaaSDataSourceConfig_withPublicIP(dbaasName, dbUser, dbPassword, dbName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "public_ip"),
-					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", "private_ip"),
-					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", "is_public_ip_attached", "true")),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrPublicIPAddress),
+					resource.TestCheckResourceAttrSet("data.e2e_dbaas_postgress.test", tfconstants.AttrPrivateIPAddress),
+					resource.TestCheckResourceAttr("data.e2e_dbaas_postgress.test", tfconstants.AttrIsPublicIPAttached, "true")),
 			},
 		},
 	})
@@ -68,8 +74,8 @@ func testAccCheckE2EPostgresDBaaSDataSourceConfig_basic(name, dbUser, dbPassword
 	return fmt.Sprintf(`
 resource "e2e_dbaas_postgress" "test" {
   name       = "%s"
-  version    = "15"
-  plan       = "E2E-2C-4GB"
+  version    = "%s"
+  plan       = "%s"
   database {
     user     = "%s"
     password = "%s"
@@ -78,17 +84,18 @@ resource "e2e_dbaas_postgress" "test" {
 }
 
 data "e2e_dbaas_postgress" "test" {
-  id         = e2e_dbaas_postgress.test.id}
-`, name,
-		dbUser, dbPassword, dbName)
+  %s = e2e_dbaas_postgress.test.%s
+}
+`, name, testPostgresDataSourceVersion, testPostgresDataSourcePlanSmall,
+		dbUser, dbPassword, dbName, tfconstants.AttrID, tfconstants.AttrID)
 }
 
 func testAccCheckE2EPostgresDBaaSDataSourceConfig_withPublicIP(name, dbUser, dbPassword, dbName string) string {
 	return fmt.Sprintf(`
 resource "e2e_dbaas_postgress" "test" {
   name               = "%s"
-  version            = "15"
-  plan               = "E2E-2C-4GB"
+  version            = "%s"
+  plan               = "%s"
   public_ip_required = true
   database {
     user     = "%s"
@@ -98,7 +105,8 @@ resource "e2e_dbaas_postgress" "test" {
 }
 
 data "e2e_dbaas_postgress" "test" {
-  id         = e2e_dbaas_postgress.test.id}
-`, name,
-		dbUser, dbPassword, dbName)
+  %s = e2e_dbaas_postgress.test.%s
+}
+`, name, testPostgresDataSourceVersion, testPostgresDataSourcePlanSmall,
+		dbUser, dbPassword, dbName, tfconstants.AttrID, tfconstants.AttrID)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -32,7 +33,7 @@ func ResourceFloatingIPAttachment() *schema.Resource {
 				ForceNew:    true,
 				Description: "The floating IP address to attach",
 			},
-			"node_ids": {
+			tfconstants.AttrNodeIDs: {
 				Type:        schema.TypeList,
 				Required:    true,
 				Description: "List of node IDs to attach the floating IP to",
@@ -68,20 +69,20 @@ func resourceFloatingIPAttachmentCreate(ctx context.Context, d *schema.ResourceD
 	}
 
 	ipAddress := d.Get(tfconstants.AttrIPAddress).(string)
-	nodeIDsInterface := d.Get("node_ids").([]interface{})
+	nodeIDsInterface := d.Get(tfconstants.AttrNodeIDs).([]interface{})
 	nodeIDs := make([]string, len(nodeIDsInterface))
 	for i, v := range nodeIDsInterface {
 		nodeIDs[i] = v.(string)
 	}
 
 	if len(nodeIDs) == 0 {
-		return diag.Errorf("node_ids cannot be empty")
+		return diag.Errorf(ErrNodeIDsCannotBeEmpty)
 	}
 
 	// Use goe2e client for attachment
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	attachReq := &goe2e.FloatingIPAttachmentRequest{
@@ -91,7 +92,7 @@ func resourceFloatingIPAttachmentCreate(ctx context.Context, d *schema.ResourceD
 
 	_, err = goe2eClient.ReserveIP.AttachFloatingIP(ctx, attachReq)
 	if err != nil {
-		return diag.Errorf("Error attaching floating IP (%s) to nodes in project (%s), region (%s): %s", ipAddress, projectID, region, err)
+		return diag.Errorf(ErrAttachingFloatingIP, ipAddress, projectID, region, err)
 	}
 
 	log.Printf("[INFO] Floating IP (%s) attached to nodes: %v", ipAddress, nodeIDs)
@@ -99,7 +100,7 @@ func resourceFloatingIPAttachmentCreate(ctx context.Context, d *schema.ResourceD
 	// Set resource ID as ip_address (since one IP can be attached to multiple nodes)
 	d.SetId(ipAddress)
 	d.Set(tfconstants.AttrIPAddress, ipAddress)
-	d.Set("node_ids", nodeIDs)
+	d.Set(tfconstants.AttrNodeIDs, nodeIDs)
 	d.Set(tfconstants.AttrProjectID, projectID)
 	d.Set(tfconstants.AttrRegion, region)
 
@@ -125,12 +126,12 @@ func resourceFloatingIPAttachmentRead(ctx context.Context, d *schema.ResourceDat
 	// Use goe2e client for retrieval
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	rips, _, err := goe2eClient.ReserveIP.ListReserveIPs(ctx)
 	if err != nil {
-		return diag.Errorf("Error retrieving reserved IPs in project (%s), region (%s): %s", projectID, region, err)
+		return diag.Errorf(ErrRetrievingReservedIPs, projectID, region, err)
 	}
 
 	// Find the reserved IP by IP address
@@ -149,7 +150,7 @@ func resourceFloatingIPAttachmentRead(ctx context.Context, d *schema.ResourceDat
 	}
 
 	// Verify it's a FloatingIP type
-	if reserveIP.ReservedType != "FloatingIP" {
+	if reserveIP.ReservedType != goe2econstants.ReserveIPTypeFloatingIP {
 		log.Printf("[WARN] Reserved IP (%s) is not a FloatingIP type, removing from state", ipAddress)
 		d.SetId("")
 		return diags
@@ -172,7 +173,7 @@ func resourceFloatingIPAttachmentRead(ctx context.Context, d *schema.ResourceDat
 
 	// Update state
 	d.Set(tfconstants.AttrIPAddress, ipAddress)
-	d.Set("node_ids", nodeIDs)
+	d.Set(tfconstants.AttrNodeIDs, nodeIDs)
 	d.Set(tfconstants.AttrProjectID, projectID)
 	d.Set(tfconstants.AttrRegion, region)
 
@@ -197,11 +198,11 @@ func resourceFloatingIPAttachmentUpdate(ctx context.Context, d *schema.ResourceD
 	// Use goe2e client
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// Get old and new node IDs
-	oldNodeIDsInterface, newNodeIDsInterface := d.GetChange("node_ids")
+	oldNodeIDsInterface, newNodeIDsInterface := d.GetChange(tfconstants.AttrNodeIDs)
 	oldNodeIDs := make([]string, 0)
 	newNodeIDs := make([]string, 0)
 
@@ -244,7 +245,7 @@ func resourceFloatingIPAttachmentUpdate(ctx context.Context, d *schema.ResourceD
 
 	// Validate that newNodeIDs is not empty after processing changes
 	if len(newNodeIDs) == 0 {
-		return diag.Errorf("node_ids cannot be empty. A floating IP attachment must have at least one node attached")
+		return diag.Errorf(ErrNodeIDsCannotBeEmptyWithContext)
 	}
 
 	// Detach nodes that are no longer in the list
@@ -255,7 +256,7 @@ func resourceFloatingIPAttachmentUpdate(ctx context.Context, d *schema.ResourceD
 		}
 		_, err = goe2eClient.ReserveIP.DetachFloatingIP(ctx, detachReq)
 		if err != nil {
-			return diag.Errorf("Error detaching floating IP (%s) from nodes in project (%s), region (%s): %s", ipAddress, projectID, region, err)
+			return diag.Errorf(ErrDetachingFloatingIP, ipAddress, projectID, region, err)
 		}
 		log.Printf("[INFO] Detached floating IP (%s) from nodes: %v", ipAddress, nodesToDetach)
 	}
@@ -268,13 +269,13 @@ func resourceFloatingIPAttachmentUpdate(ctx context.Context, d *schema.ResourceD
 		}
 		_, err = goe2eClient.ReserveIP.AttachFloatingIP(ctx, attachReq)
 		if err != nil {
-			return diag.Errorf("Error attaching floating IP (%s) to nodes in project (%s), region (%s): %s", ipAddress, projectID, region, err)
+			return diag.Errorf(ErrAttachingFloatingIP, ipAddress, projectID, region, err)
 		}
 		log.Printf("[INFO] Attached floating IP (%s) to nodes: %v", ipAddress, nodesToAttach)
 	}
 
 	// Update state
-	d.Set("node_ids", newNodeIDs)
+	d.Set(tfconstants.AttrNodeIDs, newNodeIDs)
 
 	return resourceFloatingIPAttachmentRead(ctx, d, m)
 }
@@ -294,7 +295,7 @@ func resourceFloatingIPAttachmentDelete(ctx context.Context, d *schema.ResourceD
 	}
 
 	ipAddress := d.Id()
-	nodeIDsInterface := d.Get("node_ids").([]interface{})
+	nodeIDsInterface := d.Get(tfconstants.AttrNodeIDs).([]interface{})
 	nodeIDs := make([]string, len(nodeIDsInterface))
 	for i, v := range nodeIDsInterface {
 		nodeIDs[i] = v.(string)
@@ -303,7 +304,7 @@ func resourceFloatingIPAttachmentDelete(ctx context.Context, d *schema.ResourceD
 	// Use goe2e client for detachment
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	detachReq := &goe2e.FloatingIPDetachmentRequest{
@@ -313,7 +314,7 @@ func resourceFloatingIPAttachmentDelete(ctx context.Context, d *schema.ResourceD
 
 	_, err = goe2eClient.ReserveIP.DetachFloatingIP(ctx, detachReq)
 	if err != nil {
-		return diag.Errorf("Error detaching floating IP (%s) from nodes in project (%s), region (%s): %s", ipAddress, projectID, region, err)
+		return diag.Errorf(ErrDetachingFloatingIP, ipAddress, projectID, region, err)
 	}
 
 	log.Printf("[INFO] Floating IP (%s) detached from nodes: %v", ipAddress, nodeIDs)
@@ -326,7 +327,7 @@ func resourceFloatingIPAttachmentImport(ctx context.Context, d *schema.ResourceD
 	// Import ID format: project_id/region/ip_address
 	parts := strings.Split(d.Id(), "/")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid import ID format, expected: project_id/region/ip_address")
+		return nil, fmt.Errorf(tfconstants.ImportIDInvalidFormatTemplate, d.Id(), FloatingIPAttachmentImportFormat)
 	}
 
 	projectID := parts[0]
@@ -341,7 +342,7 @@ func resourceFloatingIPAttachmentImport(ctx context.Context, d *schema.ResourceD
 	// Call Read to populate the rest of the state
 	diags := resourceFloatingIPAttachmentRead(ctx, d, m)
 	if diags.HasError() {
-		return nil, fmt.Errorf("error reading floating IP attachment during import: %v", diags)
+		return nil, fmt.Errorf(ErrReadingFloatingIPAttachmentDuringImport, diags)
 	}
 
 	return []*schema.ResourceData{d}, nil

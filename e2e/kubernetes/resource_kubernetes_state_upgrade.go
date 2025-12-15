@@ -6,6 +6,7 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -58,8 +59,8 @@ func resourceKubernetesResourceV0() *schema.Resource {
 							Required: true,
 							ForceNew: true,
 							ValidateFunc: validation.StringInSlice([]string{
-								"Static",
-								"Autoscale",
+								goe2econstants.KubernetesNodePoolTypeStatic,
+								goe2econstants.KubernetesNodePoolTypeAutoscale,
 							}, false),
 						},
 						"worker_node": {
@@ -114,14 +115,14 @@ func resourceKubernetesResourceV0() *schema.Resource {
 													Type:     schema.TypeString,
 													Required: true,
 													ValidateFunc: validation.StringInSlice([]string{
-														"Default",
-														"Custom",
+														goe2econstants.KubernetesPolicyTypeDefault,
+														goe2econstants.KubernetesPolicyTypeCustom,
 													}, false),
 												},
 												"parameter": {
 													Type:     schema.TypeString,
 													Optional: true,
-													Default:  "CPU",
+													Default:  goe2econstants.KubernetesPolicyParameterCPU,
 												},
 												"elasticity_policies": {
 													Type:     schema.TypeList,

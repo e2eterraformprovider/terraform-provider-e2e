@@ -15,8 +15,11 @@ import (
 )
 
 // Default values for security group configuration
+// These are derived from the API constants in message.go
 const (
-	defaultMyNetworkSize = 512
+	defaultNetworkType  = NetworkTypeAny
+	defaultProtocolName = ProtocolAll
+	defaultPortRange    = ProtocolAll
 )
 
 func ResourceSecurityGroup() *schema.Resource {
@@ -67,37 +70,45 @@ func ResourceSecurityGroup() *schema.Resource {
 							Required:    true,
 							Description: "direction of traffic (Inbound or Outbound)",
 							ValidateFunc: validation.StringInSlice([]string{
-								"Inbound", "Outbound",
+								RuleTypeInbound,
+								RuleTypeOutbound,
 							}, false),
 						},
 						"network": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Default:     "any",
+							Default:     defaultNetworkType,
 							Description: "network type for the rule (myNetwork, manual, or any)",
 							ValidateFunc: validation.StringInSlice([]string{
-								"myNetwork", "manual", "any",
+								NetworkTypeMyNetwork,
+								NetworkTypeManual,
+								NetworkTypeAny,
 							}, false),
 						},
 						"protocol_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Default:     "All",
+							Default:     defaultProtocolName,
 							Description: "the protocol to allow (All, All_TCP, All_UDP, ICMP, Custom_TCP, Custom_UDP)",
 							ValidateFunc: validation.StringInSlice([]string{
-								"All", "All_TCP", "All_UDP", "ICMP", "Custom_TCP", "Custom_UDP",
+								ProtocolAll,
+								ProtocolAllTCP,
+								ProtocolAllUDP,
+								ProtocolICMP,
+								ProtocolCustomTCP,
+								ProtocolCustomUDP,
 							}, false),
 						},
 						"port_range": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Default:     "All",
+							Default:     defaultPortRange,
 							Description: "the port range to allow (e.g., '22', '80-443', or 'All')",
 						},
 						"network_cidr": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Default:     "--",
+							Default:     DefaultNetworkCIDR,
 							Description: "the CIDR block for the rule (format: 'vpc_<vpc_id>' for VPC or IP address for manual)",
 						},
 						"size": {
@@ -108,7 +119,7 @@ func ResourceSecurityGroup() *schema.Resource {
 						"description": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Default:     "",
+							Default:     DefaultDescription,
 							Description: "the description of the firewall rule",
 						},
 					},
@@ -459,8 +470,8 @@ func expandRules(rawRules []interface{}) []goe2e.Rule {
 		network := ruleData["network"].(string)
 
 		var networkSizePtr *int
-		if network == "myNetwork" {
-			size := defaultMyNetworkSize
+		if network == NetworkTypeMyNetwork {
+			size := DefaultMyNetworkSize
 			networkSizePtr = &size
 		} else if v, ok := ruleData["size"].(int); ok && v > 0 {
 			networkSizePtr = &v
@@ -498,8 +509,8 @@ func expandRulesWithIDs(rawRules []interface{}) []goe2e.Rule {
 		}
 
 		var networkSizePtr *int
-		if network == "myNetwork" {
-			size := defaultMyNetworkSize
+		if network == NetworkTypeMyNetwork {
+			size := DefaultMyNetworkSize
 			networkSizePtr = &size
 		} else if v, ok := ruleData["size"].(int); ok && v > 0 {
 			networkSizePtr = &v

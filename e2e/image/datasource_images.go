@@ -102,7 +102,7 @@ func dataSourceReadImages(ctx context.Context, d *schema.ResourceData, m interfa
 
 	images, _, err := goe2eClient.Images.GetSavedImages(ctx)
 	if err != nil {
-		return diag.Errorf("error finding saved images: %v", err)
+		return diag.FromErr(fmt.Errorf("error finding saved images: %w", err))
 	}
 
 	d.Set("image_list", flattenSavedImages(images))

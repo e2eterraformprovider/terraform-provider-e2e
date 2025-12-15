@@ -2,7 +2,6 @@ package dbaas_mysql
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
@@ -56,7 +55,7 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the MySQL DBaaS instances private ipv4 address",
 			},
-			"is_public_ip_attached": {
+			tfconstants.AttrIsPublicIPAttached: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether a public IP is attached to the MySQL DBaaS instance",
@@ -71,7 +70,7 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the plan name of the MySQL DBaaS instance",
 			},
-			"database_version": {
+			tfconstants.AttrDatabaseVersion: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MySQL version",
@@ -95,17 +94,17 @@ func dataSourceReadMySQL(ctx context.Context, d *schema.ResourceData, m interfac
 	goe2eClient := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
-	dbaasID := d.Get("id").(string)
+	dbaasID := d.Get(tfconstants.AttrID).(string)
 
 	// Get MySQL cluster using goe2e client
 	mysql, _, err := goe2eClient.DBaaSMySQL.GetCluster(ctx, dbaasID)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("error while fetching MySQL DBaaS instance details: %s", err))
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, ResourceName, dbaasID, "", "", err)
 	}
 
 	// Handle case where cluster was not found
 	if mysql == nil {
-		return diag.Errorf("MySQL DBaaS instance (ID: %s) not found", dbaasID)
+		return diag.Errorf(ClusterNotFoundTemplate, dbaasID)
 	}
 
 	// Extract nested data
@@ -122,16 +121,16 @@ func dataSourceReadMySQL(ctx context.Context, d *schema.ResourceData, m interfac
 	d.Set(tfconstants.AttrStatus, mysql.Status)
 	d.Set(tfconstants.AttrPublicIPAddress, master.PublicIPAddress)
 	d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress)
-	d.Set("is_public_ip_attached", master.PublicIPAddress != "")
+	d.Set(tfconstants.AttrIsPublicIPAttached, master.PublicIPAddress != "")
 	d.Set(tfconstants.AttrDisk, master.Disk)
 	d.Set(tfconstants.AttrPlan, plan.Name)
-	d.Set("database_version", software.Version)
+	d.Set(tfconstants.AttrDatabaseVersion, software.Version)
 
 	// Handle PGDetail safely (check if ID is set)
-	if db.PGDetail.ID != 0 {
+	if db.PGDetail.ID != tfconstants.DBaaSDefaultParameterGroupID {
 		d.Set(tfconstants.AttrParameterGroupID, db.PGDetail.ID)
 	} else {
-		d.Set(tfconstants.AttrParameterGroupID, 0)
+		d.Set(tfconstants.AttrParameterGroupID, tfconstants.DBaaSDefaultParameterGroupID)
 	}
 
 	d.Set(tfconstants.AttrPowerStatus, master.Status)

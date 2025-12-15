@@ -67,18 +67,12 @@ func convertIDsToSshKeyContent(m interface{}, ssh_key_ids []interface{}, project
 			return nil, diag.Errorf("SSH key (ID: %s) has empty content", keyID)
 		}
 
-		log.Printf("[INFO] Fetched SSH key (ID: %s): %s...", keyID, sshKey.SSHKey[:min(50, len(sshKey.SSHKey))])
+		// SECURITY: Do not log SSH key content to avoid exposure in logs
+		log.Printf("[INFO] Fetched SSH key (ID: %s) - content length: %d bytes", keyID, len(sshKey.SSHKey))
 		sshKeyContents = append(sshKeyContents, sshKey.SSHKey)
 	}
 
 	return sshKeyContents, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func checkBlockStorage(m interface{}, image_id, project_id string, location string) diag.Diagnostics {
@@ -178,7 +172,7 @@ func flattenNetworkInterface(vpcID string, publicIP string, ipv6Address string, 
 // Returns: size_gb, disk_type
 func expandRootDisk(rdList []interface{}) (int, string) {
 	if len(rdList) == 0 {
-		return 0, "standard"
+		return 0, nodeDiskTypeStandard
 	}
 
 	rd := rdList[0].(map[string]interface{})
@@ -188,7 +182,7 @@ func expandRootDisk(rdList []interface{}) (int, string) {
 		sizeGB = v.(int)
 	}
 
-	diskType := "standard"
+	diskType := nodeDiskTypeStandard
 	if v, ok := rd[tfconstants.AttrDiskType]; ok && v != nil {
 		diskType = v.(string)
 	}

@@ -37,11 +37,22 @@ func (c *Config) Goe2eClient() *goe2e.Client {
 	return c.goe2eClient
 }
 
+// SetGoe2eClientForTesting sets the goe2e client for testing purposes.
+// This should only be used in test files to inject mock clients.
+func (c *Config) SetGoe2eClientForTesting(client *goe2e.Client) {
+	c.goe2eClient = client
+}
+
 // Goe2eClientForProject creates a new goe2e client with specific projectID and region.
 // This is used by resources that need to use different projectID/region than the default.
 // The client is created with the same configuration options (retry, rate limiting, etc.)
 // as the default client, but with the specified projectID and region.
 func (c *Config) Goe2eClientForProject(projectID, region string) (*goe2e.Client, error) {
+	// If a test client is set, return it instead of creating a new one
+	if c.goe2eClient != nil {
+		return c.goe2eClient, nil
+	}
+
 	var opts []goe2e.ClientOpt
 
 	// Set custom base URL if provided

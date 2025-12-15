@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/kubernetes"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +16,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_Basic(t *testing.T) {
 		"version": "1.30",
 		"vpc_id":  "vpc-123",
 		"region":  "Delhi",
-		"status":  "Running",
+		"status":  goe2econstants.KubernetesClusterStatusRunning,
 	}
 
 	v1State, err := kubernetes.ResourceKubernetesStateUpgradeV0toV1(context.Background(), v0State, nil)
@@ -27,7 +28,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_Basic(t *testing.T) {
 	assert.Equal(t, "1.30", v1State["version"])
 	assert.Equal(t, "vpc-123", v1State["vpc_id"])
 	assert.Equal(t, "Delhi", v1State["region"])
-	assert.Equal(t, "Running", v1State["status"])
+	assert.Equal(t, goe2econstants.KubernetesClusterStatusRunning, v1State["status"])
 
 	// New V3 fields initialized
 	assert.NotNil(t, v1State["tags"], "tags field should be added")
@@ -57,9 +58,9 @@ func TestResourceKubernetesStateUpgradeV0toV1_PreservesDeprecatedFields(t *testi
 		"node_pools": []interface{}{
 			map[string]interface{}{
 				"name":           "pool1",
-				"specs_name":     "C3.8GB", // Deprecated
-				"node_pool_type": "Static", // Deprecated
-				"worker_node":    3,        // Deprecated
+				"specs_name":     "C3.8GB",                                    // Deprecated
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeStatic, // Deprecated
+				"worker_node":    3,                                           // Deprecated
 			},
 		},
 	}
@@ -80,7 +81,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_PreservesDeprecatedFields(t *testi
 	pool := nodePools[0].(map[string]interface{})
 	assert.Equal(t, "pool1", pool["name"])
 	assert.Equal(t, "C3.8GB", pool["specs_name"])
-	assert.Equal(t, "Static", pool["node_pool_type"])
+	assert.Equal(t, goe2econstants.KubernetesNodePoolTypeStatic, pool["node_pool_type"])
 	assert.Equal(t, 3, pool["worker_node"])
 
 	// New V3 fields initialized
@@ -99,14 +100,14 @@ func TestResourceKubernetesStateUpgradeV0toV1_NodePools(t *testing.T) {
 			map[string]interface{}{
 				"name":           "static-pool",
 				"specs_name":     "C3.16GB",
-				"node_pool_type": "Static",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeStatic,
 				"worker_node":    5,
 				"cardinality":    5,
 			},
 			map[string]interface{}{
 				"name":           "autoscale-pool",
 				"specs_name":     "C3.8GB",
-				"node_pool_type": "Autoscale",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeAutoscale,
 				"min_vms":        2,
 				"max_vms":        10,
 				"cardinality":    3,
@@ -133,7 +134,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_NodePools(t *testing.T) {
 	autoscalePool := nodePools[1].(map[string]interface{})
 	assert.Equal(t, "autoscale-pool", autoscalePool["name"])
 	assert.Equal(t, "C3.8GB", autoscalePool["specs_name"])
-	assert.Equal(t, "Autoscale", autoscalePool["node_pool_type"])
+	assert.Equal(t, goe2econstants.KubernetesNodePoolTypeAutoscale, autoscalePool["node_pool_type"])
 	assert.Equal(t, 2, autoscalePool["min_vms"])
 	assert.Equal(t, 10, autoscalePool["max_vms"])
 
@@ -170,7 +171,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_AllFields(t *testing.T) {
 			map[string]interface{}{
 				"name":           "pool1",
 				"specs_name":     "C3.8GB",
-				"node_pool_type": "Static",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeStatic,
 				"worker_node":    3,
 				"cardinality":    3,
 				"service_id":     "svc-123",
@@ -180,12 +181,12 @@ func TestResourceKubernetesStateUpgradeV0toV1_AllFields(t *testing.T) {
 			map[string]interface{}{
 				"name":           "pool2",
 				"specs_name":     "C3.16GB",
-				"node_pool_type": "Autoscale",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeAutoscale,
 				"min_vms":        2,
 				"max_vms":        10,
 				"cardinality":    5,
 				"service_id":     "svc-456",
-				"policy_type":    "Default",
+				"policy_type":    goe2econstants.KubernetesPolicyTypeDefault,
 			},
 		},
 	}
@@ -202,7 +203,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_AllFields(t *testing.T) {
 	assert.Equal(t, "Mumbai", v1State["region"])
 	assert.Equal(t, "Mumbai", v1State["location"])
 	assert.Equal(t, "123", v1State["project_id"])
-	assert.Equal(t, "Running", v1State["status"])
+	assert.Equal(t, goe2econstants.KubernetesClusterStatusRunning, v1State["status"])
 	assert.Equal(t, "2024-01-01T00:00:00Z", v1State["created_at"])
 	assert.Equal(t, "k8s-plan", v1State["slug_name"])
 	assert.Equal(t, "sku-123", v1State["sku_id"])
@@ -223,7 +224,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_AllFields(t *testing.T) {
 	assert.Equal(t, "C3.16GB", pool2["specs_name"])
 	assert.Equal(t, 2, pool2["min_vms"])
 	assert.Equal(t, 10, pool2["max_vms"])
-	assert.Equal(t, "Default", pool2["policy_type"])
+	assert.Equal(t, goe2econstants.KubernetesPolicyTypeDefault, pool2["policy_type"])
 
 	// New V3 fields initialized
 	assert.NotNil(t, v1State["tags"])
@@ -264,7 +265,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_WithElasticityDict(t *testing.T) {
 			map[string]interface{}{
 				"name":           "autoscale-pool",
 				"specs_name":     "C3.8GB",
-				"node_pool_type": "Autoscale",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeAutoscale,
 				"min_vms":        2,
 				"max_vms":        10,
 				"elasticity_dict": []interface{}{
@@ -272,8 +273,8 @@ func TestResourceKubernetesStateUpgradeV0toV1_WithElasticityDict(t *testing.T) {
 						"worker": []interface{}{
 							map[string]interface{}{
 								"period_number":        1,
-								"policy_paramter_type": "Default",
-								"parameter":            "CPU",
+								"policy_paramter_type": goe2econstants.KubernetesPolicyTypeDefault,
+								"parameter":            goe2econstants.KubernetesPolicyParameterCPU,
 								"elasticity_policies": []interface{}{
 									map[string]interface{}{
 										"operator":     ">",
@@ -318,7 +319,7 @@ func TestResourceKubernetesStateUpgradeV0toV1_WithScheduledDict(t *testing.T) {
 			map[string]interface{}{
 				"name":           "autoscale-pool",
 				"specs_name":     "C3.8GB",
-				"node_pool_type": "Autoscale",
+				"node_pool_type": goe2econstants.KubernetesNodePoolTypeAutoscale,
 				"min_vms":        2,
 				"max_vms":        10,
 				"scheduled_dict": []interface{}{
@@ -356,4 +357,82 @@ func TestResourceKubernetesStateUpgradeV0toV1_WithScheduledDict(t *testing.T) {
 	assert.NotNil(t, v1State["tags"])
 	assert.NotNil(t, v1State["encryption_enabled"])
 	assert.NotNil(t, v1State["security_group_ids"])
+}
+
+func TestResourceKubernetesStateUpgradeV0toV1_WithSecurityGroups(t *testing.T) {
+	v0State := map[string]interface{}{
+		"id":                 "12345",
+		"name":               "my-cluster",
+		"version":            "1.30",
+		"vpc_id":             "vpc-123",
+		"security_group_ids": []interface{}{1, 2, 3},
+	}
+
+	v1State, err := kubernetes.ResourceKubernetesStateUpgradeV0toV1(context.Background(), v0State, nil)
+
+	assert.NoError(t, err)
+	// Existing security_group_ids should be preserved
+	assert.NotNil(t, v1State["security_group_ids"])
+	sgIDs := v1State["security_group_ids"].([]interface{})
+	assert.Len(t, sgIDs, 3)
+	assert.Equal(t, 1, sgIDs[0])
+	assert.Equal(t, 2, sgIDs[1])
+	assert.Equal(t, 3, sgIDs[2])
+
+	// Other V3 fields initialized
+	assert.NotNil(t, v1State["tags"])
+	assert.NotNil(t, v1State["encryption_enabled"])
+}
+
+func TestResourceKubernetesStateUpgradeV0toV1_WithEncryptionFields(t *testing.T) {
+	v0State := map[string]interface{}{
+		"id":                    "12345",
+		"name":                  "my-cluster",
+		"version":               "1.30",
+		"vpc_id":                "vpc-123",
+		"encryption_enabled":    true,
+		"encryption_passphrase": "secret-passphrase",
+	}
+
+	v1State, err := kubernetes.ResourceKubernetesStateUpgradeV0toV1(context.Background(), v0State, nil)
+
+	assert.NoError(t, err)
+	// Existing encryption fields should be preserved
+	assert.NotNil(t, v1State["encryption_enabled"])
+	assert.Equal(t, true, v1State["encryption_enabled"])
+	assert.NotNil(t, v1State["encryption_passphrase"])
+	assert.Equal(t, "secret-passphrase", v1State["encryption_passphrase"])
+
+	// Other V3 fields initialized
+	assert.NotNil(t, v1State["tags"])
+	assert.NotNil(t, v1State["security_group_ids"])
+}
+
+func TestResourceKubernetesStateUpgradeV0toV1_WithExistingV3Fields(t *testing.T) {
+	// Test that existing V3 fields are preserved (shouldn't happen in V0, but tests robustness)
+	v0State := map[string]interface{}{
+		"id":                 "12345",
+		"name":               "my-cluster",
+		"version":            "1.30",
+		"vpc_id":             "vpc-123",
+		"cluster_name":       "v3-cluster-name", // V3 field
+		"kubernetes_version": "1.31",            // V3 field
+		"tags": map[string]interface{}{
+			"Environment": "test",
+		},
+		"security_group_ids": []interface{}{5, 6},
+		"encryption_enabled": true,
+	}
+
+	v1State, err := kubernetes.ResourceKubernetesStateUpgradeV0toV1(context.Background(), v0State, nil)
+
+	assert.NoError(t, err)
+	// All V3 fields should be preserved
+	assert.Equal(t, "v3-cluster-name", v1State["cluster_name"])
+	assert.Equal(t, "1.31", v1State["kubernetes_version"])
+	tags := v1State["tags"].(map[string]interface{})
+	assert.Equal(t, "test", tags["Environment"])
+	sgIDs := v1State["security_group_ids"].([]interface{})
+	assert.Len(t, sgIDs, 2)
+	assert.Equal(t, true, v1State["encryption_enabled"])
 }

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/autoscaling"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,43 +18,43 @@ func TestNormalizeStatus(t *testing.T) {
 	}{
 		{
 			name:     "Starting to Running",
-			input:    "Starting",
-			expected: "Running",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStarting,
+			expected: goe2econstants.AutoscalingScalerGroupStatusRunning,
 		},
 		{
 			name:     "Stopping to Stopped",
-			input:    "Stopping",
-			expected: "Stopped",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStopping,
+			expected: goe2econstants.AutoscalingScalerGroupStatusStopped,
 		},
 		{
 			name:     "starting to running (lowercase)",
-			input:    "starting",
-			expected: "running",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStartingLower,
+			expected: goe2econstants.AutoscalingScalerGroupStatusRunningLower,
 		},
 		{
 			name:     "stopping to stopped (lowercase)",
-			input:    "stopping",
-			expected: "stopped",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStoppingLower,
+			expected: goe2econstants.AutoscalingScalerGroupStatusStoppedLower,
 		},
 		{
 			name:     "Running stays Running",
-			input:    "Running",
-			expected: "Running",
+			input:    goe2econstants.AutoscalingScalerGroupStatusRunning,
+			expected: goe2econstants.AutoscalingScalerGroupStatusRunning,
 		},
 		{
 			name:     "Stopped stays Stopped",
-			input:    "Stopped",
-			expected: "Stopped",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStopped,
+			expected: goe2econstants.AutoscalingScalerGroupStatusStopped,
 		},
 		{
 			name:     "running stays running",
-			input:    "running",
-			expected: "running",
+			input:    goe2econstants.AutoscalingScalerGroupStatusRunningLower,
+			expected: goe2econstants.AutoscalingScalerGroupStatusRunningLower,
 		},
 		{
 			name:     "stopped stays stopped",
-			input:    "stopped",
-			expected: "stopped",
+			input:    goe2econstants.AutoscalingScalerGroupStatusStoppedLower,
+			expected: goe2econstants.AutoscalingScalerGroupStatusStoppedLower,
 		},
 		{
 			name:     "Unknown status unchanged",
@@ -72,6 +74,13 @@ func TestNormalizeStatus(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestGetImageName_ErrorMessageIsStable(t *testing.T) {
+	d := schema.TestResourceDataRaw(t, autoscaling.ResourceScalerGroup().Schema, map[string]interface{}{})
+	_, err := autoscaling.GetImageName(d)
+	assert.Error(t, err)
+	assert.Equal(t, autoscaling.ErrEitherVMImageOrImageRequired, err.Error())
 }
 
 func TestExpandNetworkConfig(t *testing.T) {
@@ -283,4 +292,40 @@ func TestIntSlicesEqual(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestResourceScalerGroupSchema_EncryptionPassphraseSensitive(t *testing.T) {
+	r := autoscaling.ResourceScalerGroup()
+
+	s, ok := r.Schema[tfconstants.AttrEncryptionPassphrase]
+	if !ok {
+		t.Fatalf("schema missing %q", tfconstants.AttrEncryptionPassphrase)
+	}
+
+	assert.True(t, s.Sensitive, "encryption_passphrase must be Sensitive to avoid plan/apply output leaks")
+	assert.True(t, s.ForceNew, "encryption_passphrase should remain ForceNew (API contract)")
+}
+
+func TestAutoscalingConstants_StatusSets(t *testing.T) {
+	assert.ElementsMatch(t,
+		[]string{
+			goe2econstants.AutoscalingScalerGroupStatusRunning,
+			goe2econstants.AutoscalingScalerGroupStatusStopped,
+		},
+		tfconstants.AutoscalingScalerGroupProvisionStatusAllowed,
+	)
+
+	assert.ElementsMatch(t,
+		[]string{
+			goe2econstants.AutoscalingScalerGroupStatusRunningLower,
+			goe2econstants.AutoscalingScalerGroupStatusStoppedLower,
+		},
+		tfconstants.AutoscalingScalerGroupStatusAllowed,
+	)
+
+	// Terraform "state requirements" must accept both legacy (Running/Stopped) and V3 (running/stopped).
+	assert.Contains(t, tfconstants.AutoscalingScalerGroupRunningStates, goe2econstants.AutoscalingScalerGroupStatusRunning)
+	assert.Contains(t, tfconstants.AutoscalingScalerGroupRunningStates, goe2econstants.AutoscalingScalerGroupStatusRunningLower)
+	assert.Contains(t, tfconstants.AutoscalingScalerGroupStoppedStates, goe2econstants.AutoscalingScalerGroupStatusStopped)
+	assert.Contains(t, tfconstants.AutoscalingScalerGroupStoppedStates, goe2econstants.AutoscalingScalerGroupStatusStoppedLower)
 }

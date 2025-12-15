@@ -2,9 +2,16 @@ package reserve_ip
 
 import (
 	"testing"
+
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 )
 
-func TestGenerateReserveIPURN(t *testing.T) {
+// ============================================================================
+// Basic smoke tests for helper functions
+// Comprehensive unit tests are in resource_reserve_ip_unit_test.go
+// ============================================================================
+
+func TestGenerateReserveIPURN_Basic(t *testing.T) {
 	tests := []struct {
 		name      string
 		region    string
@@ -35,7 +42,7 @@ func TestGenerateReserveIPURN(t *testing.T) {
 	}
 }
 
-func TestParseReserveIPImportID(t *testing.T) {
+func TestParseReserveIPImportID_Basic(t *testing.T) {
 	tests := []struct {
 		name          string
 		id            string
@@ -95,10 +102,10 @@ func TestParseReserveIPImportID(t *testing.T) {
 	}
 }
 
-func TestFlattenFloatingIPAttachedNodes(t *testing.T) {
+func TestFlattenFloatingIPAttachedNodes_Basic(t *testing.T) {
 	tests := []struct {
 		name     string
-		nodes    []interface{}
+		nodes    []goe2e.FloatingIPAttachedNode
 		expected int
 	}{
 		{
@@ -108,20 +115,31 @@ func TestFlattenFloatingIPAttachedNodes(t *testing.T) {
 		},
 		{
 			name:     "empty nodes",
-			nodes:    []interface{}{},
+			nodes:    []goe2e.FloatingIPAttachedNode{},
 			expected: 0,
+		},
+		{
+			name: "single node",
+			nodes: []goe2e.FloatingIPAttachedNode{
+				{
+					ID:                  123,
+					Name:                "test-node",
+					VMID:                456,
+					IPAddressPublic:     "198.51.100.1",
+					IPAddressPrivate:    "10.0.0.1",
+					StatusName:          "running",
+					SecurityGroupStatus: "active",
+				},
+			},
+			expected: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Note: This is a simplified test since we need goe2e types
-			// In a real scenario, we'd test with actual goe2e.FloatingIPAttachedNode values
-			if tt.nodes == nil {
-				result := flattenFloatingIPAttachedNodes(nil)
-				if len(result) != tt.expected {
-					t.Errorf("flattenFloatingIPAttachedNodes(nil) = %d items, want %d", len(result), tt.expected)
-				}
+			result := flattenFloatingIPAttachedNodes(tt.nodes)
+			if len(result) != tt.expected {
+				t.Errorf("flattenFloatingIPAttachedNodes() = %d items, want %d", len(result), tt.expected)
 			}
 		})
 	}

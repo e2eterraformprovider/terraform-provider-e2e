@@ -8,6 +8,7 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -76,11 +77,11 @@ func TestAccDataSourceE2EObjectStores_MissingRequiredArguments(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccDataSourceE2EObjectStoresConfig_missingRegion(),
-				ExpectError: regexp.MustCompile(`The argument "region" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrRegion)),
 			},
 			{
 				Config:      testAccDataSourceE2EObjectStoresConfig_missingProjectID(),
-				ExpectError: regexp.MustCompile(`The argument "project_id" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrProjectID)),
 			},
 		},
 	})
@@ -127,7 +128,7 @@ func testAccCheckDataSourceE2EObjectStoresContainsBucket(resourceName, bucketNam
 
 		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 		region := acceptance.GetRegionOrLocationFromState(rs)
-		projectID := rs.Primary.Attributes["project_id"]
+		projectID := rs.Primary.Attributes[tfconstants.AttrProjectID]
 
 		goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 		if err != nil {

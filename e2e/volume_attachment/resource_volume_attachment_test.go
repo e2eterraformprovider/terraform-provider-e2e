@@ -1,28 +1,47 @@
 package volume_attachment_test
 
 import (
+	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
+	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	volumeattachment "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/volume_attachment"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccE2EVolumeAttachment_Basic(t *testing.T) {
+	nodeName := fmt.Sprintf("test-va-node-%s", acctest.RandString(10))
+	volumeName := fmt.Sprintf("test-va-vol-%s", acctest.RandString(10))
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { acceptance.TestAccPreCheck(t) },
 		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EVolumeAttachmentDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccE2EVolumeAttachmentConfig_basic(),
+				Config: testAccE2EVolumeAttachmentConfig_basic(nodeName, volumeName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EVolumeAttachmentExists("e2e_volume_attachment.test"),
-					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", "node_id"),
-					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", "volume_id"),
-					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", "vm_id"),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", tfconstants.AttrNodeID),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", tfconstants.AttrVolumeID),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", tfconstants.AttrVMID),
+					// Verify block storage now shows attachment details
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrVMID),
+					resource.TestCheckResourceAttrSet("e2e_blockstorage.test", tfconstants.AttrVMName),
+				),
+			},
+			// Remove attachment resource to trigger detach (Delete)
+			{
+				Config: testAccE2EVolumeAttachmentConfig_detachOnly(nodeName, volumeName),
+				Check: resource.ComposeTestCheckFunc(
+					// Ensure block storage is detached at API level (or at least no VMDetail)
+					testAccCheckE2EBlockStorageDetached("e2e_blockstorage.test"),
 				),
 			},
 		},
@@ -30,13 +49,16 @@ func TestAccE2EVolumeAttachment_Basic(t *testing.T) {
 }
 
 func TestAccE2EVolumeAttachment_Import(t *testing.T) {
+	nodeName := fmt.Sprintf("test-va-node-%s", acctest.RandString(10))
+	volumeName := fmt.Sprintf("test-va-vol-%s", acctest.RandString(10))
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { acceptance.TestAccPreCheck(t) },
 		ProviderFactories: acceptance.TestAccProviderFactories,
 		CheckDestroy:      testAccCheckE2EVolumeAttachmentDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccE2EVolumeAttachmentConfig_basic(),
+				Config: testAccE2EVolumeAttachmentConfig_basic(nodeName, volumeName),
 			},
 			{
 				ResourceName:      "e2e_volume_attachment.test",
@@ -60,9 +82,9 @@ func testAccCheckE2EVolumeAttachmentExists(resourceName string) resource.TestChe
 		}
 
 		// Parse the composite ID
-		parts := strings.Split(rs.Primary.ID, "/")
+		parts := config.ParseImportID(rs.Primary.ID)
 		if len(parts) != 2 {
-			return fmt.Errorf("Volume attachment ID is malformed: %s (expected: node_id/volume_id)", rs.Primary.ID)
+			return fmt.Errorf("Volume attachment ID is malformed: %s (expected: %s)", rs.Primary.ID, volumeattachment.ImportIDFormatShortDescription)
 		}
 
 		nodeID, volumeID := parts[0], parts[1]
@@ -96,35 +118,90 @@ func testAccVolumeAttachmentImportStateIDFunc(resourceName string) resource.Impo
 			return "", fmt.Errorf("Not found: %s", resourceName)
 		}
 
-		nodeID := rs.Primary.Attributes["node_id"]
-		volumeID := rs.Primary.Attributes["volume_id"]
+		nodeID := rs.Primary.Attributes[tfconstants.AttrNodeID]
+		volumeID := rs.Primary.Attributes[tfconstants.AttrVolumeID]
 
-		return fmt.Sprintf("%s/%s", nodeID, volumeID), nil
+		return fmt.Sprintf("%s%s%s", nodeID, tfconstants.VolumeAttachmentImportDelimiter, volumeID), nil
 	}
 }
 
-func testAccE2EVolumeAttachmentConfig_basic() string {
-	return `
-resource "e2e_ssh_key" "test" {
-  name       = "test-volume-attachment-key"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCm4X3ck1X+MfL9FhvV4tGqqmJz3NZ2d7hP2gDqe1pQqE9yx0p4pWOQFLNQg4DZxBm8NtP5KzN9qdGDhPZx7Wd1JNLiPqKYp7zVnLpfN4fwDQnWwN7F0JxP4mX8c9K7T6Q+Nw4cPz4vL0xH test@example.com"
-}
-
+func testAccE2EVolumeAttachmentConfig_basic(nodeName, volumeName string) string {
+	return fmt.Sprintf(`
 resource "e2e_node" "test" {
-  name   = "test-volume-node"
-  plan   = "C3.8GB"
-  image  = "Ubuntu-18.04-Distro"
-  ssh_keys = [e2e_ssh_key.test.name]
+  name  = "%s"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
 }
 
-resource "e2e_block_storage" "test" {
-  name = "test-volume-storage"
-  size = 100
+resource "e2e_blockstorage" "test" {
+  name = "%s"
+  size = 250
 }
 
 resource "e2e_volume_attachment" "test" {
   node_id   = e2e_node.test.id
-  volume_id = e2e_block_storage.test.id
+  volume_id = e2e_blockstorage.test.id
 }
-`
+`, nodeName, volumeName)
+}
+
+func testAccE2EVolumeAttachmentConfig_detachOnly(nodeName, volumeName string) string {
+	return fmt.Sprintf(`
+resource "e2e_node" "test" {
+  name  = "%s"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
+}
+
+resource "e2e_blockstorage" "test" {
+  name = "%s"
+  size = 250
+}
+`, nodeName, volumeName)
+}
+
+func testAccCheckE2EBlockStorageDetached(blockStorageResourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[blockStorageResourceName]
+		if !ok {
+			return fmt.Errorf("Not found: %s", blockStorageResourceName)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("No Block Storage ID is set")
+		}
+
+		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
+
+		projectID := rs.Primary.Attributes[tfconstants.AttrProjectID]
+		if projectID == "" {
+			projectID = acceptance.TestProjectID
+		}
+		region := acceptance.GetRegionOrLocationFromState(rs)
+		if region == "" {
+			region = acceptance.TestRegion
+		}
+
+		client, err := cfg.Goe2eClientForProject(projectID, region)
+		if err != nil {
+			return fmt.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
+		}
+
+		vol, _, err := client.BlockStorage.GetBlockStorage(context.Background(), rs.Primary.ID)
+		if err != nil {
+			return err
+		}
+		if vol == nil {
+			return nil
+		}
+
+		// Prefer explicit detached status if API provides it.
+		if vol.Status == goe2econstants.BlockStorageStatusDetached {
+			return nil
+		}
+		// Otherwise ensure it is not attached.
+		if vol.Status == goe2econstants.BlockStorageStatusAttached {
+			return fmt.Errorf("expected block storage to be detached, got status %q", vol.Status)
+		}
+		return nil
+	}
 }

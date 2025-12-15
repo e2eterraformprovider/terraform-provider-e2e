@@ -884,3 +884,628 @@ resource "e2e_node" "test" {
 }
 `, nodeName)
 }
+
+// ============================================================================
+// Real-World Scenarios Tests (Lines 158-203)
+// ============================================================================
+
+// TestAccE2ENode_V2ToV3Migration tests V2 config migration to V3
+// This test verifies backward compatibility and smooth migration path
+func TestAccE2ENode_V2ToV3Migration(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-v2tov3-%s", acctest.RandString(10))
+	sshKeyLabel := fmt.Sprintf("test-ssh-v2-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node with V2 field names
+			{
+				Config: testAccCheckE2ENodeConfig_v2Fields(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify V2 fields are set
+					resource.TestCheckResourceAttr("e2e_node.test", "ssh_keys.#", "1"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "location"),
+				),
+			},
+			// Step 2: Run terraform plan - verify no changes (backward compatible)
+			{
+				Config:             testAccCheckE2ENodeConfig_v2Fields(nodeName, sshKeyLabel),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			// Step 3: Modify config to use V3 names
+			{
+				Config: testAccCheckE2ENodeConfig_v3Fields(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify V3 fields are set
+					resource.TestCheckResourceAttr("e2e_node.test", "ssh_key_ids.#", "1"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "region"),
+				),
+			},
+			// Step 4: Verify no forced recreation (same node ID)
+			{
+				Config: testAccCheckE2ENodeConfig_v3Fields(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					// Verify node ID hasn't changed (no recreation)
+					resource.TestCheckResourceAttr("e2e_node.test", "id", nodeID),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_NetworkInterfaceComprehensive tests network_interface block comprehensively
+func TestAccE2ENode_NetworkInterfaceComprehensive(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-netif-%s", acctest.RandString(10))
+	vpcName := fmt.Sprintf("test-vpc-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node with network_interface block
+			{
+				Config: testAccCheckE2ENodeConfig_networkInterfaceFull(nodeName, vpcName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify network_interface block
+					resource.TestCheckResourceAttr("e2e_node.test", "network_interface.#", "1"),
+					// Verify VPC attachment works
+					resource.TestCheckResourceAttrSet("e2e_node.test", "network_interface.0.vpc_id"),
+					// Verify public IP assignment works
+					resource.TestCheckResourceAttr("e2e_node.test", "network_interface.0.assign_public_ip", "true"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "public_ip_address"),
+					// Verify IPv6 assignment works
+					resource.TestCheckResourceAttr("e2e_node.test", "network_interface.0.enable_ipv6", "true"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "ipv6_address"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_VolumeAttachmentMigration tests volume attachment migration
+func TestAccE2ENode_VolumeAttachmentMigration(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-va-mig-%s", acctest.RandString(10))
+	volumeName := fmt.Sprintf("test-vol-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node with block_storage_ids (deprecated)
+			{
+				Config: testAccCheckE2ENodeConfig_withBlockStorageIDs(nodeName, volumeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					resource.TestCheckResourceAttr("e2e_node.test", "block_storage_ids.#", "1"),
+				),
+			},
+			// Step 2: Migrate to e2e_volume_attachment resources
+			{
+				Config: testAccCheckE2ENodeConfig_withVolumeAttachment(nodeName, volumeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify no forced recreation (same node ID)
+					resource.TestCheckResourceAttr("e2e_node.test", "id", nodeID),
+					// Verify volume attachment resource exists
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", "node_id"),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test", "volume_id"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_SSHKeysMigration tests SSH keys migration
+func TestAccE2ENode_SSHKeysMigration(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-ssh-mig-%s", acctest.RandString(10))
+	sshKeyLabel := fmt.Sprintf("test-ssh-mig-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node with ssh_keys (deprecated)
+			{
+				Config: testAccCheckE2ENodeConfig_withSSHKeysV2(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					resource.TestCheckResourceAttr("e2e_node.test", "ssh_keys.#", "1"),
+				),
+			},
+			// Step 2: Migrate to ssh_key_ids
+			{
+				Config: testAccCheckE2ENodeConfig_withSSHKeyIDs(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify no forced recreation (same node ID)
+					resource.TestCheckResourceAttr("e2e_node.test", "id", nodeID),
+					// Verify ssh_key_ids is set
+					resource.TestCheckResourceAttr("e2e_node.test", "ssh_key_ids.#", "1"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "ssh_key_ids.0"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_AsyncOperations tests async operations and polling
+func TestAccE2ENode_AsyncOperations(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-async-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node and verify polling to "Running" status
+			{
+				Config: testAccCheckE2ENodeConfig_basic(nodeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify node reaches Running status (polling should handle this)
+					testAccCheckE2ENodeStatusRunning("e2e_node.test"),
+				),
+			},
+			// Step 2: Power operations and verify status changes
+			{
+				Config: testAccCheckE2ENodeConfig_powerOff(nodeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "power_status", goe2econstants.NodePowerStatusOff),
+					// Verify status reflects powered off state
+					testAccCheckE2ENodeStatusPoweredOff("e2e_node.test"),
+				),
+			},
+			// Step 3: Power back on
+			{
+				Config: testAccCheckE2ENodeConfig_basic(nodeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "power_status", goe2econstants.NodePowerStatusOn),
+					testAccCheckE2ENodeStatusRunning("e2e_node.test"),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_ImportComprehensive tests import functionality comprehensively
+func TestAccE2ENode_ImportComprehensive(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-import-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Step 1: Create Node
+			{
+				Config: testAccCheckE2ENodeConfig_basic(nodeName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+				),
+			},
+			// Step 2: Import with simple format: <node_id>
+			{
+				ResourceName:            "e2e_node.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateId:           nodeID,
+				ImportStateVerifyIgnore: []string{"start_script", "reboot_node", "reinstall_node", "user_data"},
+			},
+			// Step 3: Import with full format: <project_id>/<region>/<node_id>
+			{
+				ResourceName:            "e2e_node.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateIdFunc:       testAccE2ENodeImportID("e2e_node.test"),
+				ImportStateVerifyIgnore: []string{"start_script", "reboot_node", "reinstall_node", "user_data"},
+			},
+		},
+	})
+}
+
+// Helper functions for async operation tests
+
+func testAccCheckE2ENodeStatusRunning(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("Not found: %s", resourceName)
+		}
+
+		status := rs.Primary.Attributes["status"]
+		if status != goe2econstants.NodeStatusRunning {
+			return fmt.Errorf("Expected node status to be %s, got %s", goe2econstants.NodeStatusRunning, status)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckE2ENodeStatusPoweredOff(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("Not found: %s", resourceName)
+		}
+
+		status := rs.Primary.Attributes["status"]
+		if status != goe2econstants.NodeStatusPoweredOff {
+			return fmt.Errorf("Expected node status to be %s, got %s", goe2econstants.NodeStatusPoweredOff, status)
+		}
+
+		return nil
+	}
+}
+
+// Configuration helper functions for new tests
+
+func testAccCheckE2ENodeConfig_v2Fields(nodeName, sshKeyLabel string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name       = "%s"
+  plan       = "c2-2c-4gb"
+  image      = "ubuntu-20.04"
+  ssh_keys   = [e2e_ssh_key.test.label]  # V2 field
+  location   = "Mumbai"                    # V2 field
+  start_script = "#!/bin/bash\necho 'V2 script'"  # V2 field
+}
+`, sshKeyLabel, publicKey, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_v3Fields(nodeName, sshKeyLabel string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name        = "%s"
+  plan        = "c2-2c-4gb"
+  image       = "ubuntu-20.04"
+  ssh_key_ids = [e2e_ssh_key.test.id]  # V3 field
+  region      = "Mumbai"                 # V3 field
+  user_data   = "#!/bin/bash\necho 'V3 script'"  # V3 field
+}
+`, sshKeyLabel, publicKey, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_networkInterfaceFull(nodeName, vpcName string) string {
+	return fmt.Sprintf(`
+resource "e2e_vpc" "test" {
+  name = "%s"
+  cidr = "10.0.0.0/16"
+}
+
+resource "e2e_node" "test" {
+  name  = "%s"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
+
+  network_interface {
+    vpc_id           = e2e_vpc.test.id
+    assign_public_ip = true
+    enable_ipv6      = true
+  }
+}
+`, vpcName, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_withBlockStorageIDs(nodeName, volumeName string) string {
+	return fmt.Sprintf(`
+resource "e2e_blockstorage" "test" {
+  name = "%s"
+  size = 20
+}
+
+resource "e2e_node" "test" {
+  name             = "%s"
+  plan             = "c2-2c-4gb"
+  image            = "ubuntu-20.04"
+  block_storage_ids = [e2e_blockstorage.test.id]  # Deprecated field
+}
+`, volumeName, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_withVolumeAttachment(nodeName, volumeName string) string {
+	return fmt.Sprintf(`
+resource "e2e_blockstorage" "test" {
+  name = "%s"
+  size = 20
+}
+
+resource "e2e_node" "test" {
+  name  = "%s"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
+}
+
+resource "e2e_volume_attachment" "test" {
+  node_id   = e2e_node.test.id
+  volume_id = e2e_blockstorage.test.id
+}
+`, volumeName, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_withSSHKeysV2(nodeName, sshKeyLabel string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name     = "%s"
+  plan     = "c2-2c-4gb"
+  image    = "ubuntu-20.04"
+  ssh_keys = [e2e_ssh_key.test.label]  # V2 deprecated field
+}
+`, sshKeyLabel, publicKey, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_withSSHKeyIDs(nodeName, sshKeyLabel string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name        = "%s"
+  plan        = "c2-2c-4gb"
+  image       = "ubuntu-20.04"
+  ssh_key_ids = [e2e_ssh_key.test.id]  # V3 field
+}
+`, sshKeyLabel, publicKey, nodeName)
+}
+
+// ============================================================================
+// Deprecation Validation Tests (Lines 205-228)
+// ============================================================================
+
+// TestAccE2ENode_DeprecationWarnings tests that deprecation warnings appear when using V2 fields
+func TestAccE2ENode_DeprecationWarnings(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-deprecation-%s", acctest.RandString(10))
+	sshKeyLabel := fmt.Sprintf("test-ssh-dep-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			// Test that deprecated fields still work but may log warnings
+			{
+				Config: testAccCheckE2ENodeConfig_deprecatedFields(nodeName, sshKeyLabel),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify deprecated fields are still functional
+					resource.TestCheckResourceAttr("e2e_node.test", "ssh_keys.#", "1"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "start_script"),
+					resource.TestCheckResourceAttrSet("e2e_node.test", "location"),
+				),
+				// Note: Deprecation warnings appear in logs, not as errors
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_ConflictsWithValidation tests ConflictsWith validation errors
+func TestAccE2ENode_ConflictsWithValidation(t *testing.T) {
+	sshKeyLabel := fmt.Sprintf("test-ssh-conflict-%s", acctest.RandString(10))
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			// Test: ssh_keys and ssh_key_ids conflict
+			{
+				Config:      testAccCheckE2ENodeConfig_conflictSSHKeys(sshKeyLabel, publicKey),
+				ExpectError: regexp.MustCompile(`(?i).*conflicts? with.*ssh_key_ids?.*`),
+			},
+			// Test: reserve_ip and reserve_ip_id conflict
+			{
+				Config:      testAccCheckE2ENodeConfig_conflictReserveIP(),
+				ExpectError: regexp.MustCompile(`(?i).*conflicts? with.*reserve_ip_id.*`),
+			},
+		},
+	})
+}
+
+// ============================================================================
+// Performance Validation Tests (Lines 229-241)
+// ============================================================================
+
+// TestAccE2ENode_PerformanceMultipleNodes tests creating multiple nodes in sequence
+func TestAccE2ENode_PerformanceMultipleNodes(t *testing.T) {
+	baseName := fmt.Sprintf("test-node-perf-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ENodeConfig_multipleNodes(baseName, 3),
+				Check: resource.ComposeTestCheckFunc(
+					// Verify all nodes are created
+					resource.TestCheckResourceAttr("e2e_node.test1", "name", fmt.Sprintf("%s-1", baseName)),
+					resource.TestCheckResourceAttr("e2e_node.test2", "name", fmt.Sprintf("%s-2", baseName)),
+					resource.TestCheckResourceAttr("e2e_node.test3", "name", fmt.Sprintf("%s-3", baseName)),
+					// Verify all nodes exist
+					testAccCheckE2ENodeExists("e2e_node.test1", new(string)),
+					testAccCheckE2ENodeExists("e2e_node.test2", new(string)),
+					testAccCheckE2ENodeExists("e2e_node.test3", new(string)),
+				),
+			},
+		},
+	})
+}
+
+// TestAccE2ENode_PerformanceMultipleAttachments tests node with multiple volume attachments
+func TestAccE2ENode_PerformanceMultipleAttachments(t *testing.T) {
+	var nodeID string
+	nodeName := fmt.Sprintf("test-node-multi-attach-%s", acctest.RandString(10))
+	volume1Name := fmt.Sprintf("test-vol-1-%s", acctest.RandString(10))
+	volume2Name := fmt.Sprintf("test-vol-2-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		CheckDestroy:      testAccCheckE2ENodeDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckE2ENodeConfig_multipleVolumeAttachments(nodeName, volume1Name, volume2Name),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckE2ENodeExists("e2e_node.test", &nodeID),
+					resource.TestCheckResourceAttr("e2e_node.test", "name", nodeName),
+					// Verify both volume attachments exist
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test1", "node_id"),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test1", "volume_id"),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test2", "node_id"),
+					resource.TestCheckResourceAttrSet("e2e_volume_attachment.test2", "volume_id"),
+					// Verify both attachments reference the same node
+					resource.TestCheckResourceAttr("e2e_volume_attachment.test1", "node_id", nodeID),
+					resource.TestCheckResourceAttr("e2e_volume_attachment.test2", "node_id", nodeID),
+				),
+			},
+		},
+	})
+}
+
+// Configuration helper functions for deprecation and performance tests
+
+func testAccCheckE2ENodeConfig_deprecatedFields(nodeName, sshKeyLabel string) string {
+	publicKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCcbi1cXHVf9aJxdQTPwmBce/dL7eLEb7NWUoGZ9ZJ7YKhCZ1DD+UM8wR48eGFw24q5V4L3T6T2EbAm1y9ByC1E0Cn/Vn8T4X3d3KZW7VDkP8xKdZO2Y7ePJJJyNLpU8VabCxI3PbL3EkT2aTCKtU/yLlGqYLfzQEO/T9E2eSqQMqIqvjEQnWDCQQfFxHvVZxQP5s2qJaF9P3cH4VbS4v5pJ0NJrS8Iv8OZaCP4LkqPFXq4T3qZ8MJT0XbY2J9KMQ5wY8TyT3X8pMJ3cVnU9fT8XqJ3V2nT8X5T2kTqT3X8V2nT8X5T2kTqT3X8V2nT8X5T2k"
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name        = "%s"
+  plan        = "c2-2c-4gb"
+  image       = "ubuntu-20.04"
+  ssh_keys    = [e2e_ssh_key.test.label]  # Deprecated field
+  location    = "Mumbai"                    # Deprecated field
+  start_script = "#!/bin/bash\necho 'Deprecated script'"  # Deprecated field
+}
+`, sshKeyLabel, publicKey, nodeName)
+}
+
+func testAccCheckE2ENodeConfig_conflictSSHKeys(sshKeyLabel, publicKey string) string {
+	return fmt.Sprintf(`
+resource "e2e_ssh_key" "test" {
+  label      = "%s"
+  public_key = "%s"
+}
+
+resource "e2e_node" "test" {
+  name        = "test-conflict"
+  plan        = "c2-2c-4gb"
+  image       = "ubuntu-20.04"
+  ssh_keys    = [e2e_ssh_key.test.label]    # Conflicts with ssh_key_ids
+  ssh_key_ids = [e2e_ssh_key.test.id]       # Conflicts with ssh_keys
+}
+`, sshKeyLabel, publicKey)
+}
+
+func testAccCheckE2ENodeConfig_conflictReserveIP() string {
+	return `
+resource "e2e_reserved_ip" "test" {
+  name = "test-ip-conflict"
+}
+
+resource "e2e_node" "test" {
+  name          = "test-conflict"
+  plan          = "c2-2c-4gb"
+  image         = "ubuntu-20.04"
+  reserve_ip    = "test-ip"              # Conflicts with reserve_ip_id
+  reserve_ip_id = e2e_reserved_ip.test.id # Conflicts with reserve_ip
+}
+`
+}
+
+func testAccCheckE2ENodeConfig_multipleNodes(baseName string, count int) string {
+	config := ""
+	for i := 1; i <= count; i++ {
+		config += fmt.Sprintf(`
+resource "e2e_node" "test%d" {
+  name  = "%s-%d"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
+}
+`, i, baseName, i)
+	}
+	return config
+}
+
+func testAccCheckE2ENodeConfig_multipleVolumeAttachments(nodeName, volume1Name, volume2Name string) string {
+	return fmt.Sprintf(`
+resource "e2e_blockstorage" "test1" {
+  name = "%s"
+  size = 20
+}
+
+resource "e2e_blockstorage" "test2" {
+  name = "%s"
+  size = 20
+}
+
+resource "e2e_node" "test" {
+  name  = "%s"
+  plan  = "c2-2c-4gb"
+  image = "ubuntu-20.04"
+}
+
+resource "e2e_volume_attachment" "test1" {
+  node_id   = e2e_node.test.id
+  volume_id = e2e_blockstorage.test1.id
+}
+
+resource "e2e_volume_attachment" "test2" {
+  node_id   = e2e_node.test.id
+  volume_id = e2e_blockstorage.test2.id
+}
+`, volume1Name, volume2Name, nodeName)
+}

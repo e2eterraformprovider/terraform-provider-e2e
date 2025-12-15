@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
@@ -20,10 +21,10 @@ func TestAccE2EBlockStorageDataSource_Basic(t *testing.T) {
 			{
 				Config: testAccCheckE2EBlockStorageDataSourceConfig_basic(blockStorageName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", "name", blockStorageName),
-					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", "size"),
-					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", "iops"),
-					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", "status")),
+					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", tfconstants.AttrName, blockStorageName),
+					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", tfconstants.AttrSize),
+					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", tfconstants.AttrIOPS),
+					resource.TestCheckResourceAttrSet("data.e2e_blockstorage.test", tfconstants.AttrStatus)),
 			},
 		},
 	})
@@ -40,8 +41,8 @@ func TestAccE2EBlockStorageDataSource_VerifyAttributes(t *testing.T) {
 			{
 				Config: testAccCheckE2EBlockStorageDataSourceConfig_basic(blockStorageName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", "name", blockStorageName),
-					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", "size", "10")),
+					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", tfconstants.AttrName, blockStorageName),
+					resource.TestCheckResourceAttr("data.e2e_blockstorage.test", tfconstants.AttrSize, "250")),
 			},
 		},
 	})
@@ -53,7 +54,7 @@ func testAccCheckE2EBlockStorageDataSourceConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_blockstorage" "test" {
   name = "%s"
-  size = 10
+  size = 250
 }
 
 data "e2e_blockstorage" "test" {

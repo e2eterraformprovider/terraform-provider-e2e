@@ -61,12 +61,12 @@ func DataSourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "the MariaDB DBaaS instances private ipv4 address",
 			},
-			"is_public_ip_attached": {
+			tfconstants.AttrIsPublicIPAttached: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether a public IP is currently attached",
 			},
-			"disk": {
+			tfconstants.AttrDisk: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the disk size of the MariaDB DBaaS instance",
@@ -76,7 +76,7 @@ func DataSourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "the plan name of the MariaDB DBaaS instance",
 			},
-			"software_version": {
+			tfconstants.AttrSoftwareVersion: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the MariaDB software version",
@@ -103,17 +103,17 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	// Fetch basic identifiers
 	clusterID := d.Get("id").(string)
 
-	log.Printf("[DEBUG] Reading MariaDB datasource for cluster ID: %s", clusterID)
+	log.Printf("[DEBUG] Reading %s datasource for cluster ID: %s", ResourceName, clusterID)
 
 	// Get MariaDB cluster using goe2e client
 	maria, _, err := goe2eClient.MariaDB.GetMariaDB(ctx, clusterID)
 	if err != nil {
-		return diag.Errorf("error retrieving MariaDB DBaaS (ID: %s): %s", clusterID, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, ResourceName, clusterID, "", "", err)
 	}
 
 	// Check if resource was deleted
 	if maria == nil {
-		return diag.Errorf("MariaDB cluster %s not found", clusterID)
+		return diag.Errorf(ClusterNotFoundTemplate, clusterID)
 	}
 
 	// Extract nested structures
@@ -142,10 +142,7 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Normalize status (SUSPENDED → STOPPED)
-	status := maria.Status
-	if status == "SUSPENDED" {
-		status = "STOPPED"
-	}
+	status := normalizeStatus(maria.Status)
 	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
@@ -157,12 +154,12 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	if err := d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("is_public_ip_attached", master.PublicIPAddress != ""); err != nil {
+	if err := d.Set(tfconstants.AttrIsPublicIPAttached, master.PublicIPAddress != ""); err != nil {
 		return diag.FromErr(err)
 	}
 
 	// Set disk field
-	if err := d.Set("disk", master.Disk); err != nil {
+	if err := d.Set(tfconstants.AttrDisk, master.Disk); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -172,7 +169,7 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	// Set software version
-	if err := d.Set("software_version", software.Version); err != nil {
+	if err := d.Set(tfconstants.AttrSoftwareVersion, software.Version); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -188,7 +185,7 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 		}
 	}
 
-	log.Printf("[DEBUG] Successfully read MariaDB datasource: %s (ID: %s)", maria.Name, clusterID)
+	log.Printf("[DEBUG] Successfully read %s datasource: %s (ID: %s)", ResourceName, maria.Name, clusterID)
 
 	return diags
 }

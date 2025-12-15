@@ -6,7 +6,17 @@ import (
 	"strings"
 	"time"
 
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
+)
+
+// File-local timeout and polling constants for image operations
+// These are Terraform-specific timing configurations, not part of the API contract
+const (
+	imageCreateTimeout   = 30 * time.Minute
+	imageDeleteTimeout   = 5 * time.Minute
+	imagePollingInterval = 5 * time.Second
 )
 
 // normalizeImageState normalizes API image_state to Terraform state
@@ -14,14 +24,14 @@ import (
 func normalizeImageState(imageState string) string {
 	// Normalize common states
 	switch strings.ToLower(imageState) {
-	case "creating":
-		return "creating"
-	case "ready":
-		return "ready"
-	case "error":
-		return "error"
-	case "deleted":
-		return "deleted"
+	case strings.ToLower(goe2econstants.ImageStatusCreating):
+		return goe2econstants.ImageStateCreating
+	case strings.ToLower(goe2econstants.ImageStatusReady):
+		return goe2econstants.ImageStateReady
+	case strings.ToLower(goe2econstants.ImageStatusError):
+		return goe2econstants.ImageStateError
+	case strings.ToLower(goe2econstants.ImageStatusDeleted):
+		return goe2econstants.ImageStateDeleted
 	default:
 		return strings.ToLower(imageState)
 	}
@@ -30,7 +40,36 @@ func normalizeImageState(imageState string) string {
 // waitForImageState polls the image until it reaches the desired state
 // Used for async operations like image creation (Creating -> Ready)
 func waitForImageState(ctx context.Context, client *goe2e.Client, imageID, desiredState string, timeout time.Duration) error {
-	ticker := time.NewTicker(15 * time.Second)
+	// Helper function to check the image state
+	checkState := func() (bool, error) {
+		image, _, err := client.Images.GetImage(ctx, imageID)
+		if err != nil {
+			// If desired state is "deleted", 404 is expected
+			if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) && desiredState == goe2econstants.ImageStateDeleted {
+				return true, nil
+			}
+			return false, fmt.Errorf(ErrorCheckingImageState, err)
+		}
+
+		currentState := normalizeImageState(image.ImageState)
+		if currentState == desiredState {
+			return true, nil
+		}
+
+		// If image enters error state, return error
+		if currentState == goe2econstants.ImageStateError {
+			return false, fmt.Errorf(goe2econstants.ImageEnteredErrorState, imageID)
+		}
+
+		return false, nil
+	}
+
+	// Check immediately first (before waiting for ticker)
+	if done, err := checkState(); done || err != nil {
+		return err
+	}
+
+	ticker := time.NewTicker(imagePollingInterval)
 	defer ticker.Stop()
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
@@ -40,25 +79,10 @@ func waitForImageState(ctx context.Context, client *goe2e.Client, imageID, desir
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timeoutTimer.C:
-			return fmt.Errorf("timeout waiting for image %s to reach state %s", imageID, desiredState)
+			return fmt.Errorf(goe2econstants.ImageTimeoutWaitingForState, imageID, desiredState)
 		case <-ticker.C:
-			image, _, err := client.Images.GetImage(ctx, imageID)
-			if err != nil {
-				// If desired state is "deleted", 404 is expected
-				if strings.Contains(err.Error(), "not found") && desiredState == "deleted" {
-					return nil
-				}
-				return fmt.Errorf("error checking image state: %w", err)
-			}
-
-			currentState := normalizeImageState(image.ImageState)
-			if currentState == desiredState {
-				return nil
-			}
-
-			// If image enters error state, return error
-			if currentState == "error" {
-				return fmt.Errorf("image %s entered error state", imageID)
+			if done, err := checkState(); done || err != nil {
+				return err
 			}
 		}
 	}
@@ -68,12 +92,12 @@ func waitForImageState(ctx context.Context, client *goe2e.Client, imageID, desir
 func flattenImageResponse(image *goe2e.SavedImage) map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["template_id"] = image.TemplateID
+	result[tfconstants.AttrTemplateID] = image.TemplateID
 	result["image_state"] = image.ImageState
 	result["state"] = normalizeImageState(image.ImageState)
 	result["image_type"] = image.ImageType
 	result["os_distribution"] = image.OSDistribution
-	result["name"] = image.Name
+	result[tfconstants.AttrName] = image.Name
 	result["image_id"] = image.ImageID
 	result["distro"] = image.Distro
 	result["sku_type"] = image.SKUType
@@ -81,7 +105,7 @@ func flattenImageResponse(image *goe2e.SavedImage) map[string]interface{} {
 	result["cloning_ops"] = image.CloningOps
 	result["running_vms"] = image.RunningVMs
 	result["is_windows"] = image.IsWindows
-	result["creation_time"] = image.CreationTime
+	result[tfconstants.AttrCreatedAt] = image.CreationTime
 	result["vm_info"] = image.VMInfo
 
 	return result

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 )
 
 const (
@@ -82,7 +84,7 @@ func (s *VolumeAttachmentServiceOp) AttachVolume(ctx context.Context, attachReq 
 	attachment := &VolumeAttachment{
 		NodeID:   attachReq.NodeID,
 		VolumeID: attachReq.VolumeID,
-		Status:   "attached",
+		Status:   goe2econstants.VolumeAttachmentStatusAttached,
 	}
 
 	return attachment, resp, nil

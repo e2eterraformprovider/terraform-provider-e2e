@@ -195,7 +195,7 @@ func (s *FaasServiceOp) GetFunction(ctx context.Context, functionID string) (*Fa
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		// Return nil function for 404 (not found)
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
+		if IsNotFoundResponse(resp) {
 			return nil, resp, nil
 		}
 		return nil, resp, fmt.Errorf("failed to retrieve FaaS function (ID: %s): %w", functionID, err)

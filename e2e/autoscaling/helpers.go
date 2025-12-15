@@ -2,25 +2,30 @@ package autoscaling
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 // Helper functions for V2/V3 field selection
 
-// getImageName retrieves image name from either V2 or V3 field
-func getImageName(d *schema.ResourceData) (string, error) {
+// GetImageName retrieves image name from either V2 or V3 field.
+//
+// Exported to allow package-external unit tests to lock down UX-stable error messages.
+func GetImageName(d *schema.ResourceData) (string, error) {
 	if v, ok := d.GetOk("image"); ok {
 		return v.(string), nil
 	}
 	if v, ok := d.GetOk("vm_image_name"); ok {
 		return v.(string), nil
 	}
-	return "", fmt.Errorf("either 'image' or 'vm_image_name' must be specified")
+	// Keep this message stable (acceptance tests + UX). Prefer the resource-scoped constant.
+	return "", errors.New(ErrEitherVMImageOrImageRequired)
 }
 
 // getMinSize retrieves min size from either V2 or V3 field
@@ -93,14 +98,14 @@ func getAssignPublicIP(d *schema.ResourceData) bool {
 // Exported for testing purposes
 func NormalizeStatus(status string) string {
 	switch status {
-	case "Starting":
-		return "Running"
-	case "Stopping":
-		return "Stopped"
-	case "starting":
-		return "running"
-	case "stopping":
-		return "stopped"
+	case goe2econstants.AutoscalingScalerGroupStatusStarting:
+		return goe2econstants.AutoscalingScalerGroupStatusRunning
+	case goe2econstants.AutoscalingScalerGroupStatusStopping:
+		return goe2econstants.AutoscalingScalerGroupStatusStopped
+	case goe2econstants.AutoscalingScalerGroupStatusStartingLower:
+		return goe2econstants.AutoscalingScalerGroupStatusRunningLower
+	case goe2econstants.AutoscalingScalerGroupStatusStoppingLower:
+		return goe2econstants.AutoscalingScalerGroupStatusStoppedLower
 	default:
 		return status
 	}
@@ -483,47 +488,74 @@ func ExpandNetworkConfig(d *schema.ResourceData) *NetworkConfig {
 // expandNetworkConfig extracts network configuration from the network_config block
 // Returns nil if the block is not present (caller should use individual fields)
 func expandNetworkConfig(d *schema.ResourceData) *NetworkConfig {
+	// Try GetOk first - this checks if the value is "set" (non-zero)
 	if v, ok := d.GetOk("network_config"); ok {
 		configList := v.([]interface{})
 		if len(configList) == 0 {
 			return nil
 		}
-
-		configMap := configList[0].(map[string]interface{})
-		networkConfig := &NetworkConfig{}
-
-		// Extract assign_public_ip
-		if val, ok := configMap["assign_public_ip"]; ok {
-			networkConfig.AssignPublicIP = val.(bool)
-		} else {
-			// Default to true if not specified (matching schema default)
-			networkConfig.AssignPublicIP = true
-		}
-
-		// Extract vpc_names
-		if val, ok := configMap["vpc_names"]; ok {
-			vpcNamesRaw := val.([]interface{})
-			vpcNames := make([]string, len(vpcNamesRaw))
-			for i, v := range vpcNamesRaw {
-				vpcNames[i] = v.(string)
-			}
-			networkConfig.VPCNames = vpcNames
-		}
-
-		// Extract security_groups
-		if val, ok := configMap["security_groups"]; ok {
-			sgRaw := val.([]interface{})
-			securityGroups := make([]int, len(sgRaw))
-			for i, v := range sgRaw {
-				securityGroups[i] = v.(int)
-			}
-			networkConfig.SecurityGroups = securityGroups
-		}
-
-		return networkConfig
+		return expandNetworkConfigFromList(configList)
 	}
 
-	return nil
+	// If GetOk returns false, try Get to handle empty maps in lists
+	// This handles the edge case where a list exists but contains an empty map
+	v := d.Get("network_config")
+	if v == nil {
+		return nil
+	}
+
+	configList, ok := v.([]interface{})
+	if !ok || len(configList) == 0 {
+		return nil
+	}
+
+	return expandNetworkConfigFromList(configList)
+}
+
+// expandNetworkConfigFromList extracts network config from a list of config maps
+func expandNetworkConfigFromList(configList []interface{}) *NetworkConfig {
+
+	// Check if first element is nil
+	if configList[0] == nil {
+		return nil
+	}
+
+	configMap, ok := configList[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	networkConfig := &NetworkConfig{}
+
+	// Extract assign_public_ip
+	if val, ok := configMap["assign_public_ip"]; ok {
+		networkConfig.AssignPublicIP = val.(bool)
+	} else {
+		// Default to true if not specified (matching schema default)
+		networkConfig.AssignPublicIP = true
+	}
+
+	// Extract vpc_names
+	if val, ok := configMap["vpc_names"]; ok {
+		vpcNamesRaw := val.([]interface{})
+		vpcNames := make([]string, len(vpcNamesRaw))
+		for i, v := range vpcNamesRaw {
+			vpcNames[i] = v.(string)
+		}
+		networkConfig.VPCNames = vpcNames
+	}
+
+	// Extract security_groups
+	if val, ok := configMap["security_groups"]; ok {
+		sgRaw := val.([]interface{})
+		securityGroups := make([]int, len(sgRaw))
+		for i, v := range sgRaw {
+			securityGroups[i] = v.(int)
+		}
+		networkConfig.SecurityGroups = securityGroups
+	}
+
+	return networkConfig
 }
 
 // FlattenNetworkConfig builds a network_config block from API response data

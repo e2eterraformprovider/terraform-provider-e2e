@@ -64,10 +64,10 @@ type LoadBalancerMonitor struct {
 }
 
 func GetLbPort(mode string) string {
-	if mode == "HTTP" {
-		return "80"
+	if mode == goe2econstants.LBModeHTTP {
+		return goe2econstants.LBPortHTTP
 	}
-	return "443"
+	return goe2econstants.LBPortHTTPS
 }
 
 // ExpandBackendsWithGoe2e expands backends using goe2e client
@@ -169,10 +169,15 @@ func ExpandTcpBackendWithGoe2e(ctx context.Context, config []interface{}, goe2eC
 
 func SetLoadBalancerStatus(d *schema.ResourceData, status_detail interface{}) error {
 	haproxyStatus := status_detail.(map[string]interface{})
-	dataMonitor := haproxyStatus["data_monitor"].(map[string]interface{})
 	status := haproxyStatus["status"].(string)
 
 	if status == goe2econstants.LBStatusRunningAPI {
+		// Only access data_monitor for Running status
+		var dataMonitor map[string]interface{}
+		if dm, ok := haproxyStatus["data_monitor"].(map[string]interface{}); ok {
+			dataMonitor = dm
+		}
+
 		if len(dataMonitor) == 0 {
 			d.Set(tfconstants.AttrStatus, goe2econstants.LBStatusBackendUnavailable)
 			return nil
@@ -257,7 +262,7 @@ func ExpandVpcListWithGoe2e(ctx context.Context, d *schema.ResourceData, vpc_lis
 			return nil, err
 		}
 
-		if vpc.State != "Active" {
+		if vpc.State != goe2econstants.VPCStatusActive {
 			return nil, fmt.Errorf("Can not attach vpc currently, vpc is in %s state", vpc.State)
 		}
 
@@ -312,7 +317,7 @@ func getLoadBalancerWithNestedResponse(ctx context.Context, goe2eClient *goe2e.C
 func waitForLoadBalancerStatus(ctx context.Context, goe2eClient *goe2e.Client, lbID string, targetStatus string, timeoutMinutes int) error {
 	timeout := time.Duration(timeoutMinutes) * time.Minute
 	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(tfconstants.LBPollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -356,7 +361,7 @@ func waitForLoadBalancerStatus(ctx context.Context, goe2eClient *goe2e.Client, l
 func waitForLoadBalancerDeletion(ctx context.Context, goe2eClient *goe2e.Client, lbID string, timeoutMinutes int) error {
 	timeout := time.Duration(timeoutMinutes) * time.Minute
 	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(tfconstants.LBPollInterval)
 	defer ticker.Stop()
 
 	for {

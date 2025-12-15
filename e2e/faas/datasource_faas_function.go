@@ -21,7 +21,7 @@ func DataSourceFaasFunction() *schema.Resource {
 			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// FaaS-specific fields
-			"function_id": {
+			tfconstants.AttrFunctionID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the FaaS function",
@@ -31,32 +31,32 @@ func DataSourceFaasFunction() *schema.Resource {
 				Computed:    true,
 				Description: "name of the FaaS function",
 			},
-			"namespace": {
+			tfconstants.AttrNamespace: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the namespace for the FaaS function",
 			},
-			"runtime": {
+			tfconstants.AttrRuntime: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the runtime for the function",
 			},
-			"memory_mb": {
+			tfconstants.AttrMemoryMB: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "memory allocation in megabytes",
 			},
-			"timeout_seconds": {
+			tfconstants.AttrTimeoutSeconds: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "function timeout in seconds",
 			},
-			"min_replicas": {
+			tfconstants.AttrMinReplicas: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the minimum number of replicas",
 			},
-			"max_replicas": {
+			tfconstants.AttrMaxReplicas: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "the maximum number of replicas",
@@ -67,7 +67,7 @@ func DataSourceFaasFunction() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "environment variables for the function",
 			},
-			"endpoint_url": {
+			tfconstants.AttrEndpointURL: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the endpoint URL of the function",
@@ -96,7 +96,7 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
-	functionID := d.Get("function_id").(string)
+	functionID := d.Get(tfconstants.AttrFunctionID).(string)
 
 	log.Printf("[INFO] DATASOURCE FAAS FUNCTION READ | ID: %s", functionID)
 
@@ -106,20 +106,20 @@ func dataSourceFaasFunctionRead(ctx context.Context, d *schema.ResourceData, m i
 	}
 
 	if fn == nil {
-		return diag.Errorf("FaaS function with ID %s not found", functionID)
+		return diag.Errorf(ErrFunctionNotFoundByIDFmt, functionID)
 	}
 
 	d.SetId(fn.ID)
-	d.Set("name", fn.Name)
-	d.Set("namespace", fn.Namespace)
-	d.Set("runtime", fn.Runtime)
-	d.Set("memory_mb", fn.MemoryMB)
-	d.Set("timeout_seconds", fn.Timeout)
-	d.Set("min_replicas", fn.MinReplicas)
-	d.Set("max_replicas", fn.MaxReplicas)
-	d.Set("endpoint_url", fn.EndpointURL)
+	d.Set(tfconstants.AttrName, fn.Name)
+	d.Set(tfconstants.AttrNamespace, fn.Namespace)
+	d.Set(tfconstants.AttrRuntime, fn.Runtime)
+	d.Set(tfconstants.AttrMemoryMB, fn.MemoryMB)
+	d.Set(tfconstants.AttrTimeoutSeconds, fn.Timeout)
+	d.Set(tfconstants.AttrMinReplicas, fn.MinReplicas)
+	d.Set(tfconstants.AttrMaxReplicas, fn.MaxReplicas)
+	d.Set(tfconstants.AttrEndpointURL, fn.EndpointURL)
 	d.Set(tfconstants.AttrStatus, fn.Status)
-	d.Set("created_at", fn.CreatedAt)
+	d.Set(tfconstants.AttrCreatedAt, fn.CreatedAt)
 	d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt)
 
 	if fn.Environment != nil {

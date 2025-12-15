@@ -8,6 +8,8 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -26,20 +28,20 @@ func TestAccE2ELoadBalancer_Basic(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_name", lbName),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-2"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_mode", "HTTP"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_type", "External"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", "S"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "power_status", "power_on"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbName, lbName),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB2),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbMode, goe2econstants.LBModeHTTP),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbType, goe2econstants.LBTypeExternal),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", goe2econstants.LBNodeListTypeStatic),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn),
 					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "enable_bitninja", "false"),
 					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "is_ipv6_attached", "false"),
 					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "public_ip"),
 					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "private_ip"),
-					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "ram"),
-					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "disk"),
-					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "vcpu"),
-					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", "status")),
+					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", tfconstants.AttrRAM),
+					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", tfconstants.AttrDisk),
+					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", tfconstants.AttrVCPU),
+					resource.TestCheckResourceAttrSet("e2e_loadbalancer.test", tfconstants.AttrStatus)),
 			},
 		},
 	})
@@ -59,13 +61,13 @@ func TestAccE2ELoadBalancer_Update(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_name", lbName)),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbName, lbName)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_updated(lbNameUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_name", lbNameUpdated)),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbName, lbNameUpdated)),
 			},
 		},
 	})
@@ -84,7 +86,7 @@ func TestAccE2ELoadBalancer_HTTPS(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_https(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_mode", "HTTPS")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbMode, goe2econstants.LBModeHTTPS)),
 			},
 		},
 	})
@@ -104,9 +106,9 @@ func TestAccE2ELoadBalancer_WithBackends(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_withBackends(lbName, nodeName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "backends.#", "1"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "backends.0.name", "backend-1"),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "backends.0.balance", "roundrobin")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrBackends+".#", "1"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrBackends+".0.name", "backend-1"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrBackends+".0.balance", goe2econstants.LBBalanceRoundRobin)),
 			},
 		},
 	})
@@ -125,13 +127,13 @@ func TestAccE2ELoadBalancer_PowerOperations(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "power_status", "power_on")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_powerOff(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "power_status", "power_off")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOff)),
 			},
 		},
 	})
@@ -150,13 +152,13 @@ func TestAccE2ELoadBalancer_PlanUpgrade(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-2")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB2)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_upgradedPlan(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-3")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB3)),
 			},
 		},
 	})
@@ -278,13 +280,13 @@ func TestAccE2ELoadBalancer_ForceNewLbMode(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID1),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_mode", "HTTP")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbMode, goe2econstants.LBModeHTTP)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_https(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID2),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_mode", "HTTPS"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbMode, goe2econstants.LBModeHTTPS),
 					// Verify that resource was recreated (different ID)
 					testAccCheckE2ELoadBalancerRecreated(&lbID1, &lbID2)),
 			},
@@ -305,13 +307,13 @@ func TestAccE2ELoadBalancer_ForceNewLbType(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID1),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_type", "External")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbType, goe2econstants.LBTypeExternal)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_internal(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID2),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "lb_type", "Internal"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrLbType, goe2econstants.LBTypeInternal),
 					// Verify that resource was recreated (different ID)
 					testAccCheckE2ELoadBalancerRecreated(&lbID1, &lbID2)),
 			},
@@ -332,13 +334,13 @@ func TestAccE2ELoadBalancer_ForceNewNodeListType(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID1),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", "S")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", goe2econstants.LBNodeListTypeStatic)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_dynamicNodes(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID2),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", "D"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "node_list_type", goe2econstants.LBNodeListTypeDynamic),
 					// Verify that resource was recreated (different ID)
 					testAccCheckE2ELoadBalancerRecreated(&lbID1, &lbID2)),
 			},
@@ -359,7 +361,7 @@ func TestAccE2ELoadBalancer_PlanDowngrade(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_upgradedPlan(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-3")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB3)),
 			},
 			{
 				Config:      testAccCheckE2ELoadBalancerConfig_basic(lbName),
@@ -382,13 +384,13 @@ func TestAccE2ELoadBalancer_ForceNewPlan(t *testing.T) {
 				Config: testAccCheckE2ELoadBalancerConfig_basic(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID1),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-2")),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB2)),
 			},
 			{
 				Config: testAccCheckE2ELoadBalancerConfig_planForceNew(lbName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2ELoadBalancerExists("e2e_loadbalancer.test", &lbID2),
-					resource.TestCheckResourceAttr("e2e_loadbalancer.test", "plan", "E2E-LB-4"),
+					resource.TestCheckResourceAttr("e2e_loadbalancer.test", tfconstants.AttrPlan, goe2econstants.LBPlanE2ELB4),
 					// Verify that resource was recreated (different ID) due to ForceNew
 					testAccCheckE2ELoadBalancerRecreated(&lbID1, &lbID2)),
 			},
@@ -494,27 +496,27 @@ func testAccCheckE2ELoadBalancerConfig_basic(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-2"
-  lb_mode     = "HTTP"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_updated(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-2"
-  lb_mode     = "HTTP"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_https(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-2"
-  lb_mode     = "HTTPS"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTPS)
 }
 
 func testAccCheckE2ELoadBalancerConfig_withBackends(lbName, nodeName string) string {
@@ -526,48 +528,48 @@ resource "e2e_node" "backend" {
 
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-2"
-  lb_mode     = "HTTP"
+  plan   = "%s"
+  lb_mode     = "%s"
   backends {
     name    = "backend-1"
-    balance = "roundrobin"
+    balance = "%s"
     servers {
       id   = e2e_node.backend.id
-      port = "80"
+      port = "%s"
     }
   }
 }
-`, nodeName,
-		lbName)
+`, nodeName, lbName, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP,
+		goe2econstants.LBBalanceRoundRobin, goe2econstants.LBPortHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_powerOff(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name      = "%s"
-  plan    = "E2E-LB-2"
-  lb_mode      = "HTTP"
-  power_status = "power_off"}
-`, name)
+  plan    = "%s"
+  lb_mode      = "%s"
+  power_status = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP, goe2econstants.NodePowerStatusOff)
 }
 
 func testAccCheckE2ELoadBalancerConfig_upgradedPlan(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-3"
-  lb_mode     = "HTTP"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB3, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_withIPv6(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name          = "%s"
-  plan        = "E2E-LB-2"
-  lb_mode          = "HTTP"
+  plan        = "%s"
+  lb_mode          = "%s"
   is_ipv6_attached = true}
-`, name)
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP)
 }
 
 // Error case configurations
@@ -581,37 +583,37 @@ resource "e2e_loadbalancer" "test" {
 }
 
 func testAccCheckE2ELoadBalancerConfig_missingPlan() string {
-	return `
+	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name    = "test-lb"
-  lb_mode    = "HTTP"}
-`
+  lb_mode    = "%s"}
+`, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_missingMode() string {
-	return `
+	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name    = "test-lb"
-  plan  = "E2E-LB-2"}
-`
+  plan  = "%s"}
+`, goe2econstants.LBPlanE2ELB2)
 }
 
 func testAccCheckE2ELoadBalancerConfig_missingProjectID() string {
-	return `
+	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name   = "test-lb"
-  plan = "E2E-LB-2"
-  lb_mode   = "HTTP"}
-`
+  plan = "%s"
+  lb_mode   = "%s"}
+`, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_missingLocation() string {
-	return `
+	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name    = "test-lb"
-  plan  = "E2E-LB-2"
-  lb_mode    = "HTTP"}
-`
+  plan  = "%s"
+  lb_mode    = "%s"}
+`, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_invalidPlan(name string) string {
@@ -619,44 +621,44 @@ func testAccCheckE2ELoadBalancerConfig_invalidPlan(name string) string {
 resource "e2e_loadbalancer" "test" {
   lb_name    = "%s"
   plan  = "INVALID-PLAN"
-  lb_mode    = "HTTP"}
-`, name)
+  lb_mode    = "%s"}
+`, name, goe2econstants.LBModeHTTP)
 }
 
 func testAccCheckE2ELoadBalancerConfig_invalidMode(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name    = "%s"
-  plan  = "E2E-LB-2"
+  plan  = "%s"
   lb_mode    = "INVALID"}
-`, name)
+`, name, goe2econstants.LBPlanE2ELB2)
 }
 
 func testAccCheckE2ELoadBalancerConfig_internal(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-2"
-  lb_mode     = "HTTP"
-  lb_type     = "Internal"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"
+  lb_type     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP, goe2econstants.LBTypeInternal)
 }
 
 func testAccCheckE2ELoadBalancerConfig_dynamicNodes(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name        = "%s"
-  plan      = "E2E-LB-2"
-  lb_mode        = "HTTP"
-  node_list_type = "D"}
-`, name)
+  plan      = "%s"
+  lb_mode        = "%s"
+  node_list_type = "%s"}
+`, name, goe2econstants.LBPlanE2ELB2, goe2econstants.LBModeHTTP, goe2econstants.LBNodeListTypeDynamic)
 }
 
 func testAccCheckE2ELoadBalancerConfig_planForceNew(name string) string {
 	return fmt.Sprintf(`
 resource "e2e_loadbalancer" "test" {
   lb_name     = "%s"
-  plan   = "E2E-LB-4"
-  lb_mode     = "HTTP"}
-`, name)
+  plan   = "%s"
+  lb_mode     = "%s"}
+`, name, goe2econstants.LBPlanE2ELB4, goe2econstants.LBModeHTTP)
 }

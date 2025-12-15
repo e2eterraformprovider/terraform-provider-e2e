@@ -8,6 +8,8 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -27,16 +29,16 @@ func TestAccE2EFaasFunction_Basic(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_basic(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "name", functionName),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "namespace", namespace),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "runtime", "python-3.11-fastapi"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "memory_mb", "256"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "timeout_seconds", "30"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "min_replicas", "1"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "max_replicas", "5"),
-					resource.TestCheckResourceAttrSet("e2e_faas_function.test", "endpoint_url"),
-					resource.TestCheckResourceAttrSet("e2e_faas_function.test", "status"),
-					resource.TestCheckResourceAttrSet("e2e_faas_function.test", "created_at")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrName, functionName),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrNamespace, namespace),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrRuntime, "python-3.11-fastapi"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMemoryMB, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMemoryMB)),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTimeoutSeconds, fmt.Sprintf("%d", goe2econstants.FaaSDefaultTimeoutSeconds)),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMinReplicas, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMinReplicas)),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMaxReplicas, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMaxReplicas)),
+					resource.TestCheckResourceAttrSet("e2e_faas_function.test", tfconstants.AttrEndpointURL),
+					resource.TestCheckResourceAttrSet("e2e_faas_function.test", tfconstants.AttrStatus),
+					resource.TestCheckResourceAttrSet("e2e_faas_function.test", tfconstants.AttrCreatedAt)),
 			},
 		},
 	})
@@ -56,17 +58,17 @@ func TestAccE2EFaasFunction_Update(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_basic(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "memory_mb", "256"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "timeout_seconds", "30")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMemoryMB, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMemoryMB)),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTimeoutSeconds, fmt.Sprintf("%d", goe2econstants.FaaSDefaultTimeoutSeconds))),
 			},
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_updated(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "memory_mb", "512"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "timeout_seconds", "60"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "min_replicas", "2"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "max_replicas", "10")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMemoryMB, "512"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTimeoutSeconds, "60"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMinReplicas, "2"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMaxReplicas, "10")),
 			},
 		},
 	})
@@ -86,16 +88,16 @@ func TestAccE2EFaasFunction_WithEnvironmentVariables(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_withEnvironmentVariables(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "environment_variables.ENV", "production"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "environment_variables.DEBUG", "false")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrEnvironmentVariables+".ENV", "production"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrEnvironmentVariables+".DEBUG", "false")),
 			},
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_withEnvironmentVariablesUpdated(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "environment_variables.ENV", "staging"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "environment_variables.DEBUG", "true"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "environment_variables.LOG_LEVEL", "debug")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrEnvironmentVariables+".ENV", "staging"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrEnvironmentVariables+".DEBUG", "true"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrEnvironmentVariables+".LOG_LEVEL", "debug")),
 			},
 		},
 	})
@@ -137,8 +139,8 @@ func TestAccE2EFaasFunction_DifferentRuntime(t *testing.T) {
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_nodejs(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "runtime", "node-18"),
-					resource.TestCheckResourceAttrSet("e2e_faas_function.test", "endpoint_url")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrRuntime, "node-18"),
+					resource.TestCheckResourceAttrSet("e2e_faas_function.test", tfconstants.AttrEndpointURL)),
 			},
 		},
 	})
@@ -151,27 +153,27 @@ func TestAccE2EFaasFunction_MissingRequiredArguments(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingName(),
-				ExpectError: regexp.MustCompile(`The argument "name" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrName)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingNamespace(),
-				ExpectError: regexp.MustCompile(`The argument "namespace" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrNamespace)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingRuntime(),
-				ExpectError: regexp.MustCompile(`The argument "runtime" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrRuntime)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingCode(),
-				ExpectError: regexp.MustCompile(`The argument "code_inline" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrCodeInline)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingProjectID(),
-				ExpectError: regexp.MustCompile(`The argument "project_id" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrProjectID)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_missingLocation(),
-				ExpectError: regexp.MustCompile(`The argument "location" is required`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`The argument "%s" is required`, tfconstants.AttrLocation)),
 			},
 		},
 	})
@@ -197,7 +199,7 @@ func TestAccE2EFaasFunction_Import(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 				// code_inline is not returned by the API, so it won't match
-				ImportStateVerifyIgnore: []string{"code_inline"},
+				ImportStateVerifyIgnore: []string{tfconstants.AttrCodeInline},
 			},
 		},
 	})
@@ -217,15 +219,15 @@ func TestAccE2EFaasFunction_ScalingParameters(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_customScaling(functionName, namespace, 0, 3),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "min_replicas", "0"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "max_replicas", "3")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMinReplicas, "0"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMaxReplicas, "3")),
 			},
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_customScaling(functionName, namespace, 3, 20),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "min_replicas", "3"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "max_replicas", "20")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMinReplicas, "3"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrMaxReplicas, "20")),
 			},
 		},
 	})
@@ -265,7 +267,7 @@ func TestAccE2EFaasFunction_ReplicaValidation(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_invalidReplicas(functionName, namespace),
-				ExpectError: regexp.MustCompile(`min_replicas \(\d+\) cannot be greater than max_replicas \(\d+\)`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`%s \(\d+\) cannot be greater than %s \(\d+\)`, tfconstants.AttrMinReplicas, tfconstants.AttrMaxReplicas)),
 			},
 		},
 	})
@@ -287,16 +289,16 @@ func TestAccE2EFaasFunction_WithTags(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_withTags(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "tags.Environment", "production"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "tags.Team", "backend")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTags+".Environment", "production"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTags+".Team", "backend")),
 			},
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_withTagsUpdated(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "tags.Environment", "staging"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "tags.Team", "backend"),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "tags.Owner", "dev-team")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTags+".Environment", "staging"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTags+".Team", "backend"),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrTags+".Owner", "dev-team")),
 			},
 		},
 	})
@@ -316,13 +318,13 @@ func TestAccE2EFaasFunction_WithDescription(t *testing.T) {
 				Config: testAccCheckE2EFaasFunctionConfig_withDescription(functionName, namespace, "Initial description"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "description", "Initial description")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrDescription, "Initial description")),
 			},
 			{
 				Config: testAccCheckE2EFaasFunctionConfig_withDescription(functionName, namespace, "Updated description"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckE2EFaasFunctionExists("e2e_faas_function.test", &functionID),
-					resource.TestCheckResourceAttr("e2e_faas_function.test", "description", "Updated description")),
+					resource.TestCheckResourceAttr("e2e_faas_function.test", tfconstants.AttrDescription, "Updated description")),
 			},
 		},
 	})
@@ -338,11 +340,47 @@ func TestAccE2EFaasFunction_CodeSourceConflict(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_bothCodeSources(functionName, namespace),
-				ExpectError: regexp.MustCompile(`code_inline and code_file are mutually exclusive|conflicts with`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`%s and %s are mutually exclusive|conflicts with`, tfconstants.AttrCodeInline, tfconstants.AttrCodeFile)),
 			},
 			{
 				Config:      testAccCheckE2EFaasFunctionConfig_noCodeSource(functionName, namespace),
-				ExpectError: regexp.MustCompile(`one of code_inline or code_file must be specified`),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`one of %s or %s must be specified`, tfconstants.AttrCodeInline, tfconstants.AttrCodeFile)),
+			},
+		},
+	})
+}
+
+func TestAccE2EFaasFunction_InvalidMemoryMB(t *testing.T) {
+	functionName := fmt.Sprintf("test-func-%s", acctest.RandString(10))
+	namespace := fmt.Sprintf("test-ns-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccCheckE2EFaasFunctionConfig_invalidMemoryMB(functionName, namespace, tfconstants.FaaSMinMemoryMB-1),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`.*%s.*%d.*`, tfconstants.AttrMemoryMB, tfconstants.FaaSMinMemoryMB)),
+			},
+		},
+	})
+}
+
+func TestAccE2EFaasFunction_InvalidTimeoutSeconds(t *testing.T) {
+	functionName := fmt.Sprintf("test-func-%s", acctest.RandString(10))
+	namespace := fmt.Sprintf("test-ns-%s", acctest.RandString(10))
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: acceptance.TestAccProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccCheckE2EFaasFunctionConfig_invalidTimeoutSeconds(functionName, namespace, tfconstants.FaaSMinTimeoutSeconds-1),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`.*%s.*`, tfconstants.AttrTimeoutSeconds)),
+			},
+			{
+				Config:      testAccCheckE2EFaasFunctionConfig_invalidTimeoutSeconds(functionName, namespace, tfconstants.FaaSMaxTimeoutSeconds+1),
+				ExpectError: regexp.MustCompile(fmt.Sprintf(`.*%s.*%d.*`, tfconstants.AttrTimeoutSeconds, tfconstants.FaaSMaxTimeoutSeconds)),
 			},
 		},
 	})
@@ -676,4 +714,28 @@ resource "e2e_faas_function" "test" {
   runtime   = "python-3.11-fastapi"
 }
 `, name, namespace)
+}
+
+func testAccCheckE2EFaasFunctionConfig_invalidMemoryMB(name, namespace string, memoryMB int) string {
+	return fmt.Sprintf(`
+resource "e2e_faas_function" "test" {
+  name        = "%s"
+  namespace   = "%s"
+  runtime     = "python-3.11-fastapi"
+  code_inline = "def handler(event, context): pass"
+  memory_mb   = %d
+}
+`, name, namespace, memoryMB)
+}
+
+func testAccCheckE2EFaasFunctionConfig_invalidTimeoutSeconds(name, namespace string, timeoutSeconds int) string {
+	return fmt.Sprintf(`
+resource "e2e_faas_function" "test" {
+  name            = "%s"
+  namespace       = "%s"
+  runtime         = "python-3.11-fastapi"
+  code_inline     = "def handler(event, context): pass"
+  timeout_seconds = %d
+}
+`, name, namespace, timeoutSeconds)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -41,7 +42,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the database username",
 			},
-			"pg_details": {
+			tfconstants.AttrPGDetails: {
 				Type:        schema.TypeMap,
 				Computed:    true,
 				Description: "full parameter group detail map",
@@ -52,7 +53,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "state of the PostgreSQL DBaaS instance",
 			},
-			"status_actions": {
+			tfconstants.AttrStatusActions: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Description: "list of available status actions",
@@ -68,7 +69,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the PostgreSQL DBaaS instances private ipv4 address",
 			},
-			"is_public_ip_attached": {
+			tfconstants.AttrIsPublicIPAttached: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether a public IP is attached to the PostgreSQL DBaaS instance",
@@ -78,7 +79,7 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "the plan name of the PostgreSQL DBaaS instance",
 			},
-			"database_version": {
+			tfconstants.AttrDatabaseVersion: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the PostgreSQL version",
@@ -106,9 +107,9 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	cfg := m.(*config.Config)
 	var diags diag.Diagnostics
 
-	clusterID := d.Get("id").(string)
+	clusterID := d.Get(tfconstants.AttrID).(string)
 
-	log.Printf("[DEBUG] Reading PostgreSQL datasource for cluster ID: %s", clusterID)
+	log.Printf("[DEBUG] Reading %s datasource for cluster ID: %s", ResourceName, clusterID)
 
 	// Get region with provider default support
 	region, err := cfg.GetRegionOrDefault(d)
@@ -125,18 +126,18 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	// Get goe2e client for this project/region
 	goe2eClient, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client for project (%s), region (%s): %s", projectID, region, err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// Get PostgreSQL cluster using goe2e client
 	cluster, _, err := goe2eClient.PostgreSQL.GetCluster(ctx, clusterID)
 	if err != nil {
-		return diag.Errorf("error retrieving PostgreSQL DBaaS (ID: %s): %s", clusterID, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, ResourceName, clusterID, projectID, region, err)
 	}
 
 	// Check if resource was deleted
 	if cluster == nil {
-		return diag.Errorf("PostgreSQL cluster %s not found", clusterID)
+		return diag.Errorf(ClusterNotFoundTemplate, clusterID)
 	}
 
 	// Set resource ID
@@ -161,14 +162,14 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 
 	// Normalize status (SUSPENDED → STOPPED)
 	status := cluster.Status
-	if status == "SUSPENDED" {
-		status = "STOPPED"
+	if status == goe2econstants.DBaaSStatusSuspended {
+		status = goe2econstants.DBaaSStatusStopped
 	}
 	if err := d.Set(tfconstants.AttrStatus, status); err != nil {
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set("status_actions", cluster.StatusActions); err != nil {
+	if err := d.Set(tfconstants.AttrStatusActions, cluster.StatusActions); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -179,7 +180,7 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	if err := d.Set(tfconstants.AttrPrivateIPAddress, master.PrivateIPAddress); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("is_public_ip_attached", master.PublicIPAddress != ""); err != nil {
+	if err := d.Set(tfconstants.AttrIsPublicIPAttached, master.PublicIPAddress != ""); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -194,7 +195,7 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set software version
-	if err := d.Set("database_version", software.Version); err != nil {
+	if err := d.Set(tfconstants.AttrDatabaseVersion, software.Version); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -210,7 +211,7 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 		}
 	}
 
-	log.Printf("[DEBUG] Successfully read PostgreSQL datasource: %s (ID: %s)", cluster.Name, clusterID)
+	log.Printf("[DEBUG] Successfully read %s datasource: %s (ID: %s)", ResourceName, cluster.Name, clusterID)
 
 	return diags
 }

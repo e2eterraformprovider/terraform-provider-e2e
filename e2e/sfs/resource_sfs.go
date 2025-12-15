@@ -12,6 +12,7 @@ import (
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -58,7 +59,7 @@ func ResourceSfs() *schema.Resource {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				ForceNew:      true,
-				ConflictsWith: []string{"disk_iops"},
+				ConflictsWith: []string{tfconstants.AttrDiskIOPS},
 				Description:   "the IOPS value of the SFS",
 			},
 
@@ -71,7 +72,7 @@ func ResourceSfs() *schema.Resource {
 				ConflictsWith: []string{tfconstants.AttrSizeGB},
 				Description:   "DEPRECATED: Use size_gb instead. The size of the disk in gigabytes.",
 			},
-			"disk_iops": {
+			tfconstants.AttrDiskIOPS: {
 				Type:          schema.TypeInt,
 				Optional:      true,
 				ForceNew:      true,
@@ -132,19 +133,19 @@ func ResourceSfs() *schema.Resource {
 			},
 
 			// Computed fields - Networking
-			"private_endpoint": {
+			tfconstants.AttrPrivateEndpoint: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the NFS mount endpoint for the SFS",
 			},
-			"mount_endpoint": {
+			tfconstants.AttrMountEndpoint: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "alias for private_endpoint - the NFS mount endpoint for the SFS",
 			},
 
 			// Computed fields - Storage and backup
-			"is_backup_enabled": {
+			tfconstants.AttrIsBackupEnabled: {
 				Type:        schema.TypeBool,
 				Computed:    true,
 				Description: "whether backups are enabled for the SFS",
@@ -179,12 +180,12 @@ func validateName(v interface{}, k string) (ws []string, es []error) {
 	var warns []string
 	value, ok := v.(string)
 	if !ok {
-		errs = append(errs, fmt.Errorf("expected name to be string"))
+		errs = append(errs, fmt.Errorf(tfconstants.NameExpectedString))
 		return warns, errs
 	}
 	whiteSpace := regexp.MustCompile(`\s+`)
 	if whiteSpace.Match([]byte(value)) {
-		errs = append(errs, fmt.Errorf("name cannot contain whitespace. Got %s", value))
+		errs = append(errs, fmt.Errorf(tfconstants.NameCannotContainWhitespaceTemplate, value))
 		return warns, errs
 	}
 	return warns, errs
@@ -207,7 +208,7 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	// Create goe2e client with specific projectID and region
 	client, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	log.Printf("[INFO] SFS CREATE STARTS")
@@ -219,7 +220,7 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	// Get size: prefer V3 field size_gb over V2 field disk_size
 	sizeGB := getEffectiveSizeGB(d, tfconstants.AttrSizeGB, tfconstants.AttrDiskSize, 0)
 	if sizeGB == 0 {
-		return diag.Errorf("Error creating SFS (name: %s): size_gb or disk_size must be specified", name)
+		return diag.Errorf(CreateSizeRequired, name)
 	}
 
 	// Log deprecation warning if old field is used
@@ -230,15 +231,15 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	}
 
 	// Get IOPS: prefer V3 field iops over V2 field disk_iops
-	iops := getEffectiveIOPS(d, tfconstants.AttrIOPS, "disk_iops", 0)
+	iops := getEffectiveIOPS(d, tfconstants.AttrIOPS, tfconstants.AttrDiskIOPS, 0)
 	if iops == 0 {
-		return diag.Errorf("Error creating SFS (name: %s): iops or disk_iops must be specified", name)
+		return diag.Errorf(CreateIOPSRequired, name)
 	}
 
 	// Log deprecation warning if old field is used
-	if _, ok := d.GetOk("disk_iops"); ok && !d.HasChanges("disk_iops") {
+	if _, ok := d.GetOk(tfconstants.AttrDiskIOPS); ok && !d.HasChanges(tfconstants.AttrDiskIOPS) {
 		if _, ok2 := d.GetOk(tfconstants.AttrIOPS); !ok2 {
-			logDeprecationWarning("disk_iops", tfconstants.AttrIOPS)
+			logDeprecationWarning(tfconstants.AttrDiskIOPS, tfconstants.AttrIOPS)
 		}
 	}
 
@@ -267,13 +268,13 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 
 	sfs, _, err := client.Sfs.CreateSfs(ctx, createReq)
 	if err != nil {
-		return diag.Errorf("Error creating SFS (name: %s) in project (%s), region (%s): %s", createReq.Name, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationErrorTemplate, tfconstants.OperationCreating, ResourceName, createReq.Name, projectID, region, err)
 	}
 
 	log.Printf("[INFO] SFS CREATE | RESPONSE: %+v", sfs)
 
 	if sfs == nil || sfs.ID == "" {
-		return diag.Errorf("Error creating SFS (name: %s) in project (%s), region (%s): unable to retrieve valid 'efs_id' from API response", createReq.Name, projectID, region)
+		return diag.Errorf(tfconstants.ResourceCreateInvalidResponseTemplate, ResourceName, createReq.Name, projectID, region, "efs_id")
 	}
 
 	d.SetId(sfs.ID)
@@ -281,13 +282,13 @@ func resourceCreateSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	// Store tags in state (state-only until API supports it)
 	if tags, ok := d.GetOk(tfconstants.AttrTags); ok {
 		if err := d.Set(tfconstants.AttrTags, tags); err != nil {
-			return diag.FromErr(fmt.Errorf("error setting tags: %w", err))
+			return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrTags), err))
 		}
 	}
 
 	// Poll for SFS to become Active
 	if err := waitForSfsActive(ctx, client, sfs.ID); err != nil {
-		return diag.Errorf("Error waiting for SFS (ID: %s) to become active in project (%s), region (%s): %s", sfs.ID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationWaitErrorTemplate, ResourceName, sfs.ID, "active", projectID, region, err)
 	}
 
 	return diags
@@ -313,17 +314,17 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 	// Create goe2e client with specific projectID and region
 	client, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	sfs, _, err := client.Sfs.GetSfs(ctx, sfsID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) || strings.Contains(err.Error(), goe2econstants.NotFoundCode) {
 			log.Printf("[WARN] SFS with ID %s not found", sfsID)
 			d.SetId("")
 			return diags
 		}
-		return diag.Errorf("Error retrieving SFS (ID: %s) in project (%s), region (%s): %s", sfsID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationRetrieving, ResourceName, sfsID, projectID, region, err)
 	}
 
 	if sfs == nil {
@@ -334,13 +335,13 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 
 	// Set core identity fields
 	if err := d.Set(tfconstants.AttrName, sfs.Name); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting name: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrName), err))
 	}
 	if err := d.Set(tfconstants.AttrPlan, sfs.PlanName); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting plan: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrPlan), err))
 	}
 	if err := d.Set(tfconstants.AttrVPCID, sfs.VPCID); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting vpc_id: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrVPCID), err))
 	}
 
 	// Set size fields - prefer V3 fields but maintain V2 for backwards compatibility
@@ -349,52 +350,52 @@ func resourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{})
 		if sizeInt, err := strconv.Atoi(diskSizeStr); err == nil {
 			// Set both V3 and V2 fields for backwards compatibility
 			if err := d.Set(tfconstants.AttrSizeGB, sizeInt); err != nil {
-				return diag.FromErr(fmt.Errorf("error setting size_gb: %w", err))
+				return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrSizeGB), err))
 			}
 			if err := d.Set(tfconstants.AttrDiskSize, sizeInt); err != nil {
-				return diag.FromErr(fmt.Errorf("error setting disk_size: %w", err))
+				return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrDiskSize), err))
 			}
 		}
 	}
 
 	// Set IOPS fields - prefer V3 fields but maintain V2 for backwards compatibility
 	if err := d.Set(tfconstants.AttrIOPS, sfs.DiskIOPS); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting iops: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrIOPS), err))
 	}
-	if err := d.Set("disk_iops", sfs.DiskIOPS); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting disk_iops: %w", err))
+	if err := d.Set(tfconstants.AttrDiskIOPS, sfs.DiskIOPS); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrDiskIOPS), err))
 	}
 
 	// Set encryption fields - prefer V3 fields but maintain V2 for backwards compatibility
 	if err := d.Set(tfconstants.AttrEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting encryption_enabled: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEncryptionEnabled), err))
 	}
 	if err := d.Set(tfconstants.AttrIsEncryptionEnabled, sfs.IsEncryptionEnabled); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting is_encryption_enabled: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrIsEncryptionEnabled), err))
 	}
 
 	// Set computed fields
 	if err := d.Set(tfconstants.AttrStatus, sfs.Status); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrStatus), err))
 	}
 
 	// Normalize and set state field
 	normalizedState := normalizeSfsState(sfs.Status)
 	if err := d.Set(tfconstants.AttrState, normalizedState); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting state: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrState), err))
 	}
 
 	// Set networking fields
-	if err := d.Set("private_endpoint", sfs.PrivateIPAddress); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting private_endpoint: %w", err))
+	if err := d.Set(tfconstants.AttrPrivateEndpoint, sfs.PrivateIPAddress); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrPrivateEndpoint), err))
 	}
-	if err := d.Set("mount_endpoint", sfs.PrivateIPAddress); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting mount_endpoint: %w", err))
+	if err := d.Set(tfconstants.AttrMountEndpoint, sfs.PrivateIPAddress); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMountEndpoint), err))
 	}
 
 	// Set backup field
-	if err := d.Set("is_backup_enabled", sfs.IsBackupEnabled); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting is_backup_enabled: %w", err))
+	if err := d.Set(tfconstants.AttrIsBackupEnabled, sfs.IsBackupEnabled); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrIsBackupEnabled), err))
 	}
 
 	return diags
@@ -417,19 +418,19 @@ func resourceDeleteSfs(ctx context.Context, d *schema.ResourceData, m interface{
 
 	// Check if SFS is in Creating state
 	status := d.Get(tfconstants.AttrStatus).(string)
-	if status == "Creating" {
-		return diag.Errorf("Cannot delete SFS (ID: %s): SFS is in Creating state in project (%s), region (%s). Please wait for SFS creation to complete", sfsID, projectID, region)
+	if status == goe2econstants.SFSStatusCreating {
+		return diag.Errorf(DeleteCreatingState, sfsID, projectID, region)
 	}
 
 	// Create goe2e client with specific projectID and region
 	client, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	_, err = client.Sfs.DeleteSfs(ctx, sfsID)
 	if err != nil {
-		return diag.Errorf("Error deleting SFS (ID: %s) in project (%s), region (%s): %s", sfsID, projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceOperationByIDErrorTemplate, tfconstants.OperationDeleting, ResourceName, sfsID, projectID, region, err)
 	}
 
 	d.SetId("")

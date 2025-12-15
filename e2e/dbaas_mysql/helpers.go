@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -34,9 +35,9 @@ func expandVPCList(ctx context.Context, goe2eClient *goe2e.Client, vpcIDs []inte
 // buildMySQLCreateRequest builds the create request from schema data
 func buildMySQLCreateRequest(ctx context.Context, d *schema.ResourceData, goe2eClient *goe2e.Client, softwareID, templateID int) (*goe2e.MySQLClusterCreateRequest, error) {
 	// Extract database configuration
-	dbList := d.Get("database").([]interface{})
+	dbList := d.Get(tfconstants.AttrDatabase).([]interface{})
 	if len(dbList) == 0 {
-		return nil, fmt.Errorf("database configuration is required")
+		return nil, fmt.Errorf(tfconstants.DatabaseConfigurationRequired)
 	}
 	dbMap := dbList[0].(map[string]interface{})
 
@@ -50,7 +51,7 @@ func buildMySQLCreateRequest(ctx context.Context, d *schema.ResourceData, goe2eC
 
 	// Build VPC list if provided
 	var vpcList []goe2e.VPCMetadata
-	if vpcSet, ok := d.GetOk("vpcs"); ok {
+	if vpcSet, ok := d.GetOk(tfconstants.AttrVPCs); ok {
 		vpcIDs := vpcSet.(*schema.Set).List()
 		var err error
 		vpcList, err = expandVPCList(ctx, goe2eClient, vpcIDs)
@@ -60,17 +61,17 @@ func buildMySQLCreateRequest(ctx context.Context, d *schema.ResourceData, goe2eC
 	}
 
 	createReq := &goe2e.MySQLClusterCreateRequest{
-		Name:             d.Get("dbaas_name").(string),
+		Name:             d.Get(tfconstants.AttrDBaaSName).(string),
 		SoftwareID:       softwareID,
 		TemplateID:       templateID,
-		Group:            d.Get("group").(string),
+		Group:            d.Get(tfconstants.AttrGroup).(string),
 		Database:         dbConfig,
-		PublicIPRequired: d.Get("public_ip_required").(bool),
+		PublicIPRequired: d.Get(tfconstants.AttrPublicIPRequired).(bool),
 		Vpcs:             vpcList,
 	}
 
 	// Add parameter group if specified
-	if pgID, ok := d.GetOk("parameter_group_id"); ok {
+	if pgID, ok := d.GetOk(tfconstants.AttrParameterGroupID); ok {
 		createReq.ParameterGroupId = pgID.(int)
 	}
 
@@ -89,16 +90,16 @@ func normalizeStatus(apiStatus string) string {
 // customImportStateFunc handles the import of MySQL DBaaS resources
 // Format: project_id:dbaas_id
 func customImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	parts := strings.Split(d.Id(), ":")
+	parts := strings.Split(d.Id(), tfconstants.DBaaSImportIDSeparator)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid ID format: expected project_id:dbaas_id, got: %s", d.Id())
+		return nil, fmt.Errorf(ImportIDInvalidFormatTemplate, tfconstants.DBaaSImportIDFormatDescription, d.Id())
 	}
 
 	projectID := parts[0]
 	dbaasID := parts[1]
 
 	// Set the project_id in the resource data
-	if err := d.Set("project_id", projectID); err != nil {
+	if err := d.Set(tfconstants.AttrProjectID, projectID); err != nil {
 		return nil, fmt.Errorf("failed to set project_id: %w", err)
 	}
 

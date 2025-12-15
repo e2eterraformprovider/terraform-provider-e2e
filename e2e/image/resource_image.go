@@ -6,13 +6,30 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
+
+// File-local constants and variables for default values used in state upgrader
+const (
+	// DefaultEmptyString is the default empty string value for computed string fields
+	DefaultEmptyString = ""
+	// DefaultIsWindows is the default value for is_windows field
+	DefaultIsWindows = false
+)
+
+var (
+	// DefaultVMInfo is the default empty list value for vm_info field
+	// Note: Must be a variable because []interface{}{} is not a constant in Go
+	DefaultVMInfo = []interface{}{}
+	// DefaultTags is the default empty map value for tags field
+	// Note: Must be a variable because map[string]interface{}{} is not a constant in Go
+	DefaultTags = map[string]interface{}{}
 )
 
 func ResourceImage() *schema.Resource {
@@ -186,7 +203,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Log deprecation warning if location is used
 	if _, ok := d.GetOk(tfconstants.AttrLocation); ok {
-		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
+		log.Printf("[WARN] %s", WarnLocationDeprecated)
 	}
 
 	// Create GoE2E client for this project/region
@@ -200,7 +217,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Create image via SaveImage action on node
 	saveReq := &goe2e.NodeSaveImageRequest{
-		ActionType: "save_images",
+		ActionType: goe2econstants.ImageActionSaveImages,
 		Name:       imageName,
 	}
 
@@ -225,8 +242,7 @@ func resourceCreateImage(ctx context.Context, d *schema.ResourceData, m interfac
 
 	// Poll for image to reach Ready state
 	log.Printf("[INFO] IMAGE CREATION | Polling for Ready state...")
-	timeout := 30 * time.Minute // Default timeout
-	if err := waitForImageState(ctx, goe2eClient, result.ImageID, "ready", timeout); err != nil {
+	if err := waitForImageState(ctx, goe2eClient, result.ImageID, goe2econstants.ImageStateReady, imageCreateTimeout); err != nil {
 		// If timeout or error, still set the ID so user can import/manage it
 		log.Printf("[WARN] Image creation initiated but polling failed: %v", err)
 		return diag.Diagnostics{
@@ -266,7 +282,7 @@ func resourceReadImage(ctx context.Context, d *schema.ResourceData, m interface{
 
 	image, _, err := goe2eClient.Images.GetImage(ctx, imageID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			log.Printf("[INFO] IMAGE READ | Image not found, removing from state")
 			d.SetId("")
 			return nil
@@ -314,7 +330,7 @@ func resourceImageImport(ctx context.Context, d *schema.ResourceData, m interfac
 		region = parts[1]
 		imageID = parts[2]
 	} else {
-		return nil, fmt.Errorf("invalid import ID format, expected 'image_id' or 'project_id/region/image_id', got: %s", d.Id())
+		return nil, fmt.Errorf(ImportIDInvalidFormat, d.Id())
 	}
 
 	// Set the image ID
@@ -368,17 +384,17 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	image, _, err := goe2eClient.Images.GetImage(ctx, imageID)
 	if err == nil {
 		if image.RunningVMs != "" && image.RunningVMs != "0" {
-			log.Printf("[WARN] Image has %s running VMs, deletion will proceed", image.RunningVMs)
+			log.Printf("[WARN] %s", fmt.Sprintf(WarnImageRunningVMs, image.RunningVMs))
 		}
 		if image.CloningOps != "" && image.CloningOps != "0" {
-			return diag.Errorf("cannot delete image with ongoing cloning operations (cloning_ops: %s)", image.CloningOps)
+			return diag.Errorf(DeleteCloningOps, image.CloningOps)
 		}
 	}
 
 	// Delete the image
 	result, _, err := goe2eClient.Images.DeleteImage(ctx, imageID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			log.Printf("[INFO] Image already deleted")
 			d.SetId("")
 			return diags
@@ -394,8 +410,7 @@ func resourceDeleteImage(ctx context.Context, d *schema.ResourceData, m interfac
 	log.Printf("[INFO] DELETE IMAGE | Delete successful")
 
 	// Optional: Poll for deletion confirmation (wait for 404)
-	timeout := 5 * time.Minute
-	if err := waitForImageState(ctx, goe2eClient, imageID, "deleted", timeout); err != nil {
+	if err := waitForImageState(ctx, goe2eClient, imageID, goe2econstants.ImageStateDeleted, imageDeleteTimeout); err != nil {
 		log.Printf("[WARN] Image deletion initiated but confirmation polling failed: %v", err)
 		// Still consider it deleted since API returned success
 	}
@@ -427,7 +442,7 @@ func resourceExistsImage(d *schema.ResourceData, m interface{}) (bool, error) {
 
 	_, _, err = goe2eClient.Images.GetImage(ctx, imageID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			return false, nil
 		}
 		return false, err
@@ -465,7 +480,7 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 		log.Printf("[INFO] IMAGE UPDATE | Renaming image to: %s", newName)
 
 		renameReq := &goe2e.RenameImageRequest{
-			ActionType: "rename",
+			ActionType: goe2econstants.ImageActionRename,
 			Name:       newName,
 		}
 
@@ -498,13 +513,13 @@ func resourceUpdateImage(ctx context.Context, d *schema.ResourceData, m interfac
 func resourceImageCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
 	// Emit deprecation warning if location is used
 	if _, ok := d.GetOk(tfconstants.AttrLocation); ok {
-		log.Printf("[WARN] Parameter 'location' is deprecated and will be removed in v4.0. Please use 'region' instead")
+		log.Printf("[WARN] %s", WarnLocationDeprecated)
 	}
 
 	// Validate that region and location are not both set (handled by ConflictsWith, but double-check)
 	if _, hasRegion := d.GetOk(tfconstants.AttrRegion); hasRegion {
 		if _, hasLocation := d.GetOk(tfconstants.AttrLocation); hasLocation {
-			return fmt.Errorf("cannot set both 'region' and 'location' parameters")
+			return fmt.Errorf("%s", RegionLocationConflict)
 		}
 	}
 
@@ -565,29 +580,29 @@ func resourceImageStateUpgradeV0toV1(ctx context.Context, rawState map[string]in
 		if imageState, ok := rawState["image_state"].(string); ok {
 			rawState["state"] = normalizeImageState(imageState)
 		} else {
-			rawState["state"] = ""
+			rawState["state"] = DefaultEmptyString
 		}
 	}
 	if _, ok := rawState["image_size"]; !ok {
-		rawState["image_size"] = ""
+		rawState["image_size"] = DefaultEmptyString
 	}
 	if _, ok := rawState["cloning_ops"]; !ok {
-		rawState["cloning_ops"] = ""
+		rawState["cloning_ops"] = DefaultEmptyString
 	}
 	if _, ok := rawState["running_vms"]; !ok {
-		rawState["running_vms"] = ""
+		rawState["running_vms"] = DefaultEmptyString
 	}
 	if _, ok := rawState["is_windows"]; !ok {
-		rawState["is_windows"] = false
+		rawState["is_windows"] = DefaultIsWindows
 	}
 	if _, ok := rawState["sku_type"]; !ok {
-		rawState["sku_type"] = ""
+		rawState["sku_type"] = DefaultEmptyString
 	}
 	if _, ok := rawState["vm_info"]; !ok {
-		rawState["vm_info"] = []interface{}{}
+		rawState["vm_info"] = DefaultVMInfo
 	}
 	if _, ok := rawState["tags"]; !ok {
-		rawState["tags"] = map[string]interface{}{}
+		rawState["tags"] = DefaultTags
 	}
 
 	return rawState, nil

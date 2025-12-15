@@ -8,6 +8,8 @@ import (
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/acceptance"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
+	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -26,17 +28,17 @@ func TestAccDataSourceE2EFaasFunction_Basic(t *testing.T) {
 				Config: testAccDataSourceE2EFaasFunctionConfig_basic(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccDataSourceE2EFaasFunctionExists("data.e2e_faas_function.test"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "name", functionName),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "namespace", namespace),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "runtime", "python-3.11-fastapi"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "memory_mb", "256"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "timeout_seconds", "30"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "min_replicas", "1"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "max_replicas", "5"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "endpoint_url"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "status"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "created_at"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "updated_at")),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrName, functionName),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrNamespace, namespace),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrRuntime, "python-3.11-fastapi"),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrMemoryMB, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMemoryMB)),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrTimeoutSeconds, fmt.Sprintf("%d", goe2econstants.FaaSDefaultTimeoutSeconds)),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrMinReplicas, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMinReplicas)),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrMaxReplicas, fmt.Sprintf("%d", goe2econstants.FaaSDefaultMaxReplicas)),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", tfconstants.AttrEndpointURL),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", tfconstants.AttrStatus),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", tfconstants.AttrCreatedAt),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", tfconstants.AttrUpdatedAt)),
 			},
 		},
 	})
@@ -55,7 +57,7 @@ func TestAccDataSourceE2EFaasFunction_WithEnvironment(t *testing.T) {
 				Config: testAccDataSourceE2EFaasFunctionConfig_withEnvironment(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccDataSourceE2EFaasFunctionExists("data.e2e_faas_function.test"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "name", functionName),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrName, functionName),
 					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "environment.ENV", "production"),
 					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "environment.DEBUG", "false")),
 			},
@@ -89,8 +91,8 @@ func TestAccDataSourceE2EFaasFunction_DifferentRuntime(t *testing.T) {
 				Config: testAccDataSourceE2EFaasFunctionConfig_nodejs(functionName, namespace),
 				Check: resource.ComposeTestCheckFunc(
 					testAccDataSourceE2EFaasFunctionExists("data.e2e_faas_function.test"),
-					resource.TestCheckResourceAttr("data.e2e_faas_function.test", "runtime", "node-18"),
-					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", "endpoint_url")),
+					resource.TestCheckResourceAttr("data.e2e_faas_function.test", tfconstants.AttrRuntime, "node-18"),
+					resource.TestCheckResourceAttrSet("data.e2e_faas_function.test", tfconstants.AttrEndpointURL)),
 			},
 		},
 	})
@@ -112,7 +114,7 @@ func testAccDataSourceE2EFaasFunctionExists(resourceName string) resource.TestCh
 		cfg := acceptance.TestAccProvider.Meta().(*config.Config)
 		client := cfg.Goe2eClient()
 
-		functionID := rs.Primary.Attributes["function_id"]
+		functionID := rs.Primary.Attributes[tfconstants.AttrFunctionID]
 
 		fn, _, err := client.FaaS.GetFunction(context.Background(), functionID)
 		if err != nil {

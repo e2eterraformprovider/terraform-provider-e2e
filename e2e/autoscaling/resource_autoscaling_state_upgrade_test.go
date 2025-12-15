@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/autoscaling"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +20,7 @@ func TestResourceAutoscalingStateUpgradeV0toV1_Basic(t *testing.T) {
 		"desired":               2,
 		"is_encryption_enabled": false,
 		"is_public_ip_required": true,
-		"provision_status":      "Running",
+		"provision_status":      goe2econstants.AutoscalingScalerGroupStatusRunning,
 		"region":                "Delhi",
 		"project_id":            "789",
 		"plan_id":               "100",
@@ -39,7 +40,7 @@ func TestResourceAutoscalingStateUpgradeV0toV1_Basic(t *testing.T) {
 	assert.Equal(t, 2, v1State["desired"])
 	assert.Equal(t, false, v1State["is_encryption_enabled"])
 	assert.Equal(t, true, v1State["is_public_ip_required"])
-	assert.Equal(t, "Running", v1State["provision_status"])
+	assert.Equal(t, goe2econstants.AutoscalingScalerGroupStatusRunning, v1State["provision_status"])
 	assert.Equal(t, 2, v1State["running"])
 
 	// New V3 fields should be added
@@ -131,7 +132,7 @@ func TestResourceAutoscalingStateUpgradeV0toV1_PreservesAllFields(t *testing.T) 
 		"is_encryption_enabled": true,
 		"encryption_passphrase": "secret123",
 		"is_public_ip_required": false,
-		"provision_status":      "Stopped",
+		"provision_status":      goe2econstants.AutoscalingScalerGroupStatusStopped,
 		"region":                "Mumbai",
 		"project_id":            "123",
 		"plan_id":               "200",
@@ -165,7 +166,7 @@ func TestResourceAutoscalingStateUpgradeV0toV1_PreservesAllFields(t *testing.T) 
 	assert.Equal(t, true, v1State["is_encryption_enabled"])
 	assert.Equal(t, "secret123", v1State["encryption_passphrase"])
 	assert.Equal(t, false, v1State["is_public_ip_required"])
-	assert.Equal(t, "Stopped", v1State["provision_status"])
+	assert.Equal(t, goe2econstants.AutoscalingScalerGroupStatusStopped, v1State["provision_status"])
 	assert.Equal(t, "Mumbai", v1State["region"])
 	assert.Equal(t, "123", v1State["project_id"])
 	assert.Equal(t, 5, v1State["running"])

@@ -58,7 +58,7 @@ func DataSourceSfs() *schema.Resource {
 							Computed:    true,
 							Description: "the normalized state of the SFS instance",
 						},
-						"private_endpoint": {
+						tfconstants.AttrPrivateEndpoint: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the NFS mount endpoint for the SFS",
@@ -68,7 +68,7 @@ func DataSourceSfs() *schema.Resource {
 							Computed:    true,
 							Description: "the plan of the SFS",
 						},
-						"is_backup_enabled": {
+						tfconstants.AttrIsBackupEnabled: {
 							Type:        schema.TypeBool,
 							Computed:    true,
 							Description: "whether backups are enabled for the SFS",
@@ -116,19 +116,19 @@ func dataSourceReadSfs(ctx context.Context, d *schema.ResourceData, m interface{
 	// Create goe2e client with specific projectID and region
 	client, err := cfg.Goe2eClientForProject(projectID, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// List all SFS instances
 	sfsList, _, err := client.Sfs.ListSfss(ctx)
 	if err != nil {
-		return diag.Errorf("Error listing SFS instances in project (%s), region (%s): %s", projectID, region, err)
+		return diag.Errorf(tfconstants.ResourceDataSourceListErrorTemplate, ResourceName, projectID, region, err)
 	}
 
 	log.Printf("[INFO] SFS DATA SOURCE | Retrieved %d SFS instances", len(sfsList))
 
 	if err := d.Set("sfs_list", flattenSfsList(sfsList)); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting sfs_list: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat("sfs_list"), err))
 	}
 
 	d.SetId("sfs_list")
@@ -151,8 +151,8 @@ func flattenSfsList(sfsList []goe2e.Sfs) []interface{} {
 		oi[tfconstants.AttrStatus] = sfs.Status
 		oi[tfconstants.AttrState] = normalizeSfsState(sfs.Status)
 		oi[tfconstants.AttrPlan] = sfs.PlanName
-		oi["private_endpoint"] = sfs.PrivateIPAddress
-		oi["is_backup_enabled"] = sfs.IsBackupEnabled
+		oi[tfconstants.AttrPrivateEndpoint] = sfs.PrivateIPAddress
+		oi[tfconstants.AttrIsBackupEnabled] = sfs.IsBackupEnabled
 		oi[tfconstants.AttrIOPS] = sfs.DiskIOPS
 		oi[tfconstants.AttrVPCID] = sfs.VPCID
 		oi[tfconstants.AttrEncryptionEnabled] = sfs.IsEncryptionEnabled

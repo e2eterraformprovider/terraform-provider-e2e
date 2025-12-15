@@ -92,7 +92,7 @@ func dataSourceReadBuckets(ctx context.Context, resourceDataSource *schema.Resou
 	// Get GoE2E client
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("error creating goe2e client for datasource: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
 	// List buckets using GoE2EClient
@@ -101,7 +101,22 @@ func dataSourceReadBuckets(ctx context.Context, resourceDataSource *schema.Resou
 		return diag.FromErr(err)
 	}
 	log.Printf("[INFO] BUCKETS DATA SOURCE | fetched %d buckets", len(buckets))
-	eos_bucket_list := flattenBuckets(buckets)
+	// Convert []goe2e.Bucket to []interface{} for flattenBuckets
+	bucketsInterface := make([]interface{}, 0, len(buckets))
+	for _, b := range buckets {
+		// Create a map from each bucket for compatibility with flattenBuckets
+		bucketMap := map[string]interface{}{
+			"id":                             b.ID,
+			"name":                           b.Name,
+			"bucket_size":                    b.BucketSize,
+			"status":                         b.Status,
+			"created_at":                     b.CreatedAt,
+			"versioning_status":              b.VersioningStatus,
+			"lifecycle_configuration_status": b.LifecycleConfigurationStatus,
+		}
+		bucketsInterface = append(bucketsInterface, bucketMap)
+	}
+	eos_bucket_list := flattenBuckets(bucketsInterface)
 	_ = resourceDataSource.Set("bucket_list", eos_bucket_list)
 	resourceDataSource.SetId("bucket_list")
 	return diags
@@ -128,11 +143,12 @@ func flattenBuckets(buckets interface{}) []interface{} {
 		if bktMap, ok := bucket.(map[string]interface{}); ok {
 			log.Printf("[INFO] Processing bucket: %v", bktMap)
 			eos_bucket := make(map[string]interface{})
-			eos_bucket["id"] = bktMap["id"]
-			eos_bucket["name"] = bktMap["name"]
-			eos_bucket["bucket_size"] = bktMap["bucket_size"]
-			eos_bucket["created_at"] = bktMap["created_at"]
-			eos_bucket["status"] = bktMap["status"]
+			// Use constants for Terraform state attribute names
+			eos_bucket[tfconstants.AttrID] = bktMap["id"]
+			eos_bucket[tfconstants.AttrName] = bktMap["name"]
+			eos_bucket["bucket_size"] = bktMap["bucket_size"] // No constant defined for bucket_size
+			eos_bucket[tfconstants.AttrCreatedAt] = bktMap["created_at"]
+			eos_bucket[tfconstants.AttrStatus] = bktMap["status"]
 			eos_bucket[tfconstants.AttrLifecycleConfigurationStatus] = bktMap["lifecycle_configuration_status"]
 			eos_bucket[tfconstants.AttrVersioningStatus] = bktMap["versioning_status"]
 			result = append(result, eos_bucket)

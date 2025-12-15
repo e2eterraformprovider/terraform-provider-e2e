@@ -145,9 +145,6 @@ func TestBlockStoragePathConstants(t *testing.T) {
 		value string
 	}{
 		{"blockStoragePath", blockStoragePath},
-		{"blockStorageDetailPath", blockStorageDetailPath},
-		{"blockStorageUpgradePath", blockStorageUpgradePath},
-		{"blockStorageAttachPath", blockStorageAttachPath},
 		{"blockStoragePlansPath", blockStoragePlansPath},
 	}
 
@@ -600,15 +597,6 @@ func TestBlockStorageInterfaceImplementation(t *testing.T) {
 func TestBlockStorageConstantsValues(t *testing.T) {
 	if blockStoragePath != "block_storage" {
 		t.Errorf("blockStoragePath = %s, want 'block_storage'", blockStoragePath)
-	}
-	if blockStorageDetailPath != "block_storage" {
-		t.Errorf("blockStorageDetailPath = %s, want 'block_storage'", blockStorageDetailPath)
-	}
-	if blockStorageUpgradePath != "block_storage" {
-		t.Errorf("blockStorageUpgradePath = %s, want 'block_storage'", blockStorageUpgradePath)
-	}
-	if blockStorageAttachPath != "block_storage" {
-		t.Errorf("blockStorageAttachPath = %s, want 'block_storage'", blockStorageAttachPath)
 	}
 	if blockStoragePlansPath != "block_storage/plans" {
 		t.Errorf("blockStoragePlansPath = %s, want 'block_storage/plans'", blockStoragePlansPath)

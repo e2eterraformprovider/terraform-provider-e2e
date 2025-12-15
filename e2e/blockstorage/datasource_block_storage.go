@@ -3,13 +3,19 @@ package blockstorage
 import (
 	"context"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
+
+const (
+	dataSourceLogReadMessage = "[INFO] INSIDE BLOCK STORAGE DATA SOURCE | read"
 )
 
 func DataSourceBlockStorage() *schema.Resource {
@@ -22,7 +28,7 @@ func DataSourceBlockStorage() *schema.Resource {
 			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Block storage-specific fields
-			"block_id": {
+			tfconstants.AttrBlockID: {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "id of the Block Storage",
@@ -68,7 +74,7 @@ func DataSourceBlockStorage() *schema.Resource {
 func dataSourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	cfg := m.(*config.Config)
 	var diags diag.Diagnostics
-	log.Printf("[INFO] INSIDE BLOCK STORAGE DATA SOURCE | read")
+	log.Print(dataSourceLogReadMessage)
 
 	// Get region with provider default support
 	region, err := cfg.GetRegionOrDefault(d)
@@ -85,17 +91,17 @@ func dataSourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	// Create goe2e client with projectID and region
 	goe2eClient, err := cfg.Goe2eClientForProject(projectIDStr, region)
 	if err != nil {
-		return diag.Errorf("Error creating goe2e client: %s", err)
+		return diag.Errorf(tfconstants.ErrorCreatingGoe2eClient, err)
 	}
 
-	blockStorageID := d.Get("block_id").(string)
+	blockStorageID := d.Get(tfconstants.AttrBlockID).(string)
 
 	blockStorage, resp, err := goe2eClient.BlockStorage.GetBlockStorage(ctx, blockStorageID)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return diag.Errorf("Block storage with ID %s not found", blockStorageID)
 		}
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), goe2econstants.NotFoundSubstring) {
 			return diag.Errorf("Block storage with ID %s not found", blockStorageID)
 		}
 		return diag.Errorf("Error retrieving block storage (ID: %s) in project (%s), region (%s): %s", blockStorageID, projectIDStr, region, err.Error())
@@ -116,10 +122,12 @@ func dataSourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 	d.Set(tfconstants.AttrIOPS, blockStorage.Template.TotalIOPSSec)
 
 	// Handle VM attachment details if present
-	if blockStorage.VMDetail != nil {
+	if blockStorage.VMDetail != nil && len(blockStorage.VMDetail) > 0 {
 		if vmID, ok := blockStorage.VMDetail["vm_id"]; ok {
 			if vmIDFloat, ok := vmID.(float64); ok {
 				d.Set(tfconstants.AttrVMID, strconv.Itoa(int(vmIDFloat)))
+			} else if vmIDStr, ok := vmID.(string); ok {
+				d.Set(tfconstants.AttrVMID, vmIDStr)
 			}
 		}
 		if vmName, ok := blockStorage.VMDetail["vm_name"]; ok {
@@ -127,9 +135,6 @@ func dataSourceReadBlockStorage(ctx context.Context, d *schema.ResourceData, m i
 				d.Set(tfconstants.AttrVMName, vmNameStr)
 			}
 		}
-	} else {
-		d.Set(tfconstants.AttrVMID, nil)
-		d.Set(tfconstants.AttrVMName, nil)
 	}
 
 	log.Printf("[INFO] BLOCK STORAGE DATA SOURCE | d : %+v", d)

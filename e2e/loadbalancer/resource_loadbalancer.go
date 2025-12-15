@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -15,6 +16,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+)
+
+// Import format constants - File-local constants for import validation
+const (
+	importFormatError = "invalid import format, expected: <lb_id> or <project_id>/<region>/<lb_id>"
 )
 
 func ResourceLoadBalancer() *schema.Resource {
@@ -33,7 +39,7 @@ func ResourceLoadBalancer() *schema.Resource {
 		StateUpgraders: []schema.StateUpgrader{
 			{
 				Type:    resourceLoadBalancerResourceV0().CoreConfigSchema().ImpliedType(),
-				Upgrade: resourceLoadBalancerStateUpgradeV0toV1,
+				Upgrade: ResourceLoadBalancerStateUpgradeV0toV1,
 				Version: 0,
 			},
 		},
@@ -56,7 +62,7 @@ func customImportStateLoadBalancer(d *schema.ResourceData, m interface{}) ([]*sc
 		return []*schema.ResourceData{d}, nil
 	}
 
-	return nil, fmt.Errorf("invalid import format, expected: <lb_id> or <project_id>/<region>/<lb_id>")
+	return nil, errors.New(importFormatError)
 }
 
 // resourceLoadBalancerCustomizeDiff handles custom diff logic
@@ -116,10 +122,10 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 			ForceNew:    true,
 			Description: "the plan name of the Load Balancer",
 			ValidateFunc: validation.StringInSlice([]string{
-				"E2E-LB-2",
-				"E2E-LB-3",
-				"E2E-LB-4",
-				"E2E-LB-5",
+				goe2econstants.LBPlanE2ELB2,
+				goe2econstants.LBPlanE2ELB3,
+				goe2econstants.LBPlanE2ELB4,
+				goe2econstants.LBPlanE2ELB5,
 			}, false),
 		},
 		tfconstants.AttrName: {
@@ -143,9 +149,9 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 			ForceNew:    true,
 			Description: "the mode of the Load Balancer (HTTP, HTTPS, or Both)",
 			ValidateFunc: validation.StringInSlice([]string{
-				"HTTP",
-				"HTTPS",
-				"Both",
+				goe2econstants.LBModeHTTP,
+				goe2econstants.LBModeHTTPS,
+				goe2econstants.LBModeBoth,
 			}, false),
 		},
 
@@ -155,19 +161,19 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		tfconstants.AttrLbType: {
 			Type:        schema.TypeString,
 			Optional:    true,
-			Default:     "External",
+			Default:     goe2econstants.LBTypeExternal,
 			ForceNew:    true,
 			Description: "the type of Load Balancer (Internal or External)",
 		},
 		"node_list_type": {
 			Type:        schema.TypeString,
 			Optional:    true,
-			Default:     "S",
+			Default:     goe2econstants.LBNodeListTypeStatic,
 			ForceNew:    true,
 			Description: "the node list type (S for static nodes, D for dynamic autoscaling)",
 			ValidateFunc: validation.StringInSlice([]string{
-				"S",
-				"D",
+				goe2econstants.LBNodeListTypeStatic,
+				goe2econstants.LBNodeListTypeDynamic,
 			}, false),
 		},
 		"floating_ip_id": {
@@ -250,9 +256,9 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 						Required:    true,
 						Description: "the load balancing algorithm (source, roundrobin, or leastconn)",
 						ValidateFunc: validation.StringInSlice([]string{
-							"source",
-							"roundrobin",
-							"leastconn",
+							goe2econstants.LBBalanceSource,
+							goe2econstants.LBBalanceRoundRobin,
+							goe2econstants.LBBalanceLeastConn,
 						}, false),
 					},
 					"checkbox_enable": {
@@ -264,13 +270,13 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 					"domain_name": {
 						Type:        schema.TypeString,
 						Optional:    true,
-						Default:     "localhost",
+						Default:     goe2econstants.LBDefaultDomainName,
 						Description: "the domain name for healthcheck",
 					},
 					"check_url": {
 						Type:        schema.TypeString,
 						Optional:    true,
-						Default:     "/",
+						Default:     goe2econstants.LBDefaultCheckURL,
 						Description: "the endpoint URL for healthcheck",
 					},
 					"servers": {
@@ -408,25 +414,19 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 						ValidateFunc: node.ValidateName,
 					},
 					"port": {
-						Type:        schema.TypeString,
-						Required:    true,
-						Description: "port number for the TCP backend (ports 8080, 10050, 9101, 80, or 443 are not allowed)",
-						ValidateFunc: validation.StringNotInSlice([]string{
-							"8080",
-							"10050",
-							"9101",
-							"80",
-							"443",
-						}, false),
+						Type:         schema.TypeString,
+						Required:     true,
+						Description:  "port number for the TCP backend (ports 8080, 10050, 9101, 80, or 443 are not allowed)",
+						ValidateFunc: validation.StringNotInSlice(tfconstants.LBTCPDisallowedPorts, false),
 					},
 					"balance": {
 						Type:        schema.TypeString,
 						Required:    true,
 						Description: "the load balancing algorithm (source, roundrobin, or leastconn)",
 						ValidateFunc: validation.StringInSlice([]string{
-							"source",
-							"roundrobin",
-							"leastconn",
+							goe2econstants.LBBalanceSource,
+							goe2econstants.LBBalanceRoundRobin,
+							goe2econstants.LBBalanceLeastConn,
 						}, false),
 					},
 					"servers": {
@@ -467,7 +467,7 @@ func ResourceLoadBalancerSchema() map[string]*schema.Schema {
 		tfconstants.AttrPowerStatus: {
 			Type:        schema.TypeString,
 			Optional:    true,
-			Default:     "power_on",
+			Default:     goe2econstants.NodePowerStatusOn,
 			Description: "the power state of the Load Balancer (power_on to start, power_off to power off)",
 		},
 		"is_ipv6_attached": {
@@ -716,7 +716,7 @@ func resourceCreateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	// Wait for load balancer to reach Running status
 	log.Printf("[INFO] Waiting for load balancer %s to reach Running status", lb.ID)
-	if err := waitForLoadBalancerStatus(ctx, goe2eClient, lb.ID, goe2econstants.LBStateRunning, 15); err != nil {
+	if err := waitForLoadBalancerStatus(ctx, goe2eClient, lb.ID, goe2econstants.LBStateRunning, int(tfconstants.LBCreateTimeout.Minutes())); err != nil {
 		return diag.Errorf("Error waiting for load balancer to become ready: %s", err)
 	}
 
@@ -820,9 +820,9 @@ func resourceReadLoadBalancer(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if d.Get("status").(string) == goe2econstants.LBStatusPoweredOff {
-		d.Set(tfconstants.AttrPowerStatus, "power_off")
+		d.Set(tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOff)
 	} else {
-		d.Set(tfconstants.AttrPowerStatus, "power_on")
+		d.Set(tfconstants.AttrPowerStatus, goe2econstants.NodePowerStatusOn)
 	}
 
 	// Preserve tags in state (state-only until API support)
@@ -878,12 +878,12 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		}
 		// Wait for power action to complete
 		var targetStatus string
-		if d.Get(tfconstants.AttrPowerStatus).(string) == "power_on" {
+		if d.Get(tfconstants.AttrPowerStatus).(string) == goe2econstants.NodePowerStatusOn {
 			targetStatus = goe2econstants.LBStateRunning
 		} else {
 			targetStatus = goe2econstants.LBStateStopped
 		}
-		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, targetStatus, 5); err != nil {
+		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, targetStatus, int(tfconstants.LBPowerActionTimeout.Minutes())); err != nil {
 			return diag.Errorf("Error waiting for load balancer power action to complete: %s", err)
 		}
 		return resourceReadLoadBalancer(ctx, d, m)
@@ -904,7 +904,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 			return diag.Errorf("Cannot downgrade plan for load balancer (ID: %s) from %s to %s in project (%s), region (%s): plan downgrades are not supported. Please specify a plan equal to or higher than the current plan", lbId, currentPlanName, newPlanName, projectID, region)
 		}
 		actionReq := &goe2e.LoadBalancerActionRequest{
-			Type:     "upgrade_plan",
+			Type:     goe2econstants.LBActionUpgradePlan,
 			Name:     apiResponse.Data.Name,
 			PlanName: newPlanName,
 		}
@@ -913,7 +913,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 			return diag.Errorf("Error upgrading plan for load balancer (ID: %s) from %s to %s in project (%s), region (%s): %s", lbId, currentPlanName, newPlanName, projectID, region, err)
 		}
 		// Wait for upgrade to complete
-		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, goe2econstants.LBStateRunning, 10); err != nil {
+		if err := waitForLoadBalancerStatus(ctx, goe2eClient, lbId, goe2econstants.LBStateRunning, int(tfconstants.LBPlanUpgradeTimeout.Minutes())); err != nil {
 			return diag.Errorf("Error waiting for load balancer plan upgrade to complete: %s", err)
 		}
 		return resourceReadLoadBalancer(ctx, d, m)
@@ -933,7 +933,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		}
 
 		actionReq := &goe2e.LoadBalancerActionRequest{
-			Type: "rename",
+			Type: goe2econstants.LBActionRename,
 			Name: newName,
 		}
 		_, err = goe2eClient.LoadBalancer.UpdateLoadBalancerAction(ctx, lbId, actionReq)
@@ -958,7 +958,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 		var ipv6Req *goe2e.IPv6ActionRequest
 		if ipv6_attach {
 			ipv6Req = &goe2e.IPv6ActionRequest{
-				Action: "attach",
+				Action: goe2econstants.LBIPv6ActionAttach,
 			}
 		} else {
 			// Get IPv6 address from appliance instance context
@@ -967,7 +967,7 @@ func resourceUpdateLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 				detachIPv6 = apiResponse.Data.ApplianceInstance[0].Context.HostTargetIPv6
 			}
 			ipv6Req = &goe2e.IPv6ActionRequest{
-				Action:     "detach",
+				Action:     goe2econstants.LBIPv6ActionDetach,
 				DetachIPv6: detachIPv6,
 			}
 		}
@@ -1043,7 +1043,7 @@ func resourceDeleteLoadBalancer(ctx context.Context, d *schema.ResourceData, m i
 
 	// Wait for load balancer deletion to complete
 	log.Printf("[INFO] Waiting for load balancer %s deletion to complete", lbId)
-	if err := waitForLoadBalancerDeletion(ctx, goe2eClient, lbId, 10); err != nil {
+	if err := waitForLoadBalancerDeletion(ctx, goe2eClient, lbId, int(tfconstants.LBDeleteTimeout.Minutes())); err != nil {
 		// Log warning but don't fail - deletion may still be in progress
 		log.Printf("[WARN] Timeout waiting for load balancer deletion, but deletion may still be in progress: %s", err)
 	}
@@ -1148,9 +1148,9 @@ func resourceLoadBalancerResourceV0() *schema.Resource {
 	}
 }
 
-// resourceLoadBalancerStateUpgradeV0toV1 upgrades state from V0 to V1
+// ResourceLoadBalancerStateUpgradeV0toV1 upgrades state from V0 to V1
 // Renames deprecated fields to new fields, adds new computed fields
-func resourceLoadBalancerStateUpgradeV0toV1(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
+func ResourceLoadBalancerStateUpgradeV0toV1(ctx context.Context, rawState map[string]interface{}, meta interface{}) (map[string]interface{}, error) {
 	// Rename location to region if location exists and region doesn't
 	if location, ok := rawState[tfconstants.AttrLocation].(string); ok && location != "" {
 		if _, hasRegion := rawState[tfconstants.AttrRegion]; !hasRegion || rawState[tfconstants.AttrRegion] == "" {

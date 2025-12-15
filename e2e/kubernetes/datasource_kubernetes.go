@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
@@ -84,11 +85,23 @@ func dataSourceReadKubernetes(ctx context.Context, d *schema.ResourceData, m int
 	kubernetesId := d.Get("service_id").(string)
 	kubernetes, _, err := goe2eClient.Kubernetes.Get(ctx, kubernetesId)
 	if err != nil {
-		return diag.Errorf("error finding Kubernetes cluster with ID %s: %s", kubernetesId, err)
+		return diag.Diagnostics{
+			{
+				Severity: diag.Error,
+				Summary:  "Error finding Kubernetes cluster",
+				Detail:   fmt.Sprintf("error finding Kubernetes cluster with ID %s: %s", kubernetesId, err),
+			},
+		}
 	}
 
 	if kubernetes == nil {
-		return diag.Errorf("Kubernetes cluster with ID %s not found", kubernetesId)
+		return diag.Diagnostics{
+			{
+				Severity: diag.Error,
+				Summary:  "Kubernetes cluster not found",
+				Detail:   fmt.Sprintf("Kubernetes cluster with ID %s not found", kubernetesId),
+			},
+		}
 	}
 
 	log.Printf("[INFO] KUBERNETES READ | BEFORE SETTING DATA")

@@ -5,13 +5,21 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+)
+
+const (
+	// Resource-specific attribute names
+	attrMetadata = "metadata"
+	attrLabelID  = "label_id"
 )
 
 // ResourceTag returns the resource schema for E2E tags (labels)
@@ -38,7 +46,7 @@ func ResourceTag() *schema.Resource {
 				Description:  "Name of the tag (label_name in API)",
 				ValidateFunc: validation.StringLenBetween(1, 128),
 			},
-			"metadata": {
+			attrMetadata: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true, // Updates not supported by API
@@ -46,7 +54,7 @@ func ResourceTag() *schema.Resource {
 				Description: "Metadata/description for the tag",
 			},
 			// Computed fields
-			"label_id": {
+			attrLabelID: {
 				Type:        schema.TypeInt,
 				Computed:    true,
 				Description: "The ID of the tag (label)",
@@ -72,7 +80,7 @@ func resourceTagCreate(ctx context.Context, d *schema.ResourceData, m interface{
 
 	// Prepare request
 	name := d.Get(tfconstants.AttrName).(string)
-	metadata := d.Get("metadata").(string)
+	metadata := d.Get(attrMetadata).(string)
 
 	createReq := &goe2e.TagCreateRequest{
 		LabelName: name,
@@ -90,7 +98,7 @@ func resourceTagCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	// Set ID and computed fields
 	labelIDStr := strconv.Itoa(tag.LabelID)
 	d.SetId(labelIDStr)
-	d.Set("label_id", tag.LabelID)
+	d.Set(attrLabelID, tag.LabelID)
 	d.Set(tfconstants.AttrProjectID, projectID)
 	d.Set(tfconstants.AttrRegion, region)
 
@@ -122,8 +130,8 @@ func resourceTagRead(ctx context.Context, d *schema.ResourceData, m interface{})
 
 	// Update state
 	d.Set(tfconstants.AttrName, tag.LabelName)
-	d.Set("metadata", tag.Metadata)
-	d.Set("label_id", tag.LabelID)
+	d.Set(attrMetadata, tag.Metadata)
+	d.Set(attrLabelID, tag.LabelID)
 
 	return nil
 }
@@ -197,25 +205,12 @@ func resourceTagImport(ctx context.Context, d *schema.ResourceData, m interface{
 	return []*schema.ResourceData{d}, nil
 }
 
-// isNotFoundError checks if an error indicates a resource was not found
+// isNotFoundError checks if an error indicates a tag was not found
 func isNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
 	errStr := err.Error()
-	return contains(errStr, "not found") || contains(errStr, "404")
-}
-
-// contains checks if a string contains a substring
-func contains(str, substr string) bool {
-	return len(str) >= len(substr) && containsSubstring(str, substr)
-}
-
-func containsSubstring(str, substr string) bool {
-	for i := 0; i <= len(str)-len(substr); i++ {
-		if str[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(errStr, goe2econstants.NotFoundSubstring) ||
+		strings.Contains(errStr, goe2econstants.NotFoundCode)
 }

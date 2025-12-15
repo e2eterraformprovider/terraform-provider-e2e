@@ -2,16 +2,16 @@ package goe2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 )
 
 const (
-	blockStoragePath        = "block_storage"
-	blockStorageDetailPath  = "block_storage"
-	blockStorageUpgradePath = "block_storage"
-	blockStorageAttachPath  = "block_storage"
-	blockStoragePlansPath   = "block_storage/plans"
+	blockStoragePath      = "block_storage"
+	blockStoragePlansPath = "block_storage/plans"
+
+	errBlockStorageCreateExtractID = "failed to extract block storage ID from create response"
 )
 
 // BlockStorageService is an interface for interacting with the Block Storage endpoints
@@ -139,7 +139,7 @@ func (s *BlockStorageServiceOp) CreateBlockStorage(ctx context.Context, createRe
 		return s.GetBlockStorage(ctx, blockStorageID)
 	}
 
-	return nil, resp, fmt.Errorf("failed to extract block storage ID from create response")
+	return nil, resp, errors.New(errBlockStorageCreateExtractID)
 }
 
 // GetBlockStorage retrieves a block storage volume by ID.
@@ -148,7 +148,7 @@ func (s *BlockStorageServiceOp) GetBlockStorage(ctx context.Context, blockStorag
 		return nil, nil, NewArgError("blockStorageID", "cannot be empty")
 	}
 
-	path := fmt.Sprintf("%s/%s/", blockStorageDetailPath, blockStorageID)
+	path := fmt.Sprintf("%s/%s/", blockStoragePath, blockStorageID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
@@ -159,7 +159,7 @@ func (s *BlockStorageServiceOp) GetBlockStorage(ctx context.Context, blockStorag
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		// Return nil storage for 404 (not found)
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
+		if IsNotFoundResponse(resp) {
 			return nil, resp, nil
 		}
 		return nil, resp, fmt.Errorf("failed to retrieve block storage (ID: %s): %w", blockStorageID, err)
@@ -174,7 +174,7 @@ func (s *BlockStorageServiceOp) DeleteBlockStorage(ctx context.Context, blockSto
 		return nil, NewArgError("blockStorageID", "cannot be empty")
 	}
 
-	path := fmt.Sprintf("%s/%s/", blockStorageDetailPath, blockStorageID)
+	path := fmt.Sprintf("%s/%s/", blockStoragePath, blockStorageID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
@@ -200,7 +200,7 @@ func (s *BlockStorageServiceOp) UpgradeBlockStorage(ctx context.Context, blockSt
 		return nil, NewArgError("upgradeReq.Size", "must be greater than 0")
 	}
 
-	path := fmt.Sprintf("%s/%s/vm/upgrade/", blockStorageUpgradePath, blockStorageID)
+	path := fmt.Sprintf("%s/%s/vm/upgrade/", blockStoragePath, blockStorageID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, upgradeReq)
 	if err != nil {
@@ -226,7 +226,7 @@ func (s *BlockStorageServiceOp) AttachBlockStorage(ctx context.Context, blockSto
 		return nil, NewArgError("attachReq.VMID", "must be greater than 0")
 	}
 
-	path := fmt.Sprintf("%s/%s/vm/attach/", blockStorageAttachPath, blockStorageID)
+	path := fmt.Sprintf("%s/%s/vm/attach/", blockStoragePath, blockStorageID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, attachReq)
 	if err != nil {
@@ -252,7 +252,7 @@ func (s *BlockStorageServiceOp) DetachBlockStorage(ctx context.Context, blockSto
 		return nil, NewArgError("detachReq.VMID", "must be greater than 0")
 	}
 
-	path := fmt.Sprintf("%s/%s/vm/detach/", blockStorageAttachPath, blockStorageID)
+	path := fmt.Sprintf("%s/%s/vm/detach/", blockStoragePath, blockStorageID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, detachReq)
 	if err != nil {

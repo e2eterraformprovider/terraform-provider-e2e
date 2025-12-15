@@ -6,11 +6,11 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -57,7 +57,7 @@ func ResourceKubernetesService() *schema.Resource {
 				ForceNew:      true,
 				Description:   "the Kubernetes version (preferred over 'version')",
 				ConflictsWith: []string{tfconstants.AttrVersion},
-				ValidateFunc:  validation.StringMatch(regexp.MustCompile(`^1\.\d{2}$`), "must be format 1.XX"),
+				ValidateFunc:  validation.StringMatch(regexp.MustCompile(tfconstants.KubernetesVersionRegex), "must be format 1.XX"),
 			},
 
 			// ============================================
@@ -151,7 +151,7 @@ func ResourceKubernetesService() *schema.Resource {
 							ForceNew:      true,
 							Description:   "the node pool type: Static or Autoscale (preferred over 'node_pool_type')",
 							ConflictsWith: []string{"node_pool_type"},
-							ValidateFunc:  validation.StringInSlice([]string{"Static", "Autoscale"}, false),
+							ValidateFunc:  validation.StringInSlice([]string{goe2econstants.KubernetesNodePoolTypeStatic, goe2econstants.KubernetesNodePoolTypeAutoscale}, false),
 						},
 						"size": {
 							Type:          schema.TypeInt,
@@ -194,8 +194,8 @@ func ResourceKubernetesService() *schema.Resource {
 							ConflictsWith: []string{"type"},
 							Description:   "the node pool type (deprecated, use 'type')",
 							ValidateFunc: validation.StringInSlice([]string{
-								"Static",
-								"Autoscale",
+								goe2econstants.KubernetesNodePoolTypeStatic,
+								goe2econstants.KubernetesNodePoolTypeAutoscale,
 							}, false),
 						},
 						"worker_node": {
@@ -274,17 +274,17 @@ func ResourceKubernetesService() *schema.Resource {
 													Required:    true,
 													Description: "the policy parameter type (Default or Custom; if Custom, you must provide the parameter field)",
 													ValidateFunc: validation.StringInSlice([]string{
-														"Default",
-														"Custom",
+														goe2econstants.KubernetesPolicyTypeDefault,
+														goe2econstants.KubernetesPolicyTypeCustom,
 													}, false),
 												},
 												"parameter": {
 													Type:        schema.TypeString,
 													Optional:    true,
-													Default:     "CPU",
+													Default:     goe2econstants.KubernetesPolicyParameterCPU,
 													Description: "the parameter (e.g., CPU, Memory)",
 													ValidateFunc: validation.Any(
-														validation.StringInSlice([]string{"Memory", "CPU"}, false),
+														validation.StringInSlice([]string{goe2econstants.KubernetesPolicyParameterMemory, goe2econstants.KubernetesPolicyParameterCPU}, false),
 														validation.StringMatch(
 															regexp.MustCompile(`^[A-Z0-9]([_]?[A-Z0-9])+$`),
 															"Parameter Name should be at least 2 characters long with upper case characters, numbers and underscore and must be start and end with characters or numbers.",
@@ -437,9 +437,9 @@ func ResourceKubernetesService() *schema.Resource {
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(30 * time.Minute),
-			Update: schema.DefaultTimeout(30 * time.Minute),
-			Delete: schema.DefaultTimeout(20 * time.Minute),
+			Create: schema.DefaultTimeout(tfconstants.KubernetesCreateTimeout),
+			Update: schema.DefaultTimeout(tfconstants.KubernetesUpdateTimeout),
+			Delete: schema.DefaultTimeout(tfconstants.KubernetesDeleteTimeout),
 		},
 		CreateContext: resourceCreateKubernetesService,
 		ReadContext:   resourceReadKubernetesService,
@@ -456,7 +456,7 @@ func GetSlugName(ctx context.Context, d *schema.ResourceData, cfg *config.Config
 	log.Printf("[INFO] KUBERNETES PLAN READ STARTS")
 	version := getKubernetesVersion(d)
 	if version == "" {
-		return "", fmt.Errorf("kubernetes_version or version is required")
+		return "", fmt.Errorf("%s", ErrClusterVersionRequired)
 	}
 
 	// Get project_id with provider default support
@@ -572,7 +572,7 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("Error retrieving Kubernetes plan slug name for cluster (name: %s) in project (%s), region (%s): %s", clusterName, projectIDStr, region, err)
 	}
 	if err := d.Set("slug_name", slugName); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting slug_name: %w", err))
+		return diag.FromErr(fmt.Errorf(ErrSettingSlugName, err))
 	}
 
 	kubernetesObject, diags := CreateKubernetesObject(ctx, cfg, d, slugName, goe2eClient)
@@ -589,7 +589,7 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 	}
 
 	if cluster == nil {
-		return diag.Errorf("Cluster creation returned nil response")
+		return diag.Errorf(ErrClusterNilResponse)
 	}
 
 	// Set ID
@@ -603,9 +603,9 @@ func resourceCreateKubernetesService(ctx context.Context, d *schema.ResourceData
 	}
 
 	// Wait for cluster to become Running (async operation, 30 min timeout)
-	err = waitForClusterStatus(ctx, goe2eClient, cluster.ServiceID, "Running", 30*time.Minute)
+	err = waitForClusterStatus(ctx, goe2eClient, cluster.ServiceID, goe2econstants.KubernetesClusterStatusRunning, tfconstants.KubernetesCreateTimeout)
 	if err != nil {
-		return diag.Errorf("Error waiting for cluster (ID: %s) to become Running: %s", cluster.ServiceID, err)
+		return diag.Errorf("Error waiting for cluster (ID: %s) to become %s: %s", cluster.ServiceID, goe2econstants.KubernetesClusterStatusRunning, err)
 	}
 
 	// Attach security groups if specified
@@ -700,7 +700,7 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 
 	// Flatten node pools
 	if err := d.Set(tfconstants.AttrNodePools, flattenNodePools(nodePools)); err != nil {
-		return diag.Errorf("Error setting node_pools: %s", err)
+		return diag.Errorf(ErrSettingNodePools, err)
 	}
 
 	// Get security groups
@@ -878,13 +878,13 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 			oldNPName := oldNodePoolMap["name"].(string)
 			oldServiceFind := serviceMapping[oldNPName]
 			if oldServiceFind == nil {
-				return diag.Errorf("Cannot delete node pool '%s' from Kubernetes cluster (ID: %s): node pool does not exist in project (%s), region (%s)", oldNPName, clusterID, projectIDStr, region)
+				return diag.Errorf(ErrNodePoolNotFound, oldNPName, clusterID, projectIDStr, region)
 			}
 			oldServiceIDFloat := oldServiceFind.(float64)
 			oldServiceID := fmt.Sprintf("%.0f", oldServiceIDFloat)
 			found := false
 			if len(newNodePools) <= 0 {
-				return diag.Errorf("Cannot delete node pool from Kubernetes cluster (ID: %s): at least one node pool must be present in a Kubernetes cluster", clusterID)
+				return diag.Errorf(ErrNodePoolDeleteLastPool, clusterID)
 			}
 			// Check if the old service_id exists in the new node pools
 			for _, newNodePool := range newNodePools {
@@ -902,7 +902,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 				}
 				if !IsNodePoolRunning(oldServiceIDFloat, nodePools) {
 					d.Set(tfconstants.AttrNodePools, oldData)
-					return diag.Errorf("Cannot delete node pool '%s' from Kubernetes cluster (ID: %s): node pool must be in Running state before deletion", oldNPName, clusterID)
+					return diag.Errorf(ErrNodePoolDeleteNotRunning, oldNPName, clusterID)
 				}
 				_, err = goe2eClient.Kubernetes.DeleteNodePool(ctx, oldServiceID)
 				if err != nil {
@@ -926,7 +926,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					found = true
 					oldCardinality := oldNodePoolMap["cardinality"].(int)
 					oldPoolType := getNodePoolType(oldNodePoolMap)
-					if oldPoolType == "Static" {
+					if oldPoolType == goe2econstants.KubernetesNodePoolTypeStatic {
 						oldCardinality = getNodePoolSize(oldNodePoolMap)
 					}
 					node_pool_size := oldCardinality
@@ -935,7 +935,7 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					}
 					log.Printf("----------------PREV CARD:%+v     NEW CARD:%+v------------------", oldCardinality, node_pool_size)
 					if node_pool_size < 2 {
-						return diag.Errorf("Cannot update node pool '%s' in Kubernetes cluster (ID: %s): node_pool_size must be at least 2 (current value: %d)", newNPName, clusterID, node_pool_size)
+						return diag.Errorf(ErrNodePoolSizeTooSmall, newNPName, clusterID, node_pool_size)
 					}
 					if oldCardinality != node_pool_size {
 						resizeReq := &goe2e.NodePoolResizeRequest{
@@ -951,9 +951,9 @@ func resourceUpdateKubernetesService(ctx context.Context, d *schema.ResourceData
 					new_node_pool_type := getNodePoolType(newNodePoolMap)
 					// You cannot change the node pool type from Static to Autoscale and vice versa
 					if oldPoolType != new_node_pool_type {
-						return diag.Errorf("Cannot update node pool type for node pool '%s' in Kubernetes cluster (ID: %s): this field is immutable after node pool creation", newNPName, clusterID)
+						return diag.Errorf(ErrNodePoolTypeImmutable, newNPName, clusterID)
 					}
-					if new_node_pool_type == "Static" {
+					if new_node_pool_type == goe2econstants.KubernetesNodePoolTypeStatic {
 						break
 					}
 					nodePoolObject, err := ExpandNodePoolUpdate(ctx, newNodePoolMap, goe2eClient, projectIDStr, region)
@@ -1042,7 +1042,7 @@ func GetNodePoolServiceMapping(ctx context.Context, d *schema.ResourceData, m in
 func IsNodePoolRunning(oldServiceID float64, nodePools []goe2e.NodePoolServiceInfo) bool {
 	for _, nodepool := range nodePools {
 		if nodepool.ServiceID == oldServiceID {
-			if nodepool.State == "Running" {
+			if nodepool.State == goe2econstants.KubernetesClusterStatusRunning {
 				return true
 			}
 		}
@@ -1055,7 +1055,7 @@ func IsNodePoolRunning(oldServiceID float64, nodePools []goe2e.NodePoolServiceIn
 // 1. Simple: "cluster_id" (uses provider defaults for project_id and region)
 // 2. Full: "project_id:region:cluster_id"
 func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	parts := strings.Split(d.Id(), ":")
+	parts := strings.Split(d.Id(), tfconstants.KubernetesImportDelimiter)
 	var projectID, region, clusterID string
 
 	// Support two import formats:
@@ -1082,12 +1082,12 @@ func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m int
 		region = parts[1]
 		clusterID = parts[2]
 	} else {
-		return nil, fmt.Errorf("invalid import ID format: expected 'cluster_id' or 'project_id:region:cluster_id', got '%s'", d.Id())
+		return nil, fmt.Errorf(ErrImportInvalidFormat, d.Id())
 	}
 
 	// Validate that clusterID is not empty
 	if clusterID == "" {
-		return nil, fmt.Errorf("cluster_id cannot be empty")
+		return nil, fmt.Errorf("%s", ErrImportClusterIDEmpty)
 	}
 
 	cfg := m.(*config.Config)
@@ -1117,7 +1117,7 @@ func resourceKubernetesImport(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if cluster == nil {
-		return nil, fmt.Errorf("Kubernetes cluster (ID: %s) not found", clusterID)
+		return nil, fmt.Errorf(ErrImportClusterNotFound, clusterID)
 	}
 
 	// Fetch node pools via goe2eClient.Kubernetes.GetNodePools(ctx, clusterID)

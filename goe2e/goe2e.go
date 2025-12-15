@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -349,16 +350,16 @@ func (c *Client) NewRequest(ctx context.Context, method, urlStr string, body int
 
 	// Add standard E2E query parameters from client
 	q := u.Query()
-	q.Add("apikey", c.apiKey)
-	q.Add("project_id", c.projectID)
-	q.Add("location", c.region) // API uses 'location' parameter
+	q.Add(constants.QueryParamAPIKey, c.apiKey)
+	q.Add(constants.QueryParamProjectID, c.projectID)
+	q.Add(constants.QueryParamLocation, c.region) // API uses 'location' parameter
 
 	// Add optional parameters if set
 	if c.workspaceID != "" {
-		q.Add("workspace_id", c.workspaceID)
+		q.Add(constants.QueryParamWorkspaceID, c.workspaceID)
 	}
 	if c.teamID != "" {
-		q.Add("team_id", c.teamID)
+		q.Add(constants.QueryParamTeamID, c.teamID)
 	}
 
 	u.RawQuery = q.Encode()

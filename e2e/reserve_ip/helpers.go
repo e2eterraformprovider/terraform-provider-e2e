@@ -7,10 +7,23 @@ import (
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
 )
 
+// ============================================================================
+// File-local constants for Reserve IP URN and Import formats
+// ============================================================================
+
+const (
+	// reserveIPURNFormat is the format string for generating Reserve IP URNs
+	// Format: e2e:reserve_ip:<region>:<ip_address>
+	reserveIPURNFormat = "e2e:reserve_ip:%s:%s"
+
+	// reserveIPImportFormatError is the error message template for invalid import IDs
+	reserveIPImportFormatError = "invalid import ID format, expected: project_id/region/ip_address, got: %s"
+)
+
 // generateReserveIPURN generates a URN for a reserved IP in the format:
 // e2e:reserve_ip:<region>:<ip_address>
 func generateReserveIPURN(region, ipAddress string) string {
-	return fmt.Sprintf("e2e:reserve_ip:%s:%s", region, ipAddress)
+	return fmt.Sprintf(reserveIPURNFormat, region, ipAddress)
 }
 
 // parseReserveIPImportID parses an import ID string in the format:
@@ -19,7 +32,7 @@ func generateReserveIPURN(region, ipAddress string) string {
 func parseReserveIPImportID(id string) (projectID, region, ipAddress string, err error) {
 	parts := strings.Split(id, "/")
 	if len(parts) != 3 {
-		return "", "", "", fmt.Errorf("invalid import ID format, expected: project_id/region/ip_address, got: %s", id)
+		return "", "", "", fmt.Errorf(reserveIPImportFormatError, id)
 	}
 	return parts[0], parts[1], parts[2], nil
 }

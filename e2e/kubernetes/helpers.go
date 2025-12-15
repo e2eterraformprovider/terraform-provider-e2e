@@ -8,6 +8,7 @@ import (
 
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -48,10 +49,10 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 			}
 		}
 		if matchingPlan == nil {
-			return nil, fmt.Errorf("no matching plan found for plan: %s", plan)
+			return nil, fmt.Errorf(ErrNodePoolPlanNotFound, plan)
 		}
 		if poolType == "" {
-			return nil, fmt.Errorf("node pool type (type or node_pool_type) is required")
+			return nil, fmt.Errorf("%s", ErrNodePoolTypeRequired)
 		}
 
 		var policyType, customParamName, customParamValue string
@@ -59,7 +60,7 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 		scheduledDict := goe2e.ScheduledDict{}
 
 		// If node_pool_type is Static, omit policyType, customParamName, and customParamValue
-		if poolType == "Static" {
+		if poolType == goe2econstants.KubernetesNodePoolTypeStatic {
 			policyType = ""
 			customParamName = ""
 			customParamValue = ""
@@ -72,10 +73,10 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 			maxNodes := getNodePoolMaxNodes(nodePoolDetail)
 
 			if minNodes == 0 {
-				return nil, fmt.Errorf("in case of Autoscale node type, the 'min_nodes' (or 'min_vms') field is required")
+				return nil, fmt.Errorf("%s", ErrNodePoolAutoscaleMinRequired)
 			}
 			if maxNodes == 0 {
-				return nil, fmt.Errorf("in case of Autoscale node type, the 'max_nodes' (or 'max_vms') field is required")
+				return nil, fmt.Errorf("%s", ErrNodePoolAutoscaleMaxRequired)
 			}
 
 			// Log deprecation warnings
@@ -92,12 +93,12 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 			nodePoolDetail["cardinality"] = minNodes
 			elasticity_dict, err := getElasticityDict(nodePoolDetail, minNodes, maxNodes)
 			if err != nil {
-				log.Printf("Invalid format for Elast")
+				log.Printf("%s", ErrElasticityInvalidFormat)
 			}
 
 			scheduled_dict, err := getScheduledDict(nodePoolDetail, minNodes, maxNodes)
 			if err != nil {
-				log.Printf("Invalid format for Scheduled Dictionary")
+				log.Printf("%s", ErrScheduledInvalidFormat)
 			}
 			elasticityDict = elasticity_dict
 			scheduledDict = scheduled_dict
@@ -105,8 +106,8 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 
 		// Get size for Static pools
 		size := getNodePoolSize(nodePoolDetail)
-		if poolType == "Static" && size == 0 {
-			return nil, fmt.Errorf("size (or worker_node) is required for Static node pools")
+		if poolType == goe2econstants.KubernetesNodePoolTypeStatic && size == 0 {
+			return nil, fmt.Errorf("%s", ErrNodePoolStaticSizeRequired)
 		}
 
 		nodePool := goe2e.NodePool{
@@ -126,7 +127,7 @@ func ExpandNodePools(ctx context.Context, config []interface{}, goe2eClient *goe
 	}
 	numUniqueNodePools := len(uniqueNodePoolNames)
 	if numUniqueNodePools < len(config) {
-		return []goe2e.NodePool{}, fmt.Errorf("Name of the worker node pools must be unique!")
+		return []goe2e.NodePool{}, fmt.Errorf("%s", ErrNodePoolDuplicateNames)
 	}
 	return nodePools, nil
 }
@@ -201,7 +202,7 @@ func ExpandScheduledWorker(config map[string]interface{}, min_vms int, max_vms i
 func ExpandElasticityPolicies(config []interface{}, parameter string) ([]goe2e.ElasticityPolicy, error) {
 	elasticityPolicies := make([]goe2e.ElasticityPolicy, 0, len(config))
 	var adjust_value int = -1
-	type_value := "CHANGE"
+	type_value := goe2econstants.KubernetesPolicyTypeChange
 	for _, ep := range config {
 		adjust_value = -1 * adjust_value
 		elasticityPolicyDetail := ep.(map[string]interface{})
@@ -231,19 +232,19 @@ func ExpandScheduledPolicies(config []interface{}, min_vms int, max_vms int) ([]
 		downscaleRecurrence := elasticityPolicyDetail["downscale_recurrence"].(string)
 
 		if upscaleCardinality < min_vms || upscaleCardinality > max_vms {
-			return scheduledPolicies, fmt.Errorf("upscale cardinality must be between min nodes and max nodes")
+			return scheduledPolicies, fmt.Errorf("%s", ErrUpscaleCardinalityRange)
 		} else if downscaleCardinality < min_vms || downscaleCardinality > max_vms {
-			return scheduledPolicies, fmt.Errorf("downscale cardinality must be between min nodes and max nodes")
+			return scheduledPolicies, fmt.Errorf("%s", ErrDownscaleCardinalityRange)
 		}
 
 		// Create SchedulePolicy instances
 		upscalePolicy := goe2e.SchedulePolicy{
-			Type:       "CARDINALITY",
+			Type:       goe2econstants.KubernetesPolicyTypeCardinality,
 			Adjust:     upscaleCardinality,
 			Recurrence: upscaleRecurrence,
 		}
 		downscalePolicy := goe2e.SchedulePolicy{
-			Type:       "CARDINALITY",
+			Type:       goe2econstants.KubernetesPolicyTypeCardinality,
 			Adjust:     downscaleCardinality,
 			Recurrence: downscaleRecurrence,
 		}
@@ -257,16 +258,16 @@ func getElasticityDict(nodePoolDetail map[string]interface{}, min_vms int, max_v
 
 	// Handle ElasticityDict based on node_pool_type
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
-	case "Static":
+	case goe2econstants.KubernetesNodePoolTypeStatic:
 		elasticityDict = goe2e.ElasticityDict{}
-	case "Autoscale":
+	case goe2econstants.KubernetesNodePoolTypeAutoscale:
 		for _, ed := range nodePoolDetail["elasticity_dict"].([]interface{}) {
 			ed := ed.(map[string]interface{})
 			elasticityDict, _ := ExpandElasticityDict(ed, min_vms, max_vms)
 			return elasticityDict, nil
 		}
 	default:
-		return elasticityDict, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
+		return elasticityDict, fmt.Errorf(ErrNodePoolTypeInvalid, nodePoolType)
 	}
 	return elasticityDict, nil
 }
@@ -275,27 +276,27 @@ func getScheduledDict(nodePoolDetail map[string]interface{}, min_vms int, max_vm
 	var scheduledDict goe2e.ScheduledDict
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
-	case "Static":
+	case goe2econstants.KubernetesNodePoolTypeStatic:
 		scheduledDict = goe2e.ScheduledDict{}
-	case "Autoscale":
+	case goe2econstants.KubernetesNodePoolTypeAutoscale:
 		for _, sd := range nodePoolDetail["scheduled_dict"].([]interface{}) {
 			sd := sd.(map[string]interface{})
 			scheduledDict, _ := ExpandScheduledDict(sd, min_vms, max_vms)
 			return scheduledDict, nil
 		}
 	default:
-		return scheduledDict, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
+		return scheduledDict, fmt.Errorf(ErrNodePoolTypeInvalid, nodePoolType)
 	}
 
 	return scheduledDict, nil
 }
 
 func getCustomParamName(nodePoolDetail map[string]interface{}) string {
-	if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == "Static" {
+	if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == goe2econstants.KubernetesNodePoolTypeStatic {
 		return "" // Return empty string for "Static"
 	}
 	policyParameterType := getPolicyType(nodePoolDetail)
-	if policyParameterType == "" || policyParameterType == "Default" {
+	if policyParameterType == "" || policyParameterType == goe2econstants.KubernetesPolicyTypeDefault {
 		return "" // Return empty string when policy_parameter_type is not provided or is "Default"
 	}
 	elasticityDict, ok := nodePoolDetail["elasticity_dict"].([]interface{})
@@ -326,7 +327,7 @@ func getCustomParamName(nodePoolDetail map[string]interface{}) string {
 			continue
 		}
 		// Check if "parameter" is "CPU" or "Memory"
-		if parameter == "CPU" || parameter == "Memory" {
+		if parameter == goe2econstants.KubernetesPolicyParameterCPU || parameter == goe2econstants.KubernetesPolicyParameterMemory {
 			log.Printf("Cannot use Default parameters in case of Custom")
 			return ""
 		}
@@ -337,11 +338,11 @@ func getCustomParamName(nodePoolDetail map[string]interface{}) string {
 }
 
 func getCustomParamValue(nodePoolDetail map[string]interface{}) string {
-	if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == "Static" {
+	if nodePoolType, ok := nodePoolDetail["node_pool_type"].(string); ok && nodePoolType == goe2econstants.KubernetesNodePoolTypeStatic {
 		return "" // Return empty string for "Static"
 	}
 	policyParameterType := getPolicyType(nodePoolDetail)
-	if policyParameterType == "" || policyParameterType == "Default" || policyParameterType == "Scheduled" {
+	if policyParameterType == "" || policyParameterType == goe2econstants.KubernetesPolicyTypeDefault || policyParameterType == goe2econstants.KubernetesPolicyTypeScheduled {
 		return "" // Return empty string when policy_parameter_type is not provided or is "Default"
 	}
 	return "0"
@@ -380,12 +381,12 @@ func getPolicyType(nodePoolDetail map[string]interface{}) string {
 			continue
 		}
 		if scheduledDictPresent && isSDPresent {
-			return policyParamType + "-Scheduled"
+			return policyParamType + "-" + goe2econstants.KubernetesPolicyTypeScheduled
 		}
 		return policyParamType
 	}
 	if (len(elasticityDict) == 0) && isSDPresent {
-		return "Scheduled"
+		return goe2econstants.KubernetesPolicyTypeScheduled
 	}
 
 	return ""
@@ -395,7 +396,7 @@ func ExpandNodePoolUpdate(ctx context.Context, nodePoolDetail map[string]interfa
 	nodeUpdate := goe2e.NodePoolUpdate{}
 	poolType := getNodePoolType(nodePoolDetail)
 	if poolType == "" {
-		return nodeUpdate, fmt.Errorf("node pool type (type or node_pool_type) is required")
+		return nodeUpdate, fmt.Errorf("%s", ErrNodePoolTypeRequired)
 	}
 
 	var policyType, customParamName, customParamValue string
@@ -419,10 +420,10 @@ func ExpandNodePoolUpdate(ctx context.Context, nodePoolDetail map[string]interfa
 		}
 	}
 	if matchingPlan == nil {
-		return nodeUpdate, fmt.Errorf("no matching plan found for plan: %s", plan)
+		return nodeUpdate, fmt.Errorf(ErrNodePoolPlanNotFound, plan)
 	}
 
-	if poolType == "Static" {
+	if poolType == goe2econstants.KubernetesNodePoolTypeStatic {
 		policyType = ""
 		customParamName = ""
 		customParamValue = ""
@@ -436,20 +437,20 @@ func ExpandNodePoolUpdate(ctx context.Context, nodePoolDetail map[string]interfa
 		maxNodes = getNodePoolMaxNodes(nodePoolDetail)
 
 		if minNodes == 0 {
-			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'min_nodes' (or 'min_vms') field is required")
+			return nodeUpdate, fmt.Errorf("%s", ErrNodePoolAutoscaleMinRequired)
 		}
 		if maxNodes == 0 {
-			return nodeUpdate, fmt.Errorf("in case of Autoscale node type, the 'max_nodes' (or 'max_vms') field is required")
+			return nodeUpdate, fmt.Errorf("%s", ErrNodePoolAutoscaleMaxRequired)
 		}
 
 		ep, err := updateElasticPolicies(nodePoolDetail, minNodes, maxNodes)
 		if err != nil {
-			log.Printf("Invalid format for Elast")
+			log.Printf("%s", ErrElasticityInvalidFormat)
 		}
 
 		sp, err := updateScheduledPolicies(nodePoolDetail, minNodes, maxNodes)
 		if err != nil {
-			log.Printf("Invalid format for Scheduled Dictionary")
+			log.Printf("%s", ErrScheduledInvalidFormat)
 		}
 		elasticity_policies = ep
 		scheduled_policies = sp
@@ -488,16 +489,16 @@ func ExpandNodePoolUpdate(ctx context.Context, nodePoolDetail map[string]interfa
 func updateElasticPolicies(nodePoolDetail map[string]interface{}, min_vms int, max_vms int) ([]goe2e.ElasticityPolicy, error) {
 	var elasticityPolicyList []goe2e.ElasticityPolicy
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
-	case "Static":
+	case goe2econstants.KubernetesNodePoolTypeStatic:
 		elasticityPolicyList = []goe2e.ElasticityPolicy{}
-	case "Autoscale":
+	case goe2econstants.KubernetesNodePoolTypeAutoscale:
 		for _, ed := range nodePoolDetail["elasticity_dict"].([]interface{}) {
 			ed := ed.(map[string]interface{})
 			elasticityDict, _ := UpdateElasticityDict(ed, min_vms, max_vms)
 			return elasticityDict, nil
 		}
 	default:
-		return elasticityPolicyList, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
+		return elasticityPolicyList, fmt.Errorf(ErrNodePoolTypeInvalid, nodePoolType)
 	}
 	return elasticityPolicyList, nil
 }
@@ -530,16 +531,16 @@ func updateScheduledPolicies(nodePoolDetail map[string]interface{}, min_vms int,
 	var scheduledPolicyList []goe2e.SchedulePolicy
 
 	switch nodePoolType := nodePoolDetail["node_pool_type"].(string); nodePoolType {
-	case "Static":
+	case goe2econstants.KubernetesNodePoolTypeStatic:
 		scheduledPolicyList = []goe2e.SchedulePolicy{}
-	case "Autoscale":
+	case goe2econstants.KubernetesNodePoolTypeAutoscale:
 		for _, sd := range nodePoolDetail["scheduled_dict"].([]interface{}) {
 			sd := sd.(map[string]interface{})
 			scheduledDict, _ := UpdateScheduledDict(sd, min_vms, max_vms)
 			return scheduledDict, nil
 		}
 	default:
-		return scheduledPolicyList, fmt.Errorf("invalid node_pool_type: %s", nodePoolType)
+		return scheduledPolicyList, fmt.Errorf(ErrNodePoolTypeInvalid, nodePoolType)
 	}
 
 	return scheduledPolicyList, nil
@@ -693,12 +694,16 @@ func flattenNodePools(nodePools []goe2e.NodePoolServiceInfo) []interface{} {
 // waitForClusterStatus waits for cluster to reach target status
 func waitForClusterStatus(ctx context.Context, client *goe2e.Client, clusterID string, targetStatus string, timeout time.Duration) error {
 	stateConf := &resource.StateChangeConf{
-		Pending:    []string{"Creating", "Provisioning", "Updating"},
+		Pending: []string{
+			goe2econstants.KubernetesClusterStatusCreating,
+			goe2econstants.KubernetesClusterStatusProvisioning,
+			goe2econstants.KubernetesClusterStatusUpdating,
+		},
 		Target:     []string{targetStatus},
 		Refresh:    clusterStatusRefresh(ctx, client, clusterID),
 		Timeout:    timeout,
-		Delay:      30 * time.Second,
-		MinTimeout: 10 * time.Second,
+		Delay:      tfconstants.KubernetesStatusCheckDelay,
+		MinTimeout: tfconstants.KubernetesStatusCheckMinTimeout,
 	}
 
 	_, err := stateConf.WaitForStateContext(ctx)

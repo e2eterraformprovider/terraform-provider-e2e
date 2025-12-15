@@ -171,6 +171,17 @@ type SSHUpdateRequest struct {
 	SSHKeys []map[string]interface{} `json:"ssh_keys"` // Format: [{"label": "ssh-key-1", "ssh_key": "key"}]
 }
 
+// NodeActionRequest represents a generic action request for node operations
+type NodeActionRequest struct {
+	Action string `json:"action"`
+}
+
+// NodeReinstallActionRequest represents a reinstall action request for node operations
+type NodeReinstallActionRequest struct {
+	Action string `json:"action"`
+	Image  string `json:"image"`
+}
+
 // Response wrapper for API calls
 type nodeRoot struct {
 	Code    int         `json:"code"`
@@ -234,6 +245,10 @@ func (s *NodeServiceOp) GetNode(ctx context.Context, nodeID string) (*Node, *Res
 	root := new(nodeRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
+		// Return nil node for 404 (not found)
+		if IsNotFoundResponse(resp) {
+			return nil, resp, nil
+		}
 		return nil, resp, fmt.Errorf("failed to get node (%s): %w", nodeID, err)
 	}
 
@@ -312,7 +327,7 @@ func (s *NodeServiceOp) PowerOn(ctx context.Context, nodeID string) (*Response, 
 	if nodeID == "" {
 		return nil, NewArgError("nodeID", "cannot be empty")
 	}
-	actionReq := map[string]string{"action": NodeActionPowerOn}
+	actionReq := &NodeActionRequest{Action: NodeActionPowerOn}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
@@ -333,7 +348,7 @@ func (s *NodeServiceOp) PowerOff(ctx context.Context, nodeID string) (*Response,
 	if nodeID == "" {
 		return nil, NewArgError("nodeID", "cannot be empty")
 	}
-	actionReq := map[string]string{"action": NodeActionPowerOff}
+	actionReq := &NodeActionRequest{Action: NodeActionPowerOff}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
@@ -354,7 +369,7 @@ func (s *NodeServiceOp) Reboot(ctx context.Context, nodeID string) (*Response, e
 	if nodeID == "" {
 		return nil, NewArgError("nodeID", "cannot be empty")
 	}
-	actionReq := map[string]string{"action": NodeActionReboot}
+	actionReq := &NodeActionRequest{Action: NodeActionReboot}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
@@ -378,8 +393,11 @@ func (s *NodeServiceOp) Reinstall(ctx context.Context, nodeID string, reinstallR
 	if reinstallReq == nil {
 		return nil, NewArgError("reinstallReq", "cannot be nil")
 	}
+	if reinstallReq.Image == "" {
+		return nil, NewArgError("image", "cannot be empty")
+	}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
-	actionReq := map[string]interface{}{"action": "reinstall", "image": reinstallReq.Image}
+	actionReq := &NodeReinstallActionRequest{Action: constants.NodeActionReinstall, Image: reinstallReq.Image}
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for reinstalling node (%s): %w", nodeID, err)
@@ -440,7 +458,7 @@ func (s *NodeServiceOp) LockNode(ctx context.Context, nodeID string) (*Response,
 	if nodeID == "" {
 		return nil, NewArgError("nodeID", "cannot be empty")
 	}
-	actionReq := map[string]string{"action": NodeActionLockVM}
+	actionReq := &NodeActionRequest{Action: NodeActionLockVM}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
@@ -461,7 +479,7 @@ func (s *NodeServiceOp) UnlockNode(ctx context.Context, nodeID string) (*Respons
 	if nodeID == "" {
 		return nil, NewArgError("nodeID", "cannot be empty")
 	}
-	actionReq := map[string]string{"action": NodeActionUnlockVM}
+	actionReq := &NodeActionRequest{Action: NodeActionUnlockVM}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, actionReq)
 	if err != nil {
@@ -641,6 +659,9 @@ func (s *NodeServiceOp) UpdateSSH(ctx context.Context, nodeID string, sshReq *SS
 	}
 	if sshReq.Action == "" {
 		return nil, NewArgError("action", "cannot be empty")
+	}
+	if len(sshReq.SSHKeys) == 0 {
+		return nil, NewArgError("ssh_keys", "cannot be empty")
 	}
 	path := fmt.Sprintf("%s/%s/actions/", nodesPath, nodeID)
 	req, err := s.client.NewRequest(ctx, http.MethodPut, path, sshReq)

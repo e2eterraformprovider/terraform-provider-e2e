@@ -2,42 +2,20 @@ package faas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/config"
 	tfconstants "github.com/e2eterraformprovider/terraform-provider-e2e/e2e/constants"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/util"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/goe2e"
+	goe2econstants "github.com/e2eterraformprovider/terraform-provider-e2e/goe2e/constants"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-)
-
-// Default values for FaaS function configuration
-const (
-	defaultMemorySize  = 256
-	defaultTimeout     = 30
-	defaultMinReplicas = 1
-	defaultMaxReplicas = 5
-)
-
-// Validation limits for FaaS function configuration
-const (
-	minMemorySize = 128
-	minTimeout    = 1
-	maxTimeout    = 900
-)
-
-// Async operation timeouts
-const (
-	functionCreateTimeout = 10 * time.Minute
-	functionUpdateTimeout = 10 * time.Minute
-	functionDeleteTimeout = 2 * time.Minute
-	functionPollInterval  = 10 * time.Second
 )
 
 func ResourceFaasFunction() *schema.Resource {
@@ -55,68 +33,68 @@ func ResourceFaasFunction() *schema.Resource {
 				ForceNew:    true,
 				Description: "name of the FaaS function",
 			},
-			"namespace": {
+			tfconstants.AttrNamespace: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the namespace for the FaaS function",
 			},
-			"runtime": {
+			tfconstants.AttrRuntime: {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "the runtime for the function (e.g., python-3.11-fastapi, node-18, go-1.21)",
 			},
-			"code_inline": {
+			tfconstants.AttrCodeInline: {
 				Type:          schema.TypeString,
 				Optional:      true,
 				Sensitive:     true,
-				ConflictsWith: []string{"code_file"},
+				ConflictsWith: []string{tfconstants.AttrCodeFile},
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return strings.TrimSpace(old) == strings.TrimSpace(new)
 				},
 				Description: "the inline code for the function",
 			},
-			"code_file": {
+			tfconstants.AttrCodeFile: {
 				Type:          schema.TypeString,
 				Optional:      true,
-				ConflictsWith: []string{"code_inline"},
+				ConflictsWith: []string{tfconstants.AttrCodeInline},
 				Description:   "path to local zip file containing function code",
 			},
-			"description": {
+			tfconstants.AttrDescription: {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "description of the FaaS function",
 			},
-			"memory_mb": {
+			tfconstants.AttrMemoryMB: {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      defaultMemorySize,
-				ValidateFunc: validation.IntAtLeast(minMemorySize),
+				Default:      goe2econstants.FaaSDefaultMemoryMB,
+				ValidateFunc: validation.IntAtLeast(tfconstants.FaaSMinMemoryMB),
 				Description:  "the memory allocated to the function in megabytes",
 			},
-			"timeout_seconds": {
+			tfconstants.AttrTimeoutSeconds: {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      defaultTimeout,
-				ValidateFunc: validation.IntBetween(minTimeout, maxTimeout),
+				Default:      goe2econstants.FaaSDefaultTimeoutSeconds,
+				ValidateFunc: validation.IntBetween(tfconstants.FaaSMinTimeoutSeconds, tfconstants.FaaSMaxTimeoutSeconds),
 				Description:  "the execution timeout for the function in seconds",
 			},
-			"min_replicas": {
+			tfconstants.AttrMinReplicas: {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      defaultMinReplicas,
+				Default:      goe2econstants.FaaSDefaultMinReplicas,
 				ValidateFunc: validation.IntAtLeast(0),
 				Description:  "the minimum number of replicas",
 			},
-			"max_replicas": {
+			tfconstants.AttrMaxReplicas: {
 				Type:         schema.TypeInt,
 				Optional:     true,
-				Default:      defaultMaxReplicas,
+				Default:      goe2econstants.FaaSDefaultMaxReplicas,
 				ValidateFunc: validation.IntAtLeast(1),
 				Description:  "the maximum number of replicas",
 			},
-			"environment_variables": {
+			tfconstants.AttrEnvironmentVariables: {
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -128,7 +106,7 @@ func ResourceFaasFunction() *schema.Resource {
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "tags for the FaaS function",
 			},
-			"endpoint_url": {
+			tfconstants.AttrEndpointURL: {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "the endpoint URL of the function",
@@ -167,23 +145,23 @@ func ResourceFaasFunction() *schema.Resource {
 // customizeDiffFaasFunction handles validation
 func customizeDiffFaasFunction(ctx context.Context, diff *schema.ResourceDiff, v interface{}) error {
 	// Validate replica range
-	minReplicas := diff.Get("min_replicas").(int)
-	maxReplicas := diff.Get("max_replicas").(int)
+	minReplicas := diff.Get(tfconstants.AttrMinReplicas).(int)
+	maxReplicas := diff.Get(tfconstants.AttrMaxReplicas).(int)
 
 	if minReplicas > maxReplicas {
-		return fmt.Errorf("min_replicas (%d) cannot be greater than max_replicas (%d)", minReplicas, maxReplicas)
+		return fmt.Errorf(ErrMinReplicasGreaterThanMaxFmt, minReplicas, maxReplicas)
 	}
 
 	// Require at least one code source
-	_, hasCodeInline := diff.GetOk("code_inline")
-	_, hasCodeFile := diff.GetOk("code_file")
+	_, hasCodeInline := diff.GetOk(tfconstants.AttrCodeInline)
+	_, hasCodeFile := diff.GetOk(tfconstants.AttrCodeFile)
 
 	if !hasCodeInline && !hasCodeFile {
-		return fmt.Errorf("one of code_inline or code_file must be specified")
+		return errors.New(ErrCodeInlineOrFileRequired)
 	}
 
 	if hasCodeInline && hasCodeFile {
-		return fmt.Errorf("code_inline and code_file are mutually exclusive")
+		return errors.New(ErrCodeInlineAndFileExclusive)
 	}
 
 	return nil
@@ -194,30 +172,30 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 	client := cfg.Goe2eClient()
 	var diags diag.Diagnostics
 
-	namespace := d.Get("namespace").(string)
+	namespace := d.Get(tfconstants.AttrNamespace).(string)
 
 	log.Printf("[INFO] FAAS FUNCTION CREATE STARTS")
 
 	// First, try to create the namespace (it may already exist, which is fine)
 	_, _, err := client.FaaS.CreateNamespace(ctx, namespace)
 	if err != nil {
-		log.Printf("[WARN] Namespace creation returned error (may already exist): %v", err)
+		log.Printf(LogNamespaceCreateWarningFmt, err)
 	}
 
 	// Get code from either code_inline or code_file
 	var code string
-	if codeInline, ok := d.GetOk("code_inline"); ok {
+	if codeInline, ok := d.GetOk(tfconstants.AttrCodeInline); ok {
 		code = codeInline.(string)
-	} else if codeFile, ok := d.GetOk("code_file"); ok {
+	} else if codeFile, ok := d.GetOk(tfconstants.AttrCodeFile); ok {
 		// TODO: In Phase 3, implement file upload logic
 		// For now, treat code_file as inline code (path to be read)
 		code = codeFile.(string)
-		log.Printf("[WARN] code_file support for actual file upload is not yet implemented. Treating as inline code.")
+		log.Print(LogCodeFileNotImplemented)
 	}
 
 	// Convert environment variables
 	environment := make(map[string]string)
-	if env, ok := d.GetOk("environment_variables"); ok {
+	if env, ok := d.GetOk(tfconstants.AttrEnvironmentVariables); ok {
 		for k, v := range env.(map[string]interface{}) {
 			environment[k] = v.(string)
 		}
@@ -225,14 +203,14 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 
 	// Create the function
 	createReq := &goe2e.FaasFunctionCreateRequest{
-		Name:        d.Get("name").(string),
+		Name:        d.Get(tfconstants.AttrName).(string),
 		Namespace:   namespace,
-		Runtime:     d.Get("runtime").(string),
+		Runtime:     d.Get(tfconstants.AttrRuntime).(string),
 		Code:        code,
-		MemoryMB:    d.Get("memory_mb").(int),
-		Timeout:     d.Get("timeout_seconds").(int),
-		MinReplicas: d.Get("min_replicas").(int),
-		MaxReplicas: d.Get("max_replicas").(int),
+		MemoryMB:    d.Get(tfconstants.AttrMemoryMB).(int),
+		Timeout:     d.Get(tfconstants.AttrTimeoutSeconds).(int),
+		MinReplicas: d.Get(tfconstants.AttrMinReplicas).(int),
+		MaxReplicas: d.Get(tfconstants.AttrMaxReplicas).(int),
 		Environment: environment,
 	}
 
@@ -241,13 +219,14 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] FAAS FUNCTION CREATE | RESPONSE: %+v", fn)
+	// SECURITY: Do not log full response to avoid exposing sensitive data (code field)
+	log.Printf("[INFO] FAAS FUNCTION CREATE | ID: %s, Name: %s, Status: %s", fn.ID, fn.Name, fn.Status)
 
 	// Set the ID immediately so it can be used if waiting fails
 	d.SetId(fn.ID)
 
 	// Wait for function to be ready
-	if err := util.WaitForFunctionReady(ctx, client, fn.ID, functionCreateTimeout); err != nil {
+	if err := util.WaitForFunctionReady(ctx, client, fn.ID, tfconstants.FaaSCreateTimeout); err != nil {
 		return diag.FromErr(fmt.Errorf("function created but failed to become ready: %w", err))
 	}
 
@@ -257,47 +236,47 @@ func resourceCreateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(fmt.Errorf("error reading function after creation: %w", err))
 	}
 	if fn == nil {
-		return diag.FromErr(fmt.Errorf("function not found after creation"))
+		return diag.FromErr(errors.New(ErrFunctionNotFoundAfterCreate))
 	}
 
 	// Set the attributes
-	if err := d.Set("name", fn.Name); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting name: %w", err))
+	if err := d.Set(tfconstants.AttrName, fn.Name); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrName), err))
 	}
-	if err := d.Set("namespace", fn.Namespace); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting namespace: %w", err))
+	if err := d.Set(tfconstants.AttrNamespace, fn.Namespace); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrNamespace), err))
 	}
-	if err := d.Set("runtime", fn.Runtime); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting runtime: %w", err))
+	if err := d.Set(tfconstants.AttrRuntime, fn.Runtime); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrRuntime), err))
 	}
-	if err := d.Set("memory_mb", fn.MemoryMB); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting memory_mb: %w", err))
+	if err := d.Set(tfconstants.AttrMemoryMB, fn.MemoryMB); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMemoryMB), err))
 	}
-	if err := d.Set("timeout_seconds", fn.Timeout); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting timeout_seconds: %w", err))
+	if err := d.Set(tfconstants.AttrTimeoutSeconds, fn.Timeout); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrTimeoutSeconds), err))
 	}
-	if err := d.Set("min_replicas", fn.MinReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting min_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMinReplicas, fn.MinReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMinReplicas), err))
 	}
-	if err := d.Set("max_replicas", fn.MaxReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting max_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMaxReplicas, fn.MaxReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMaxReplicas), err))
 	}
-	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
+	if err := d.Set(tfconstants.AttrEndpointURL, fn.EndpointURL); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEndpointURL), err))
 	}
 	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrStatus), err))
 	}
-	if err := d.Set("created_at", fn.CreatedAt); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting created_at: %w", err))
+	if err := d.Set(tfconstants.AttrCreatedAt, fn.CreatedAt); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrCreatedAt), err))
 	}
 	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrUpdatedAt), err))
 	}
 
 	if fn.Environment != nil {
-		if err := d.Set("environment_variables", fn.Environment); err != nil {
-			return diag.FromErr(fmt.Errorf("error setting environment_variables: %w", err))
+		if err := d.Set(tfconstants.AttrEnvironmentVariables, fn.Environment); err != nil {
+			return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEnvironmentVariables), err))
 		}
 	}
 
@@ -319,7 +298,7 @@ func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if fn == nil {
-		log.Printf("[WARN] FaaS function with ID %s not found", functionID)
+		log.Printf(LogFunctionNotFoundWarningFmt, functionID)
 		d.SetId("")
 
 		diags = append(diags, diag.Diagnostic{
@@ -331,43 +310,43 @@ func resourceReadFaasFunction(ctx context.Context, d *schema.ResourceData, m int
 		return diags
 	}
 
-	if err := d.Set("name", fn.Name); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting name: %w", err))
+	if err := d.Set(tfconstants.AttrName, fn.Name); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrName), err))
 	}
-	if err := d.Set("namespace", fn.Namespace); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting namespace: %w", err))
+	if err := d.Set(tfconstants.AttrNamespace, fn.Namespace); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrNamespace), err))
 	}
-	if err := d.Set("runtime", fn.Runtime); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting runtime: %w", err))
+	if err := d.Set(tfconstants.AttrRuntime, fn.Runtime); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrRuntime), err))
 	}
-	if err := d.Set("memory_mb", fn.MemoryMB); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting memory_mb: %w", err))
+	if err := d.Set(tfconstants.AttrMemoryMB, fn.MemoryMB); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMemoryMB), err))
 	}
-	if err := d.Set("timeout_seconds", fn.Timeout); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting timeout_seconds: %w", err))
+	if err := d.Set(tfconstants.AttrTimeoutSeconds, fn.Timeout); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrTimeoutSeconds), err))
 	}
-	if err := d.Set("min_replicas", fn.MinReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting min_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMinReplicas, fn.MinReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMinReplicas), err))
 	}
-	if err := d.Set("max_replicas", fn.MaxReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting max_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMaxReplicas, fn.MaxReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMaxReplicas), err))
 	}
-	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
+	if err := d.Set(tfconstants.AttrEndpointURL, fn.EndpointURL); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEndpointURL), err))
 	}
 	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrStatus), err))
 	}
-	if err := d.Set("created_at", fn.CreatedAt); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting created_at: %w", err))
+	if err := d.Set(tfconstants.AttrCreatedAt, fn.CreatedAt); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrCreatedAt), err))
 	}
 	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrUpdatedAt), err))
 	}
 
 	if fn.Environment != nil {
-		if err := d.Set("environment_variables", fn.Environment); err != nil {
-			return diag.FromErr(fmt.Errorf("error setting environment_variables: %w", err))
+		if err := d.Set(tfconstants.AttrEnvironmentVariables, fn.Environment); err != nil {
+			return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEnvironmentVariables), err))
 		}
 	}
 
@@ -386,41 +365,41 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 	updateReq := &goe2e.FaasFunctionUpdateRequest{}
 	hasChanges := false
 
-	if d.HasChange("code_inline") {
-		updateReq.Code = goe2e.String(d.Get("code_inline").(string))
+	if d.HasChange(tfconstants.AttrCodeInline) {
+		updateReq.Code = goe2e.String(d.Get(tfconstants.AttrCodeInline).(string))
 		hasChanges = true
 	}
 
-	if d.HasChange("code_file") {
+	if d.HasChange(tfconstants.AttrCodeFile) {
 		// TODO: In Phase 3, implement file upload logic
-		updateReq.Code = goe2e.String(d.Get("code_file").(string))
+		updateReq.Code = goe2e.String(d.Get(tfconstants.AttrCodeFile).(string))
 		hasChanges = true
-		log.Printf("[WARN] code_file support for actual file upload is not yet implemented. Treating as inline code.")
+		log.Print(LogCodeFileNotImplemented)
 	}
 
-	if d.HasChange("memory_mb") {
-		updateReq.MemoryMB = goe2e.Int(d.Get("memory_mb").(int))
-		hasChanges = true
-	}
-
-	if d.HasChange("timeout_seconds") {
-		updateReq.Timeout = goe2e.Int(d.Get("timeout_seconds").(int))
+	if d.HasChange(tfconstants.AttrMemoryMB) {
+		updateReq.MemoryMB = goe2e.Int(d.Get(tfconstants.AttrMemoryMB).(int))
 		hasChanges = true
 	}
 
-	if d.HasChange("min_replicas") {
-		updateReq.MinReplicas = goe2e.Int(d.Get("min_replicas").(int))
+	if d.HasChange(tfconstants.AttrTimeoutSeconds) {
+		updateReq.Timeout = goe2e.Int(d.Get(tfconstants.AttrTimeoutSeconds).(int))
 		hasChanges = true
 	}
 
-	if d.HasChange("max_replicas") {
-		updateReq.MaxReplicas = goe2e.Int(d.Get("max_replicas").(int))
+	if d.HasChange(tfconstants.AttrMinReplicas) {
+		updateReq.MinReplicas = goe2e.Int(d.Get(tfconstants.AttrMinReplicas).(int))
 		hasChanges = true
 	}
 
-	if d.HasChange("environment_variables") {
+	if d.HasChange(tfconstants.AttrMaxReplicas) {
+		updateReq.MaxReplicas = goe2e.Int(d.Get(tfconstants.AttrMaxReplicas).(int))
+		hasChanges = true
+	}
+
+	if d.HasChange(tfconstants.AttrEnvironmentVariables) {
 		environment := make(map[string]string)
-		if env, ok := d.GetOk("environment_variables"); ok {
+		if env, ok := d.GetOk(tfconstants.AttrEnvironmentVariables); ok {
 			for k, v := range env.(map[string]interface{}) {
 				environment[k] = v.(string)
 			}
@@ -439,10 +418,11 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(err)
 	}
 
-	log.Printf("[INFO] FAAS FUNCTION UPDATE | RESPONSE: %+v", fn)
+	// SECURITY: Do not log full response to avoid exposing sensitive data (code field)
+	log.Printf("[INFO] FAAS FUNCTION UPDATE | ID: %s, Name: %s, Status: %s", fn.ID, fn.Name, fn.Status)
 
 	// Wait for function to be ready after update
-	if err := util.WaitForFunctionReady(ctx, client, functionID, functionUpdateTimeout); err != nil {
+	if err := util.WaitForFunctionReady(ctx, client, functionID, tfconstants.FaaSUpdateTimeout); err != nil {
 		return diag.FromErr(fmt.Errorf("function updated but failed to become ready: %w", err))
 	}
 
@@ -452,35 +432,35 @@ func resourceUpdateFaasFunction(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(fmt.Errorf("error reading function after update: %w", err))
 	}
 	if fn == nil {
-		return diag.FromErr(fmt.Errorf("function not found after update"))
+		return diag.FromErr(errors.New(ErrFunctionNotFoundAfterUpdate))
 	}
 
 	// Update the state with the response
-	if err := d.Set("memory_mb", fn.MemoryMB); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting memory_mb: %w", err))
+	if err := d.Set(tfconstants.AttrMemoryMB, fn.MemoryMB); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMemoryMB), err))
 	}
-	if err := d.Set("timeout_seconds", fn.Timeout); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting timeout_seconds: %w", err))
+	if err := d.Set(tfconstants.AttrTimeoutSeconds, fn.Timeout); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrTimeoutSeconds), err))
 	}
-	if err := d.Set("min_replicas", fn.MinReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting min_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMinReplicas, fn.MinReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMinReplicas), err))
 	}
-	if err := d.Set("max_replicas", fn.MaxReplicas); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting max_replicas: %w", err))
+	if err := d.Set(tfconstants.AttrMaxReplicas, fn.MaxReplicas); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrMaxReplicas), err))
 	}
-	if err := d.Set("endpoint_url", fn.EndpointURL); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting endpoint_url: %w", err))
+	if err := d.Set(tfconstants.AttrEndpointURL, fn.EndpointURL); err != nil {
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEndpointURL), err))
 	}
 	if err := d.Set(tfconstants.AttrStatus, fn.Status); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting status: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrStatus), err))
 	}
 	if err := d.Set(tfconstants.AttrUpdatedAt, fn.UpdatedAt); err != nil {
-		return diag.FromErr(fmt.Errorf("error setting updated_at: %w", err))
+		return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrUpdatedAt), err))
 	}
 
 	if fn.Environment != nil {
-		if err := d.Set("environment_variables", fn.Environment); err != nil {
-			return diag.FromErr(fmt.Errorf("error setting environment_variables: %w", err))
+		if err := d.Set(tfconstants.AttrEnvironmentVariables, fn.Environment); err != nil {
+			return diag.FromErr(fmt.Errorf(tfconstants.ErrorSettingStateFormat(tfconstants.AttrEnvironmentVariables), err))
 		}
 	}
 

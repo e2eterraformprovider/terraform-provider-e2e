@@ -24,18 +24,18 @@ func DataSourceVpcs() *schema.Resource {
 			tfconstants.AttrProjectID: config.ProjectIDSchemaComputed(),
 
 			// Resource-specific fields
-			"vpc_list": {
+			tfconstants.AttrVPCList: {
 				Type:        schema.TypeList,
 				Computed:    true,
 				Description: "list of all VPCs (you can attach these VPCs to launch resources)",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"network_id": {
+						tfconstants.AttrNetworkID: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "id of the VPC network",
 						},
-						"pool_size": {
+						tfconstants.AttrPoolSize: {
 							Type:        schema.TypeFloat,
 							Computed:    true,
 							Description: "the pool size of the VPC",
@@ -55,17 +55,17 @@ func DataSourceVpcs() *schema.Resource {
 							Computed:    true,
 							Description: "name of the VPC",
 						},
-						"ipv4_cidr": {
+						tfconstants.AttrIPv4CIDR: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the IPv4 CIDR block of the VPC",
 						},
-						"gateway_ip": {
+						tfconstants.AttrGatewayIP: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "the gateway IP address of the VPC",
 						},
-						"is_active": {
+						tfconstants.AttrIsActive: {
 							Type:        schema.TypeBool,
 							Computed:    true,
 							Description: "whether the VPC is active",
@@ -90,10 +90,10 @@ func dataSourceReadVpcs(ctx context.Context, d *schema.ResourceData, m interface
 	}
 	log.Printf("[INFO] %v", vpcs)
 	if len(vpcs) > 0 {
-		d.Set("vpc_list", flattenVpcs(vpcs))
-		d.SetId("vpc_list")
+		d.Set(tfconstants.AttrVPCList, flattenVpcs(vpcs))
+		d.SetId(tfconstants.AttrVPCList)
 	} else {
-		log.Printf("[ERROR] VPC list is empty in the response")
+		log.Printf("[ERROR] %s", errVPCListEmpty)
 	}
 	return diags
 }
@@ -105,13 +105,13 @@ func flattenVpcs(vpcList []goe2e.Vpc) []interface{} {
 
 		for i, vpc := range vpcList {
 			oi := make(map[string]interface{})
-			oi["network_id"] = vpc.ID
-			oi["pool_size"] = vpc.PoolSize
-			oi["created_at"] = vpc.CreatedAt
-			oi["name"] = vpc.Name
-			oi["is_active"] = vpc.IsActive
-			oi["gateway_ip"] = vpc.GatewayIP
-			oi["ipv4_cidr"] = vpc.IPv4CIDR
+			oi[tfconstants.AttrNetworkID] = vpc.ID
+			oi[tfconstants.AttrPoolSize] = vpc.PoolSize
+			oi[tfconstants.AttrCreatedAt] = vpc.CreatedAt
+			oi[tfconstants.AttrName] = vpc.Name
+			oi[tfconstants.AttrIsActive] = vpc.IsActive
+			oi[tfconstants.AttrGatewayIP] = vpc.GatewayIP
+			oi[tfconstants.AttrIPv4CIDR] = vpc.IPv4CIDR
 			oi[tfconstants.AttrStatus] = vpc.State
 			ois[i] = oi
 		}

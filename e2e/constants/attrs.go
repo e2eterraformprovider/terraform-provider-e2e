@@ -15,24 +15,33 @@ const (
 	AttrPlan = "plan"
 
 	// Common metadata and state attributes
-	AttrCreatedAt  = "created_at"
-	AttrUpdatedAt  = "updated_at"
-	AttrStatus     = "status"
-	AttrLabel      = "label"
-	AttrGroup      = "group"
-	AttrTimestamp  = "timestamp"
-	AttrSSHKey     = "ssh_key"
-	AttrSSHKeys    = "ssh_keys"
-	AttrSSHKeyIDs  = "ssh_key_ids"
-	AttrPublicKey  = "public_key"   // V3+ preferred field name for SSH public key material
-	AttrPK         = "pk"           // Primary key identifier (especially for SSH keys)
-	AttrSSHKeyList = "ssh_key_list" // List of SSH keys in data source responses
-	AttrTags       = "tags"
-	AttrTagIDs     = "tag_ids"
+	AttrCreatedAt   = "created_at"
+	AttrUpdatedAt   = "updated_at"
+	AttrStatus      = "status"
+	AttrSetupStatus = "setup_status" // Deprecated: Use AttrStatus instead
+	AttrLabel       = "label"
+	AttrGroup       = "group"
+	AttrTimestamp   = "timestamp"
+	AttrSSHKey      = "ssh_key"
+	AttrSSHKeys     = "ssh_keys"
+	AttrSSHKeyIDs   = "ssh_key_ids"
+	AttrPublicKey   = "public_key"   // V3+ preferred field name for SSH public key material
+	AttrPK          = "pk"           // Primary key identifier (especially for SSH keys)
+	AttrSSHKeyList  = "ssh_key_list" // List of SSH keys in data source responses
+	AttrTags        = "tags"
+	AttrTagIDs      = "tag_ids"
 
 	// Network and connectivity attributes
 	AttrVPCID             = "vpc_id"
 	AttrVPCs              = "vpcs"
+	AttrVPCList           = "vpc_list"   // List of VPCs in data source responses
+	AttrIPv4              = "ipv4"       // IPv4 CIDR block for custom VPC
+	AttrIPv4CIDR          = "ipv4_cidr"  // IPv4 CIDR block of the VPC
+	AttrIsE2EVPC          = "is_e2e_vpc" // Whether this is an E2E-managed VPC
+	AttrNetworkID         = "network_id" // ID of the VPC network
+	AttrGatewayIP         = "gateway_ip" // Gateway IP address of the VPC
+	AttrPoolSize          = "pool_size"  // IP pool size of the VPC
+	AttrIsActive          = "is_active"  // Whether the VPC is active
 	AttrPublicIPAddress   = "public_ip_address"
 	AttrPrivateIPAddress  = "private_ip_address"
 	AttrIPv6Address       = "ipv6_address"
@@ -62,20 +71,30 @@ const (
 	AttrRemoteGatewayIP   = "remote_gateway_ip"
 
 	// Storage attributes
-	AttrSize     = "size"
-	AttrDisk     = "disk"
-	AttrDiskSize = "disk_size"
-	AttrIOPS     = "iops"
-	AttrVolumeID = "volume_id"
-	AttrRootDisk = "root_disk"
-	AttrSizeGB   = "size_gb"
-	AttrDiskType = "disk_type"
+	AttrSize            = "size"
+	AttrBlockID         = "block_id"
+	AttrDisk            = "disk"
+	AttrDiskSize        = "disk_size"
+	AttrDiskIOPS        = "disk_iops"
+	AttrIOPS            = "iops"
+	AttrVolumeID        = "volume_id"
+	AttrDeviceName      = "device_name"
+	AttrRootDisk        = "root_disk"
+	AttrSizeGB          = "size_gb"
+	AttrDiskType        = "disk_type"
+	AttrPrivateEndpoint = "private_endpoint"
+	AttrMountEndpoint   = "mount_endpoint"
+	AttrIsBackupEnabled = "is_backup_enabled"
+	AttrProjectSize     = "project_size"  // Container Registry project size
+	AttrStorageLimit    = "storage_limit" // Container Registry storage limit
+	AttrIsPublic        = "is_public"     // Container Registry public/private flag
 
 	// Compute and instance attributes
 	AttrVersion    = "version"
 	AttrImage      = "image"
 	AttrTemplateID = "template_id"
 	AttrNodeID     = "node_id"
+	AttrNodeIDs    = "node_ids"
 	AttrMemory     = "memory"
 	AttrRAM        = "ram"
 	AttrVCPU       = "vcpu"
@@ -97,11 +116,33 @@ const (
 	AttrDisablePassword        = "disable_password"
 
 	// Database attributes
-	AttrDatabase         = "database"
-	AttrDatabaseID       = "database_id"
-	AttrDatabaseName     = "database_name"
-	AttrDatabaseUser     = "database_user"
-	AttrParameterGroupID = "parameter_group_id"
+	AttrDatabase        = "database"
+	AttrDatabaseID      = "database_id"
+	AttrDatabaseName    = "database_name"
+	AttrDatabaseUser    = "database_user"
+	AttrDBaaSName       = "dbaas_name"
+	AttrDBLocation      = "db_location"
+	AttrDatabaseVersion = "database_version"
+	// Database block nested field names (used within database block schema)
+	AttrDatabaseBlockUser        = "user"
+	AttrDatabaseBlockPassword    = "password"
+	AttrDatabaseBlockName        = "name"
+	AttrDatabaseBlockDBaaSNumber = "dbaas_number"
+	AttrParameterGroupID         = "parameter_group_id"
+	AttrPGDetails                = "pg_details"
+	AttrSoftwareName             = "software_name"
+	AttrSoftwareVersion          = "software_version"
+	AttrSoftwareID               = "software_id"
+	AttrStatusTitle              = "status_title"
+	AttrStatusActions            = "status_actions"
+	AttrNumInstances             = "num_instances"
+	AttrSnapshotExist            = "snapshot_exist"
+	AttrConnectivityDetail       = "connectivity_detail"
+	AttrVectorDatabaseStatus     = "vector_database_status"
+	AttrPort                     = "port"
+	AttrPublicIPAttached         = "public_ip_attached"
+	AttrIsPublicIPAttached       = "is_public_ip_attached"
+	AttrTotalDiskSize            = "total_disk_size"
 
 	// Scaling attributes
 	AttrMinNodes = "min_nodes"
@@ -175,4 +216,18 @@ const (
 	AttrDBPassword         = "db_password"
 	AttrBackupStatusDetail = "detail"
 	AttrLastRecoveryPoint  = "last_recovery_point"
+
+	// FaaS (Function as a Service) attributes
+	AttrNamespace            = "namespace"
+	AttrRuntime              = "runtime"
+	AttrCodeInline           = "code_inline"
+	AttrCodeFile             = "code_file"
+	AttrDescription          = "description"
+	AttrMemoryMB             = "memory_mb"
+	AttrTimeoutSeconds       = "timeout_seconds"
+	AttrMinReplicas          = "min_replicas"
+	AttrMaxReplicas          = "max_replicas"
+	AttrEnvironmentVariables = "environment_variables"
+	AttrEndpointURL          = "endpoint_url"
+	AttrFunctionID           = "function_id"
 )
