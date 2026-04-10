@@ -165,6 +165,13 @@ func ResourcePostgresDBaaS() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"encryption_passphrase": {
+				Type:		 schema.TypeString,
+				Sensitive:   true,
+				Optional:    true,
+				Description: "Passphrase to encrypt the database",
+				Default:	 "",
+			},
 		},
 
 		CreateContext: resourceCreatePostgress,
@@ -237,6 +244,10 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 		payload.VPCs = make([]models.VPC, 0)
 	}
 
+	if(payload.IsEncryptionEnabled){
+		payload.EncryptionPassphrase = d.Get("encryption_passphrase").(string)
+	}
+
 	res, err := apiClient.CreatePostgressDB(payload, project_id, location)
 	if err != nil {
 		return diag.FromErr(err)
@@ -266,7 +277,7 @@ func resourceCreatePostgress(ctx context.Context, d *schema.ResourceData, m inte
 	d.Set("snapshot_exist", data["snapshot_exist"])
 	d.Set("connectivity_detail", data["connectivity_detail"])
 	d.Set("vector_database_status", data["vector_database_status"])
-	d.Set("is_encryption_enabled", data["is_encryption_enabled"])
+	d.Set("is_encryption_enabled", data["isEncryptionEnabled"])
 
 	return diags
 }
@@ -312,7 +323,7 @@ func resourceReadPostgress(ctx context.Context, d *schema.ResourceData, m interf
 	d.Set("snapshot_exist", data["snapshot_exist"])
 	d.Set("connectivity_detail", data["connectivity_detail"])
 	d.Set("vector_database_status", data["vector_database_status"])
-	d.Set("is_encryption_enabled", data["is_encryption_enabled"])
+	d.Set("is_encryption_enabled", data["isEncryptionEnabled"])
 
 	return diags
 

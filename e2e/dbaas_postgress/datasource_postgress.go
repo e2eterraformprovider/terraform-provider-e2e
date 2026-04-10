@@ -103,6 +103,11 @@ func DataSourcePostgresDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "Power status of the DBaaS",
 			},
+			"is_encryption_enabled": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Whether encryption is enabled for the Postgres cluster",
+			},
 		},
 		ReadContext: dataSourceReadPostgres,
 	}
@@ -157,6 +162,7 @@ func dataSourceReadPostgres(ctx context.Context, d *schema.ResourceData, m inter
 	d.Set("disk_size", master["disk"].(string))
 	d.Set("plan", plan["name"].(string))
 	d.Set("database_version", software["version"].(string))
+	d.Set("is_encryption_enabled", data["isEncryptionEnabled"]) 
 
 	if pgDetail, ok := db["pg_detail"].(map[string]interface{}); ok {
 		if paramID, exists := pgDetail["parameter_group_id"]; exists {

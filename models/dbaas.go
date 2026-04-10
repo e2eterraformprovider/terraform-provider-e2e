@@ -96,6 +96,8 @@ type MySqlCreate struct {
 	ParameterGroupId int      `json:"pg_id,omitempty"`
 	PublicIPRequired bool     `json:"public_ip_required"`
 	Group            string   `json:"group"`
+	IsEncryptionEnabled bool  `json:"isEncryptionEnabled"`
+	EncryptionPassphrase string `json:"encryption_passphrase,omitempty"`
 }
 
 type CommittedSKU struct {
@@ -117,7 +119,7 @@ type MariaDBCreateRequest struct {
 	Database             DBConfig      `json:"database"`
 	PGID                 int           `json:"pg_id"`
 	IsEncryptionEnabled  bool          `json:"isEncryptionEnabled"`
-	EncryptionPassphrase string        `json:"encryption_passphrase"`
+	EncryptionPassphrase string        `json:"encryption_passphrase,omitempty"`
 }
 
 type DBCreateRequest struct {
@@ -130,6 +132,7 @@ type DBCreateRequest struct {
 	Database            DBConfig `json:"database"`
 	PGID                *int     `json:"pg_id,omitempty"`
 	IsEncryptionEnabled bool     `json:"isEncryptionEnabled"`
+	EncryptionPassphrase string        `json:"encryption_passphrase,omitempty"`
 }
 
 type DBConfig struct {
