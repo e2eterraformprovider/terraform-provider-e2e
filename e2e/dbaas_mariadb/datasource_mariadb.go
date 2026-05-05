@@ -96,7 +96,7 @@ func DataSourceMariaDB() *schema.Resource {
 			"is_encryption_enabled": {
 				Type:        schema.TypeBool,
 				Computed:    true,
-				Description: "Whether encryption is enabled for the MariaDB cluster",
+				Description: "Whether encryption is enabled for the database",
 			},
 		},
 	}
