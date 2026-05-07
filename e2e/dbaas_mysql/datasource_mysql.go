@@ -88,6 +88,11 @@ func DataSourceMySQLDBaaS() *schema.Resource {
 				Computed:    true,
 				Description: "Power status of the DBaaS",
 			},
+			"is_encryption_enabled": {
+				Type:		schema.TypeBool,
+				Computed:	true,
+				Description: "Whether encryption is enabled for the database",
+			},
 		},
 		ReadContext: dataSourceReadMySQL,
 	}
@@ -125,6 +130,7 @@ func dataSourceReadMySQL(ctx context.Context, d *schema.ResourceData, m interfac
 	d.Set("database_version", software.Version)
 	d.Set("parameter_group_id", db.PGDetail.ID)
 	d.Set("power_status", master.Status)
+	d.Set("is_encryption_enabled", mysql.IsEncryptionEnabled)
 
 	return diags
 }

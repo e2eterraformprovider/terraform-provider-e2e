@@ -99,6 +99,13 @@ func ResourceMySql() *schema.Resource {
 				Computed:    true,
 				Description: "look what to write",
 			},
+			"encryption_passphrase": {
+				Type:		 schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Passphrase to encrypt the database",
+				Default:	 "",
+			},
 			"parameter_group_id": {
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -186,6 +193,11 @@ func CreateMySqlObject(apiClient *client.Client, d *schema.ResourceData) (*model
 		mySqlobject.Vpcs = vpcListDetail
 	} else {
 		mySqlobject.Vpcs = make([]models.VPC, 0)
+	}
+
+	if(d.Get("is_encryption_enabled").(bool)){
+		mySqlobject.IsEncryptionEnabled = true
+		mySqlobject.EncryptionPassphrase = d.Get("encryption_passphrase").(string)
 	}
 
 	return &mySqlobject, nil

@@ -88,14 +88,16 @@ type Plan struct {
 }
 
 type MySqlCreate struct {
-	Name             string   `json:"name"`
-	Database         DBConfig `json:"database"`
-	Vpcs             []VPC    `json:"vpcs"`
-	SoftwareID       int      `json:"software_id"`
-	TemplateID       int      `json:"template_id"`
-	ParameterGroupId int      `json:"pg_id,omitempty"`
-	PublicIPRequired bool     `json:"public_ip_required"`
-	Group            string   `json:"group"`
+	Name             		string   `json:"name"`
+	Database         		DBConfig `json:"database"`
+	Vpcs             		[]VPC    `json:"vpcs"`
+	SoftwareID       		int      `json:"software_id"`
+	TemplateID       		int      `json:"template_id"`
+	ParameterGroupId 		int      `json:"pg_id,omitempty"`
+	PublicIPRequired 		bool     `json:"public_ip_required"`
+	Group            		string   `json:"group"`
+	IsEncryptionEnabled 	bool	 `json:"isEncryptionEnabled"`
+	EncryptionPassphrase 	string	 `json:"encryption_passphrase,omitempty"`
 }
 
 type CommittedSKU struct {
@@ -117,19 +119,20 @@ type MariaDBCreateRequest struct {
 	Database             DBConfig      `json:"database"`
 	PGID                 int           `json:"pg_id"`
 	IsEncryptionEnabled  bool          `json:"isEncryptionEnabled"`
-	EncryptionPassphrase string        `json:"encryption_passphrase"`
+	EncryptionPassphrase string        `json:"encryption_passphrase,omitempty"`
 }
 
 type DBCreateRequest struct {
-	Name                string   `json:"name"`
-	SoftwareID          int      `json:"software_id"`
-	TemplateID          int      `json:"template_id"`
-	PublicIPRequired    bool     `json:"public_ip_required"`
-	Group               string   `json:"group"`
-	VPCs                []VPC    `json:"vpcs"`
-	Database            DBConfig `json:"database"`
-	PGID                *int     `json:"pg_id,omitempty"`
-	IsEncryptionEnabled bool     `json:"isEncryptionEnabled"`
+	Name                	string   	`json:"name"`
+	SoftwareID          	int      	`json:"software_id"`
+	TemplateID          	int      	`json:"template_id"`
+	PublicIPRequired    	bool     	`json:"public_ip_required"`
+	Group               	string   	`json:"group"`
+	VPCs                	[]VPC    	`json:"vpcs"`
+	Database            	DBConfig 	`json:"database"`
+	PGID                	*int     	`json:"pg_id,omitempty"`
+	IsEncryptionEnabled 	bool     	`json:"isEncryptionEnabled"`
+	EncryptionPassphrase 	string      `json:"encryption_passphrase,omitempty"`
 }
 
 type DBConfig struct {

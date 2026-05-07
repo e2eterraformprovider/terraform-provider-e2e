@@ -93,6 +93,11 @@ func DataSourceMariaDB() *schema.Resource {
 				Computed:    true,
 				Description: "VM status of the master node (e.g., 'Running', 'Stopped')",
 			},
+			"is_encryption_enabled": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Whether encryption is enabled for the database",
+			},
 		},
 	}
 }
@@ -132,6 +137,7 @@ func dataSourceReadMariaDB(ctx context.Context, d *schema.ResourceData, m interf
 	_ = d.Set("plan", plan.Name)
 	_ = d.Set("software_version", software.Version)
 	_ = d.Set("power_status", master.Status)
+	_ = d.Set("is_encryption_enabled", maria.IsEncryptionEnabled)
 
 	if db.PGDetail.ID != 0 {
 		_ = d.Set("parameter_group_id", db.PGDetail.ID)
