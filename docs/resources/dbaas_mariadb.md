@@ -25,27 +25,27 @@ resource "e2e_dbaas_mariadb" "example" {
   plan_name           = "DBS.16GB"
   group               = "Default"
   public_ip_enabled   = true
-  parameter_group_id  = 123             # Optional
-  is_encryption_enabled = true          # Optional
-  encryption_passphrase  = "MySecret"   # Optional
-  disk_size           = 100             # Optional
+  parameter_group_id  = 123                     # Optional, Replace with your parameter group id.
+  is_encryption_enabled = true                  # Optional, to enable encryption for the database.
+  encryption_passphrase  = "Secret@123"         # Optional, if is_encryption_enabled is true, must be at least 8 and max 12 characters and contain uppercase, lowercase, number, and special character (e.g. Secret@123).
+  disk_size           = 100                     # Optional, additional disk size (in GB) which you want to attach after node is created. 
 
   database {
-    user          = "admin"
-    password      = "SecurePassword@12345678"
-    name          = "mydb"
+    user          = "admin"                     # Replace this with the username you want to have for your DB
+    password      = "SecurePassword@12345678"   # Replace this with the password you want to have for your DB
+    name          = "mydb"                      # Replace this with the db name you want to have for your DB
     dbaas_number  = 1
   }
 
-  vpcs = [e2e_vpc.vpc1.id] # Optional ,add VPC ID(s) only if you want to attach vpc
+  vpcs = [e2e_vpc.vpc1.id]                      # Optional ,add VPC ID(s) only if you want to attach vpc
 }
 
 resource "e2e_vpc" "vpc1" {
     vpc_name            = "vpc_name"
     location            = "Delhi"
-    project_id          = "12345"            # Replace with your actual project ID
-    is_e2e_vpc          = false              # Optional, set false for custom vpc
-    ipv4                = "192.168.1.0/24"   # Optional ,replace this with ipv4 cidr block you want to add
+    project_id          = "12345"               # Replace with your actual project ID
+    is_e2e_vpc          = false                 # Optional, set false for custom vpc
+    ipv4                = "192.168.1.0/24"      # Optional, replace this with ipv4 cidr block you want to add
  }
 ```
 

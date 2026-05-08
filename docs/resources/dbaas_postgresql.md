@@ -15,15 +15,17 @@ resource "e2e_dbaas_postgresql" "db1" {
   plan         = "DBS.32GB"
   version      = "15.0"
   name         = "mydbname"
+  is_encryption_enabled = true               # Optional, to enable encryption for the database.
+  encryption_passphrase  = "Secret@123"      # Optional, if is_encryption_enabled is true, must be at least 8 and max 12 characters and contain uppercase, lowercase, number, and special character (e.g. Secret@123). 
 
   database {
-    user         = "admin"
-    password     = "SecurePasswordItis@123"
-    name         = "mydb"
+    user         = "admin"                   # Replace this with the username you want to have for your DB
+    password     = "SecurePasswordItis@123"  # Replace this with the password you want to have for your DB
+    name         = "mydb"                    # Replace this with the db name you want to have for your DB
     dbaas_number = 1
   }
 
-  vpc_list = [e2e_vpc.vpc1.id]    #Optional, add VPC ID(s) only if you want to attach vpc
+  vpc_list = [e2e_vpc.vpc1.id]               # Optional, add VPC ID(s) only if you want to attach vpc
 }
 
 resource "e2e_vpc" "vpc1" {
@@ -31,7 +33,7 @@ resource "e2e_vpc" "vpc1" {
     location            = "Delhi"
     project_id          = "12345"            # Replace with your actual project ID
     is_e2e_vpc          = false              # Optional, set false for custom vpc
-    ipv4                = "192.168.1.0/24"   # Optional ,replace this with ipv4 cidr block you want to add
+    ipv4                = "192.168.1.0/24"   # Optional, replace this with ipv4 cidr block you want to add
  }
 ```
 
@@ -58,6 +60,7 @@ resource "e2e_vpc" "vpc1" {
 - **`size`** (Number): Disk size (in GB) for upgrades. Note: Instance must be stopped for upgrade.
 - **`vpc_list`** (Set of Number): List of VPC IDs to attach. Remove an ID to detach a VPC.
 - **`is_encryption_enabled`** (Boolean): Enable encryption. Defaults to `false`. Must be added only during creation of an instance.
+- **`encryption_passphrase`** (String, Sensitive): Passphrase for encryption. Required if `is_encryption_enabled` is `true`. Must be 8–12 characters and contain uppercase, lowercase, number, and special character.
 
 ### Read-Only Attributes
 
