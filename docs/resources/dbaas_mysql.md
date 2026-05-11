@@ -16,20 +16,22 @@ This resource allows you to manage MySQL DBaaS on your e2e clusters. When applie
 ```hcl
 resource "e2e_dbaas_mysql" "db1" {
   location            = "Delhi"
-  project_id          = 12345   # Replace with your actual project ID
+  project_id          = 12345                # Replace with your actual project ID
   plan                = "DBS.16GB"
   version             = "8.0"
   dbaas_name          = "mydbname"
-  parameter_group_id  = 123     # Optional, Replace with your parameter group id.
-  size                = 250     # Optional, additional disk size (in GB) which you want to attach after node is created. 
+  parameter_group_id  = 123                  # Optional, Replace with your parameter group id.
+  size                = 250                  # Optional, additional disk size (in GB) which you want to attach after node is created. 
+  is_encryption_enabled = true               # Optional, to enable encryption for the database.
+  encryption_passphrase  = "Secret@123"      # Optional, if is_encryption_enabled is true, must be at least 8 and max 12 characters and contain uppercase, lowercase, number, and special character (e.g. Secret@123). 
 
   database {
-    user     = "admin"                     # Replace this with the username you want to have for your DB
-    password = "SecurePassword@12345678"   # Replace this with the password you want to have for your DB
-    name     = "mydb"
+    user     = "admin"                       # Replace this with the username you want to have for your DB
+    password = "SecurePassword@12345678"     # Replace this with the password you want to have for your DB
+    name     = "mydb"                        # Replace this with the db name you want to have for your DB
   }
 
-  vpcs = [e2e_vpc.vpc1.id]  # Optional, add VPC ID(s) only if you want to attach vpc
+  vpcs = [e2e_vpc.vpc1.id]                   # Optional, add VPC ID(s) only if you want to attach vpc
 }
 
 resource "e2e_vpc" "vpc1" {
@@ -37,7 +39,7 @@ resource "e2e_vpc" "vpc1" {
     location            = "Delhi"
     project_id          = "12345"            # Replace with your actual project ID
     is_e2e_vpc          = false              # Optional, set false for custom vpc
-    ipv4                = "192.168.1.0/24"   # Optional ,replace this with ipv4 cidr block you want to add
+    ipv4                = "192.168.1.0/24"   # Optional, replace this with ipv4 cidr block you want to add
  }
 ```
 
@@ -51,14 +53,14 @@ resource "e2e_vpc" "vpc1" {
 - `version` (String) Version of MySQL to be deployed (e.g., `8.0`).
 - `dbaas_name` (String) Name of the DBaaS instance.
 - `database` (Block) Contains DB user credentials and DB name (see [below for nested schema](#nestedblock--database)).
-- `vpcs` (List of Number) List of VPC IDs to be attached to the DBaaS. To find VPC IDs, refer to our [`API Documentation`](https://docs.e2enetworks.com/api/myaccount/#/paths/vpc-list/get)
 
 ### Optional
-
 - `parameter_group_id` (Number) Parameter Group ID (optional). To find available PG IDs, refer to our [`API Documentation`](https://docs.e2enetworks.com/api/myaccount/#/paths/rds-parameter-group-templates/get)
 - `size` (Number) Size of the additionally attached disk in GB, this field will be used when you want to use expand_disk option. (Please ensure that your dbaas instance is in `STOPPED` state before expanding disk).
+- `vpcs` (List of Number) List of VPC IDs to be attached to the DBaaS. To find VPC IDs, refer to our [`API Documentation`](https://docs.e2enetworks.com/api/myaccount/#/paths/vpc-list/get)
 - `public_ip_required` (Boolean) Whether to attach a public IP to the DBaaS instance. (By default it is passed as TRUE, further if you want to remove it please make this option as FALSE and make sure that you have a vpc attached with your dbaas instance before detaching public ip)
 - `is_encryption_enabled` (Boolean) Whether encryption is enabled for the DBaaS.
+- `encryption_passphrase` (String, Sensitive) Passphrase for encryption. Required if `is_encryption_enabled` is `true`. Must be 8–12 characters and contain uppercase, lowercase, number, and special character.
 - `status` (String) Set `start` (to resume your instance), `stop` (to stop your instance), or `restart` (to restart your instance) to control DBaaS state.
 
 ### Read-Only
