@@ -315,6 +315,46 @@ func (c *Client) UpgradeNodePlan(nodeId string, plan string, image string, proje
 	return response, err
 }
 
+func (c *Client) ResizeNodeDisk(nodeId string, disk int, project_id string, location string) (interface{}, error) {
+	diskAction := models.NodeDiskResizeAction{
+		Disk_size: disk,
+	}
+	body, err := json.Marshal(diskAction)
+	if err != nil {
+		return nil, err
+	}
+	url := c.Api_endpoint + "nodes/" + nodeId + "/root-storage-upgrade/"
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	req.URL.RawQuery = params.Encode()
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	var jsonRes map[string]interface{}
+	json.Unmarshal(resBody, &jsonRes)
+	return jsonRes, nil
+}
+
 func (c *Client) DeleteNode(nodeId string, project_id string, location string) error {
 
 	urlNode := c.Api_endpoint + "nodes/" + nodeId + "/"
@@ -556,6 +596,48 @@ func (c *Client) DeleteVpc(vpcId string, project_id string, location string) (ma
 	}
 	return jsonRes, nil
 }
+func (c *Client) PublicIPAction(publicIP string, action string, vmID int, project_id string, location string) (map[string]interface{}, error) {
+	payload := models.PublicIPAction{
+		PublicIP: publicIP,
+		Type:     action,
+		VmID:     vmID,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	url := c.Api_endpoint + "reserve_ips/public_reserveip_actions/"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	params := req.URL.Query()
+	params.Add("apikey", c.Api_key)
+	params.Add("project_id", project_id)
+	params.Add("location", location)
+	req.Header.Add("Authorization", "Bearer "+c.Auth_token)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "terraform-e2e")
+	req.URL.RawQuery = params.Encode()
+	response, err := c.HttpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		respBody := new(bytes.Buffer)
+		_, err := respBody.ReadFrom(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("got a non 200 status code: %v", response.StatusCode)
+		}
+		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
+	}
+	defer response.Body.Close()
+	resBody, _ := ioutil.ReadAll(response.Body)
+	var jsonRes map[string]interface{}
+	json.Unmarshal(resBody, &jsonRes)
+	return jsonRes, nil
+}
+
 func (c *Client) NewReservedIp(project_id string, location string) (map[string]interface{}, error) {
 
 	UrlReservedIp := c.Api_endpoint + "reserve_ips/"

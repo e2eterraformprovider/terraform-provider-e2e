@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -98,9 +99,11 @@ func ResourceNode() *schema.Resource {
 				Description: "The script to be run on the node first created",
 			},
 			"reserve_ip": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "Attach reserve ip as per requirement",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "",
+				Description:  "Attach reserve ip as per requirement",
+				ValidateFunc: validateIPAddress,
 			},
 			"vpc_id": {
 				Type:        schema.TypeString,
@@ -154,8 +157,9 @@ func ResourceNode() *schema.Resource {
 			},
 			"disk": {
 				Type:        schema.TypeString,
-				Computed:    true,
 				Description: "Disc info of the node",
+				Optional:    true,
+				Computed:    true,
 			},
 			"price": {
 				Type:        schema.TypeString,
@@ -231,6 +235,19 @@ func ResourceNode() *schema.Resource {
 					ValidateFunc: validation.All(ValidateBlank, ValidateInteger),
 				},
 			},
+			"is_encryption_enabled":{
+				Type:			schema.TypeBool,
+				Optional:   	true,
+				Description: 	"Encryption for the node",
+				Default: 		false,
+			},
+			"encryption_passphrase":{
+				Type:			schema.TypeString,
+				Sensitive:		true,
+				Optional: 		true,
+				Description: 	"Encryption passphrase provided by the user",
+				Default:		"",
+			},
 		},
 
 		CreateContext: resourceCreateNode,
@@ -242,6 +259,36 @@ func ResourceNode() *schema.Resource {
 			State: CustomImportStateFunc,
 		},
 	}
+}
+
+func validateIPAddress(v interface{}, k string) (ws []string, es []error) {
+	value := v.(string)
+	if value == "" {
+		return
+	}
+	if net.ParseIP(value) == nil {
+		es = append(es, fmt.Errorf("%q is not a valid IP address", value))
+	}
+	return
+}
+
+func validateDiskSize(diskSize int) error {
+	if diskSize < 75 {
+		return fmt.Errorf("disk size must be at least 75 GB")
+	}
+	if diskSize >= 2400 {
+		return fmt.Errorf("disk size must be less than 2400 GB")
+	}
+	if diskSize > 150 {
+		if diskSize%50 != 0 {
+			return fmt.Errorf("disk size greater than 150 GB must be a multiple of 50")
+		}
+	} else {
+		if diskSize%25 != 0 {
+			return fmt.Errorf("disk size must be a multiple of 25")
+		}
+	}
+	return nil
 }
 
 func ValidateName(v interface{}, k string) (ws []string, es []error) {
@@ -321,6 +368,21 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		}
 	}
 
+	disk_size := d.Get("disk").(string)
+	_, diskProvided := d.GetOk("disk")
+	plan := d.Get("plan").(string)
+
+	if plan[0:2] != "E1" && diskProvided {
+		return diag.Errorf("Disk size can be provided only for E1 Series of nodes")
+	}
+
+	diskInt, _ := strconv.Atoi(disk_size)
+	if diskProvided {
+		if err := validateDiskSize(diskInt); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	node := models.NodeCreate{
 		Name:                    d.Get("name").(string),
 		Label:                   d.Get("label").(string),
@@ -339,6 +401,9 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 		SSH_keys:                d.Get("ssh_keys").([]interface{}),
 		Start_scripts:           GetStartScripts(d.Get("start_script").(string)),
 		Image_id:                image_id,
+		Disk:                    diskInt,
+		IsEncryptionEnabled:	 d.Get("is_encryption_enabled").(bool),
+		EncryptionPassphrase: 	 d.Get("encryption_passphrase").(string),
 	}
 
 	if node.Vpc_id != "" {
@@ -375,9 +440,12 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
-	d.Set("disk", data["disk"].(string))
+	d.Set("disk", strings.Fields(data["disk"].(string))[0])
 	d.Set("price", data["price"].(string))
 	d.Set("vm_id", int(data["vm_id"].(float64)))
+	if encEnabled, ok := data["isEncryptionEnabled"].(bool); ok {
+		d.Set("is_encryption_enabled", encEnabled)
+	}
 	return diags
 }
 
@@ -386,6 +454,7 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	apiClient := m.(*client.Client)
 	var diags diag.Diagnostics
 	copy_ssh_keys := d.Get("ssh_keys")
+	copy_plan := d.Get("plan")
 	log.Printf("[info] inside node Resource read")
 	nodeId := d.Id()
 	project_id := d.Get("project_id").(string)
@@ -404,11 +473,11 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	log.Printf("[info] node Resource read | data = %+v", data)
 	d.Set("name", data["name"].(string))
 	d.Set("label", data["label"].(string))
-	d.Set("plan", data["plan"].(string))
+	d.Set("plan", copy_plan)
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
-	d.Set("disk", data["disk"].(string))
+	d.Set("disk", strings.Fields(data["disk"].(string))[0])
 	d.Set("price", data["price"].(string))
 	d.Set("lock_node", data["is_locked"].(bool))
 	d.Set("public_ip_address", data["public_ip_address"].(string))
@@ -416,6 +485,9 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
 	d.Set("ssh_keys", copy_ssh_keys)
 	d.Set("vm_id", int(data["vm_id"].(float64)))
+	if encEnabled, ok := data["isEncryptionEnabled"].(bool); ok {
+		d.Set("is_encryption_enabled", encEnabled)
+	}
 
 	log.Printf("[info] node Resource read | after setting data")
 	if d.Get("status").(string) == "Running" || d.Get("status").(string) == "Creating" {
@@ -454,9 +526,51 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 	}
 
 	if d.HasChange("start_script") {
-		start_script, _ := d.GetChange("start_script")
-		d.Set("location", start_script)
 		return diag.Errorf("start_script cannot be updated once you create the node.")
+	}
+
+	if d.HasChange("disk") {
+		oldDisk, newDisk := d.GetChange("disk")
+		if d.Get("plan").(string)[0:2] != "E1" {
+			d.Set("disk", oldDisk)
+			return diag.Errorf("Disk size can be updated only for E1 Series of nodes")
+		}
+		newDiskInt, _ := strconv.Atoi(newDisk.(string))
+		if err := validateDiskSize(newDiskInt); err != nil {
+			d.Set("disk", oldDisk)
+			return diag.FromErr(err)
+		}
+		_, err := apiClient.ResizeNodeDisk(nodeId, newDiskInt, project_id, location)
+		if err != nil {
+			d.Set("disk", oldDisk)
+			return diag.FromErr(err)
+		}
+	}
+
+	if d.HasChange("is_encryption_enabled") || d.HasChange("encryption_passphrase") {
+		return diag.Errorf("is_encryption_enabled and encryption_passphrase cannot be updated after node creation.")
+	}
+
+	if d.HasChange("reserve_ip") {
+		oldIP, newIP := d.GetChange("reserve_ip")
+		vmID := d.Get("vm_id").(int)
+		if oldIP.(string) != "" && newIP.(string) != "" {
+			d.Set("reserve_ip", oldIP)
+			return diag.Errorf("cannot attach a new reserve_ip while one is already attached. Remove the existing IP first.")
+		}
+		if newIP.(string) != "" {
+			_, err := apiClient.PublicIPAction(newIP.(string), "attach", vmID, project_id, location)
+			if err != nil {
+				d.Set("reserve_ip", oldIP)
+				return diag.FromErr(err)
+			}
+		} else {
+			_, err := apiClient.PublicIPAction(oldIP.(string), "detach", vmID, project_id, location)
+			if err != nil {
+				d.Set("reserve_ip", oldIP)
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	if d.HasChange("name") {
@@ -994,6 +1108,9 @@ func rollbackChanges(d *schema.ResourceData) {
 	prevPowerStatus, _ := d.GetChange("power_status")
 	prevRebootNode, _ := d.GetChange("reboot_node")
 	prevReinstallNode, _ := d.GetChange("reinstall_node")
+	prevDisk, _ := d.GetChange("disk")
+	prevIsEncryptionEnabled, _ := d.GetChange("is_encryption_enabled")
+	prevEncryptionPassphrase, _ := d.GetChange("encryption_passphrase")
 
 	d.Set("image", prevImage)
 	d.Set("name", prevName)
@@ -1019,4 +1136,7 @@ func rollbackChanges(d *schema.ResourceData) {
 	d.Set("power_status", prevPowerStatus)
 	d.Set("reboot_node", prevRebootNode)
 	d.Set("reinstall_node", prevReinstallNode)
+	d.Set("disk", prevDisk)
+	d.Set("is_encryption_enabled", prevIsEncryptionEnabled)
+	d.Set("encryption_passphrase", prevEncryptionPassphrase)
 }

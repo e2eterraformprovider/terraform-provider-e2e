@@ -97,6 +97,11 @@ func DataSourceNode() *schema.Resource {
 				ForceNew:    true,
 				Description: "The ID of the project associated with the node",
 			},
+			"is_encryption_enabled":{
+				Type: 		 schema.TypeBool,
+				Computed: 	 true,
+				Description: "Encryption is enabled or not",
+			},
 		},
 
 		ReadContext: dataSourceReadNode,
@@ -130,6 +135,9 @@ func dataSourceReadNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("public_ip_address", data["public_ip_address"].(string))
 	d.Set("private_ip_address", data["private_ip_address"].(string))
 	d.Set("is_bitninja_license_active", data["is_bitninja_license_active"].(bool))
+	if encEnabled, ok := data["isEncryptionEnabled"].(bool); ok {
+		d.Set("is_encryption_enabled", encEnabled)
+	}
 	log.Printf("[INFO] NODE DATA SOURCE | d : %+v", *d)
 
 	return diags
