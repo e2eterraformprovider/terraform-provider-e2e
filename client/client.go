@@ -340,6 +340,7 @@ func (c *Client) ResizeNodeDisk(nodeId string, disk int, project_id string, loca
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
 		_, err := respBody.ReadFrom(response.Body)
@@ -348,7 +349,6 @@ func (c *Client) ResizeNodeDisk(nodeId string, disk int, project_id string, loca
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	var jsonRes map[string]interface{}
 	json.Unmarshal(resBody, &jsonRes)
@@ -623,6 +623,7 @@ func (c *Client) PublicIPAction(publicIP string, action string, vmID int, projec
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		respBody := new(bytes.Buffer)
 		_, err := respBody.ReadFrom(response.Body)
@@ -631,7 +632,6 @@ func (c *Client) PublicIPAction(publicIP string, action string, vmID int, projec
 		}
 		return nil, fmt.Errorf("got a non 200 status code: %v - %s", response.StatusCode, respBody.String())
 	}
-	defer response.Body.Close()
 	resBody, _ := ioutil.ReadAll(response.Body)
 	var jsonRes map[string]interface{}
 	json.Unmarshal(resBody, &jsonRes)

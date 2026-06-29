@@ -372,7 +372,7 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	_, diskProvided := d.GetOk("disk")
 	plan := d.Get("plan").(string)
 
-	if plan[0:2] != "E1" && diskProvided {
+	if !strings.HasPrefix(plan, "E1") && diskProvided {
 		return diag.Errorf("Disk size can be provided only for E1 Series of nodes")
 	}
 
@@ -440,7 +440,11 @@ func resourceCreateNode(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
-	d.Set("disk", strings.Fields(data["disk"].(string))[0])
+	if diskVal, ok := data["disk"].(string); ok {
+		if fields := strings.Fields(diskVal); len(fields) > 0 {
+			d.Set("disk", fields[0])
+		}
+	}
 	d.Set("price", data["price"].(string))
 	d.Set("vm_id", int(data["vm_id"].(float64)))
 	if encEnabled, ok := data["isEncryptionEnabled"].(bool); ok {
@@ -477,7 +481,11 @@ func resourceReadNode(ctx context.Context, d *schema.ResourceData, m interface{}
 	d.Set("created_at", data["created_at"].(string))
 	d.Set("memory", data["memory"].(string))
 	d.Set("status", data["status"].(string))
-	d.Set("disk", strings.Fields(data["disk"].(string))[0])
+	if diskVal, ok := data["disk"].(string); ok {
+		if fields := strings.Fields(diskVal); len(fields) > 0 {
+			d.Set("disk", fields[0])
+		}
+	}
 	d.Set("price", data["price"].(string))
 	d.Set("lock_node", data["is_locked"].(bool))
 	d.Set("public_ip_address", data["public_ip_address"].(string))
@@ -531,7 +539,7 @@ func resourceUpdateNode(ctx context.Context, d *schema.ResourceData, m interface
 
 	if d.HasChange("disk") {
 		oldDisk, newDisk := d.GetChange("disk")
-		if d.Get("plan").(string)[0:2] != "E1" {
+		if !strings.HasPrefix(d.Get("plan").(string), "E1") {
 			d.Set("disk", oldDisk)
 			return diag.Errorf("Disk size can be updated only for E1 Series of nodes")
 		}
