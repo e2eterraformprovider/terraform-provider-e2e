@@ -37,12 +37,14 @@ This resource allows you to manage nodes on your e2e clusters. When applied, a n
 - `label` : (Optional)(String) The name of the group . Default value is "default"
 - `backup` : (Optional)(Boolean) Tells you the state of your backups
 - `default_public_ip` : (Optional) (Boolean) Tells us the state of default public ip
-- `default_public_ip` : (Optional) (Boolean) Tells us the state of default public ip
 - `disable_password` :(Optional) (Boolean) can disable password as per requirement
 - `enable_bitninja` : (Optional) (Boolean) enable bitnija as per requirement
 - `is_ipv6_availed` : (Optional)(Boolean)
 - `is_saved_image` : (Optional) (Boolean)  Creating node from a saved image when set true.
-- `reserve_ip` : (Optional) (String) Reserve ip as per  requirement
+- `reserve_ip` : (Optional) (String) Attach a reserved IP to the node. Must be a valid IP address. Can be attached or detached after node creation. To detach, set to empty string `""` or remove the field.
+- `disk` : (Optional) (String) Root disk size in GB (e.g. `"100"`). **Only applicable for E1 Series nodes.** Must be at least 75 GB and less than 2400 GB. Values up to 150 GB must be multiples of 25; values above 150 GB must be multiples of 50. Cannot be decreased after creation.
+- `is_encryption_enabled` : (Optional) (Boolean) Enable encryption for the node. Default is `false`. **Cannot be changed after node creation.**
+- `encryption_passphrase` : (Optional) (String, Sensitive) Passphrase for node encryption. Used only when `is_encryption_enabled` is `true`. **Cannot be changed after node creation.**
 - `saved_image_template_id` :  (Optional) (Number) template id  is required when you save the node from saved images.Give the template id of the saved image. Required when is_saved_image field is true
 - `ssh_keys` : (Optional) (List of String) Specify the label of ssh keys as required. Checkout ssh_keys datasource for listing ssh keys
 - `vpc_id` : (Optional) (String) Vpc id as per requirement. Checkout vpcs_datasource for listing vpcs. To find the vpc id, please refer to our [`API Documentation`](https://docs.e2enetworks.com/api/myaccount/#/paths/vpc-list/get)

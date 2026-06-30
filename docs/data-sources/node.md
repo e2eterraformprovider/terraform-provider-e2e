@@ -18,6 +18,8 @@ description: |-
 ### Argument Reference
 
 - `node_id` (String) The id of the node is required to read that node.
+- `location` (String) Location of the node (e.g. `"Delhi"`, `"Chennai"`).
+- `project_id` (String) The ID of the project associated with the node.
 
 ### Attribute Reference (Read Only)
 
@@ -31,6 +33,7 @@ description: |-
 - `is_active` (Boolean)
 - `is_bitninja_license_active` (Boolean) Can check if the bitninja license is active or not
 - `is_monitored` (Boolean)
+- `is_encryption_enabled` (Boolean) Whether encryption is enabled on the node.
 - `memory` (String) memory of the node
 - `price` (String) price details of the node
 - `private_ip_address` (String) Private ip address alloted to node if any

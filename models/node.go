@@ -20,7 +20,11 @@ type NodeCreate struct {
 	SSH_keys                []interface{} `json:"ssh_keys"`
 	Start_scripts           []interface{} `json:"start_scripts"`
 	Image_id                int           `json:"image_id"`
+	Disk                    int           `json:"disk,omitempty"`
+	IsEncryptionEnabled		bool		  `json:"isEncryptionEnabled"`
+	EncryptionPassphrase	string		  `json:"encryption_passphrase,omitempty"`
 }
+
 type NodeAction struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
@@ -34,6 +38,16 @@ type NodeActionSSH struct {
 type NodePlanUpgradeAction struct {
 	Plan  string `json:"plan"`
 	Image string `json:"image"`
+}
+
+type NodeDiskResizeAction struct {
+	Disk_size int `json:"disk_size"`
+}
+
+type PublicIPAction struct {
+	PublicIP string `json:"public_ip"`
+	Type     string `json:"type"`
+	VmID     int    `json:"vm_id"`
 }
 
 type ResponseNodes struct {
