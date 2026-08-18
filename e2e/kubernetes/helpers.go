@@ -3,9 +3,11 @@ package kubernetes
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/e2eterraformprovider/terraform-provider-e2e/client"
 	"github.com/e2eterraformprovider/terraform-provider-e2e/models"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func ExpandNodePools(config []interface{}, apiClient *client.Client, project_id int, location string) ([]models.NodePool, error) {
@@ -508,4 +510,250 @@ func UpdateScheduledWorker(config map[string]interface{}, min_vms int, max_vms i
 	}
 
 	return scheduledPolicies, nil
+}
+
+// readNodePoolsIntoState refreshes the node_pools attribute from the API so that
+// changes made outside terraform are visible as drift. Without this the attribute
+// only ever holds the values the user configured, and drift can never be detected.
+func readNodePoolsIntoState(d *schema.ResourceData, apiClient *client.Client, clusterID string, location string) error {
+	projectID := d.Get("project_id").(int)
+
+	nodePoolResp, err := apiClient.GetKubernetesNodePools(clusterID, projectID, location)
+	if err != nil {
+		return fmt.Errorf("error reading node pools for cluster %s: %s", clusterID, err.Error())
+	}
+	apiPools, ok := nodePoolResp["data"].([]interface{})
+	if !ok {
+		// Nothing usable came back. Leave the existing value alone rather than
+		// blanking it out on an unexpected response shape.
+		log.Printf("[WARN] KUBERNETES READ | node pool response had no 'data' list, leaving node_pools untouched")
+		return nil
+	}
+
+	existing, _ := d.Get("node_pools").([]interface{})
+
+	// A cluster always keeps at least one node pool, and this endpoint answers with
+	// an empty list for a cluster it cannot find. Treat empty as a failed lookup
+	// rather than as "every pool was removed", otherwise a transient blank response
+	// would produce a plan that proposes recreating every pool.
+	if len(apiPools) == 0 && len(existing) > 0 {
+		log.Printf("[WARN] KUBERNETES READ | node pool list came back empty for cluster %s, leaving node_pools untouched", clusterID)
+		return nil
+	}
+
+	// slug_name and sku_id are not part of the node pool response, they have to be
+	// recovered from the worker plans list using the plan name as the key.
+	slugBySku, idBySku := buildWorkerPlanLookup(apiClient, projectID, location)
+
+	return d.Set("node_pools", flattenNodePools(existing, apiPools, slugBySku, idBySku))
+}
+
+// buildWorkerPlanLookup maps sku_name to its slug and sku id. A failure here is not
+// fatal: the caller falls back to whatever is already in state for those fields.
+func buildWorkerPlanLookup(apiClient *client.Client, projectID int, location string) (map[string]string, map[string]string) {
+	slugBySku := make(map[string]string)
+	idBySku := make(map[string]string)
+
+	workerPlans, err := apiClient.GetKubernetesWorkerPlans(projectID, location)
+	if err != nil {
+		log.Printf("[WARN] KUBERNETES READ | could not fetch worker plans for slug/sku lookup: %s", err.Error())
+		return slugBySku, idBySku
+	}
+	plans, ok := workerPlans["data"].([]interface{})
+	if !ok {
+		return slugBySku, idBySku
+	}
+	for _, plan := range plans {
+		planData, ok := plan.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		specs, ok := planData["specs"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		skuName, _ := specs["sku_name"].(string)
+		if skuName == "" {
+			continue
+		}
+		if slug, ok := planData["plan"].(string); ok {
+			slugBySku[skuName] = slug
+		}
+		if id, ok := specs["id"].(string); ok {
+			idBySku[skuName] = id
+		}
+	}
+	return slugBySku, idBySku
+}
+
+// flattenNodePools converts the node pool API response into the shape node_pools
+// expects. The ordering already present in state is preserved: node_pools is a
+// positional list and the API does not return pools in configuration order, so
+// writing them back in API order would show a phantom diff on every plan.
+func flattenNodePools(existing []interface{}, apiPools []interface{}, slugBySku map[string]string, idBySku map[string]string) []interface{} {
+	byName := make(map[string]map[string]interface{})
+	for _, p := range apiPools {
+		pool, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, ok := pool["service_name"].(string); ok && name != "" {
+			byName[name] = pool
+		}
+	}
+
+	flattened := make([]interface{}, 0, len(byName))
+	seen := make(map[string]bool)
+
+	// Keep the pools already tracked in state in their existing positions.
+	for _, e := range existing {
+		prev, ok := e.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := prev["name"].(string)
+		pool, found := byName[name]
+		if !found {
+			// Deleted outside terraform. Dropping it here is what surfaces the drift.
+			log.Printf("[INFO] KUBERNETES READ | node pool %q is in state but not on the cluster", name)
+			continue
+		}
+		seen[name] = true
+		flattened = append(flattened, flattenNodePool(pool, prev, slugBySku, idBySku))
+	}
+
+	// Anything on the cluster that state does not know about goes on the end, in a
+	// stable order so repeated reads do not reshuffle the list.
+	var unseen []string
+	for name := range byName {
+		if !seen[name] {
+			unseen = append(unseen, name)
+		}
+	}
+	sort.Strings(unseen)
+	for _, name := range unseen {
+		log.Printf("[INFO] KUBERNETES READ | node pool %q exists on the cluster but not in state", name)
+		flattened = append(flattened, flattenNodePool(byName[name], nil, slugBySku, idBySku))
+	}
+
+	return flattened
+}
+
+// flattenNodePool maps a single node pool from the API onto the schema fields.
+// prev is the matching entry already in state, or nil for a newly discovered pool.
+// Fields the API does not report are carried over from prev rather than zeroed.
+func flattenNodePool(pool map[string]interface{}, prev map[string]interface{}, slugBySku map[string]string, idBySku map[string]string) map[string]interface{} {
+	nodePool := make(map[string]interface{})
+
+	name, _ := pool["service_name"].(string)
+	nodePool["name"] = name
+
+	specsName, _ := pool["plan_name"].(string)
+	nodePool["specs_name"] = specsName
+	nodePool["slug_name"] = lookupOrCarry(slugBySku, specsName, prev, "slug_name")
+	nodePool["sku_id"] = lookupOrCarry(idBySku, specsName, prev, "sku_id")
+
+	if serviceID, ok := pool["service_id"].(float64); ok {
+		nodePool["service_id"] = fmt.Sprintf("%.0f", serviceID)
+	} else {
+		nodePool["service_id"] = carryString(prev, "service_id")
+	}
+
+	autoScale, _ := pool["auto_scale_enabled"].(bool)
+	if autoScale {
+		nodePool["node_pool_type"] = "Autoscale"
+	} else {
+		nodePool["node_pool_type"] = "Static"
+	}
+
+	cardinality, minVms, maxVms := workerRoleCounts(pool)
+	if cardinality == 0 {
+		if count, ok := pool["no_of_nodes"].(float64); ok {
+			cardinality = int(count)
+		}
+	}
+	nodePool["cardinality"] = cardinality
+	nodePool["min_vms"] = minVms
+	nodePool["max_vms"] = maxVms
+
+	// worker_node only describes Static pools. For Autoscale the live count lives in
+	// cardinality, so keep whatever the configuration had to avoid a phantom diff.
+	if autoScale {
+		nodePool["worker_node"] = carryInt(prev, "worker_node")
+	} else {
+		nodePool["worker_node"] = cardinality
+	}
+
+	// Not reported by the node pool API, so preserve what is already known.
+	nodePool["node_pool_size"] = carryInt(prev, "node_pool_size")
+	nodePool["policy_type"] = carryString(prev, "policy_type")
+	nodePool["custom_param_name"] = carryString(prev, "custom_param_name")
+	nodePool["custom_param_value"] = carryString(prev, "custom_param_value")
+	nodePool["elasticity_dict"] = carryList(prev, "elasticity_dict")
+	nodePool["scheduled_dict"] = carryList(prev, "scheduled_dict")
+
+	return nodePool
+}
+
+// workerRoleCounts pulls the live cardinality and autoscale bounds off the worker role.
+func workerRoleCounts(pool map[string]interface{}) (int, int, int) {
+	roles, ok := pool["roles"].([]interface{})
+	if !ok {
+		return 0, 0, 0
+	}
+	for _, r := range roles {
+		role, ok := r.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if roleName, _ := role["role_name"].(string); roleName != "worker" {
+			continue
+		}
+		cardinality, minVms, maxVms := 0, 0, 0
+		if v, ok := role["cardinality"].(float64); ok {
+			cardinality = int(v)
+		}
+		if v, ok := role["min_vms"].(float64); ok {
+			minVms = int(v)
+		}
+		if v, ok := role["max_vms"].(float64); ok {
+			maxVms = int(v)
+		}
+		return cardinality, minVms, maxVms
+	}
+	return 0, 0, 0
+}
+
+func lookupOrCarry(lookup map[string]string, key string, prev map[string]interface{}, field string) string {
+	if value, ok := lookup[key]; ok && value != "" {
+		return value
+	}
+	return carryString(prev, field)
+}
+
+func carryString(prev map[string]interface{}, field string) string {
+	if prev == nil {
+		return ""
+	}
+	value, _ := prev[field].(string)
+	return value
+}
+
+func carryInt(prev map[string]interface{}, field string) int {
+	if prev == nil {
+		return 0
+	}
+	value, _ := prev[field].(int)
+	return value
+}
+
+func carryList(prev map[string]interface{}, field string) []interface{} {
+	if prev == nil {
+		return []interface{}{}
+	}
+	value, ok := prev[field].([]interface{})
+	if !ok {
+		return []interface{}{}
+	}
+	return value
 }

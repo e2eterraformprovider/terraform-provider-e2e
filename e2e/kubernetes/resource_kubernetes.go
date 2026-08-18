@@ -470,6 +470,12 @@ func resourceReadKubernetesService(ctx context.Context, d *schema.ResourceData, 
 	d.Set("version", data["version"].(string))
 	d.Set("created_at", data["created_at"].(string))
 
+	// Refresh node_pools from the API so drift is detectable. This must stay above
+	// the master VM lookup below, which returns early when no master is found.
+	if err := readNodePoolsIntoState(d, apiClient, kubernetesId, location); err != nil {
+		return diag.FromErr(err)
+	}
+
 	// Fetch and set security_group_ids from master node
 	masterVMID := getMasterNodeVMID(data)
 	if masterVMID == "" {
