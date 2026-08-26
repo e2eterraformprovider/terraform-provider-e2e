@@ -649,6 +649,9 @@ func flattenNodePool(pool map[string]interface{}, prev map[string]interface{}, s
 	nodePool["name"] = name
 
 	specsName, _ := pool["plan_name"].(string)
+	if specsName == "" {
+		specsName = carryString(prev, "specs_name")
+	}
 	nodePool["specs_name"] = specsName
 	nodePool["slug_name"] = lookupOrCarry(slugBySku, specsName, prev, "slug_name")
 	nodePool["sku_id"] = lookupOrCarry(idBySku, specsName, prev, "sku_id")
@@ -659,7 +662,12 @@ func flattenNodePool(pool map[string]interface{}, prev map[string]interface{}, s
 		nodePool["service_id"] = carryString(prev, "service_id")
 	}
 
-	autoScale, _ := pool["auto_scale_enabled"].(bool)
+	autoScale, reported := pool["auto_scale_enabled"].(bool)
+	if !reported {
+		// Not in the response. Trust what state already recorded rather than
+		// silently reclassifying an Autoscale pool as Static.
+		autoScale = carryString(prev, "node_pool_type") == "Autoscale"
+	}
 	if autoScale {
 		nodePool["node_pool_type"] = "Autoscale"
 	} else {
@@ -672,13 +680,27 @@ func flattenNodePool(pool map[string]interface{}, prev map[string]interface{}, s
 			cardinality = int(count)
 		}
 	}
+	// A zero means the response did not carry the value, not that the pool really has
+	// no machines or no bounds: a pool cannot go below two. Static pools in particular
+	// always report min_vms and max_vms as null, so writing the zero straight through
+	// would fight any value the configuration had set.
+	if cardinality == 0 {
+		cardinality = carryInt(prev, "cardinality")
+	}
+	if minVms == 0 {
+		minVms = carryInt(prev, "min_vms")
+	}
+	if maxVms == 0 {
+		maxVms = carryInt(prev, "max_vms")
+	}
 	nodePool["cardinality"] = cardinality
 	nodePool["min_vms"] = minVms
 	nodePool["max_vms"] = maxVms
 
 	// worker_node only describes Static pools. For Autoscale the live count lives in
-	// cardinality, so keep whatever the configuration had to avoid a phantom diff.
-	if autoScale {
+	// cardinality, so keep whatever the configuration had to avoid a phantom diff. A
+	// Static pool with no reported count keeps its previous value for the same reason.
+	if autoScale || cardinality == 0 {
 		nodePool["worker_node"] = carryInt(prev, "worker_node")
 	} else {
 		nodePool["worker_node"] = cardinality
