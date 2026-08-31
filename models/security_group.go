@@ -7,24 +7,32 @@ type SecurityGroupsResponse struct {
 	Message string          `json:"message"`
 }
 type SecurityGroup struct {
-	Id          float64 `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Is_default  bool    `json:"is_default"`
-	Rules       []Rule  `json:"rules"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Is_default  bool   `json:"is_default"`
+	Rules       []Rule `json:"rules"`
+}
+
+type SecurityGroupCreateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Rules       []Rule `json:"rules"`
+	Default     bool   `json:"default"`
+}
+type SecurityGroupUpdateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Rules       []Rule `json:"rules"`
 }
 
 type Rule struct {
-	Id             float64 `json:"id"`
-	Deleted        bool    `json:"deleted"`
-	Created_at     string  `json:"created_at"`
-	Updated_at     string  `json:"updated_at"`
-	Rule_type      string  `json:"rule_type"`
-	Protocol_name  string  `json:"protocol_name"`
-	Port_range     string  `json:"port_range"`
-	Network        string  `json:"network"`
-	Is_active      bool    `json:"is_active"`
-	Network_cidr   string  `json:"network_cidr"`
-	Network_size   float64 `json:"network_size"`
-	Security_group float64 `json:"security_group"`
+	Id            *int   `json:"id,omitempty"`
+	Rule_type     string `json:"rule_type"`
+	Protocol_name string `json:"protocol_name"`
+	Port_range    string `json:"port_range"`
+	Network       string `json:"network"`
+	Network_cidr  string `json:"network_cidr,omitempty"`
+	Network_size  *int   `json:"network_size,omitempty"`
+	Description   string `json:"description"`
 }

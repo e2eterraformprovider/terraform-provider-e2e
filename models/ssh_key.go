@@ -10,5 +10,11 @@ type SshKey struct {
 	Label     string `json:"label"`
 	Ssh_key   string `json:"ssh_key"`
 	Pk        int    `json:"pk"`
-	Timestamp string `json:"timestamp"`
+	Timestamp string `json:"timestamp"`  
+}
+
+type AddSshKey struct {
+	Label  string `json:"label"`
+	SshKey string `json:"ssh_key"`
+	Location string `json:"location"`
 }
