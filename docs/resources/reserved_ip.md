@@ -41,3 +41,11 @@ This resource allows you to manage reserved ip on your e2e clusters. When applie
 - `status` (String) status of the reserve_ip (example - Attached, Available)
 - `vm_id` (String) ID of virtual machine from whom it is attached
 - `vm_name` (String) vm name from whom it is attached
+
+## Import
+
+Reserved IPs can be imported using `project_id/location/ip_address`:
+
+```shell
+terraform import e2e_reserved_ip.example 12345/Delhi/103.209.145.67
+```

@@ -2,7 +2,7 @@ package reserve_ip
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	"log"
 	"math"
 
@@ -21,7 +21,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/e2eterraformprovider/terraform-provider-e2e/e2e/node"
 )
 
 func ResourceReserveIP() *schema.Resource {
@@ -89,9 +88,23 @@ func ResourceReserveIP() *schema.Resource {
 		DeleteContext: resourceDeleteReserveIP,
 		UpdateContext: resourceUpdateReserveIP,
 		Importer: &schema.ResourceImporter{
-			State: node.CustomImportStateFunc,
+			State: reserveIPImportStateFunc,
 		},
 	}
+}
+
+func reserveIPImportStateFunc(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), "/")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid ID format: expected project_id/location/ip_address, got %s", d.Id())
+	}
+
+	d.Set("project_id", parts[0])
+	d.Set("location", parts[1])
+	d.Set("ip_address", parts[2])
+	d.SetId(parts[2])
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func convertToString(data map[string]interface{}, key string) string {
@@ -174,9 +187,11 @@ func resourceReadReserveIP(ctx context.Context, d *schema.ResourceData, m interf
 	log.Printf("[INFO] FILTER DATA | %+v %T", data, data)
 
 	if data.IPAddress == "" {
-		return diag.Errorf("Cannot find reserve_ip with address : %s", reserveId)
+		log.Printf("[WARN] ReserveIP READ | reserve_ip with address %s not found, removing from state", reserveId)
+		d.SetId("")
+		return diags
 	} else {
-
+		d.SetId(strconv.Itoa(int(math.Round(data.ReserveID))))
 		log.Printf("[INFO] ReserveIP READ | BEFORE SETTING DATA %+v, %v, %T =======================", data, data.Status, data.Status)
 		d.Set("ip_address", data.IPAddress)
 		d.Set("status", data.Status)
